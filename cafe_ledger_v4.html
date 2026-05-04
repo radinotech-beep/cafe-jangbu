@@ -313,9 +313,9 @@ const ROWS=80;
 let depts=[],menuDB=[],optionDB=[],dessertDB=[];
 let curDeptIdx=null,curDBTab='menu';
 let acTarget=null,acIdx=-1,acList=[];
-let optTarget=null,saveTimer=null;
+let optTarget=null,saveTimer=null,deptSaveTimers={};
 let curScreen='home';
-let isLocalSave=false; // 로컬 저장 중 리스너 무시 플래그
+let savingDepts=new Set(); // 저장 중인 부서 인덱스 집합
 
 function setSyncStatus(s){
   const el=document.getElementById('syncStatus');
@@ -434,20 +434,50 @@ const defaultDes=[
 
 // ── Firebase ──
 function sv(){
+  // menuDB/optionDB/dessertDB만 저장 (depts는 saveDept로 별도 관리)
   setSyncStatus('ing');
   clearTimeout(saveTimer);
-  isLocalSave=true;
   saveTimer=setTimeout(()=>{
-    db.ref('jangbu').set({depts,menuDB,optionDB,dessertDB})
-      .then(()=>{setSyncStatus('ok');setTimeout(()=>{isLocalSave=false;},500);})
-      .catch(()=>{setSyncStatus('err');isLocalSave=false;});
+    db.ref('jangbu/menuDB').set(menuDB)
+      .then(()=>db.ref('jangbu/optionDB').set(optionDB))
+      .then(()=>db.ref('jangbu/dessertDB').set(dessertDB))
+      .then(()=>setSyncStatus('ok'))
+      .catch(()=>setSyncStatus('err'));
   },1500);
+}
+
+function saveDept(di,immediate){
+  // 특정 부서만 해당 경로에 저장 → 다른 부서나 주문이 덮어쓸 수 없음
+  savingDepts.add(di);
+  clearTimeout(deptSaveTimers[di]);
+  setSyncStatus('ing');
+  const delay=immediate?0:1500;
+  deptSaveTimers[di]=setTimeout(()=>{
+    db.ref('jangbu/depts/'+di).set(depts[di])
+      .then(()=>{
+        setSyncStatus('ok');
+        setTimeout(()=>savingDepts.delete(di),800);
+      })
+      .catch(()=>{setSyncStatus('err');savingDepts.delete(di);});
+  },delay);
 }
 function loadFromFirebase(){
   db.ref('jangbu').once('value').then(snap=>{
     const data=snap.val();
-    if(data){depts=data.depts||[];menuDB=data.menuDB||[...defaultMenu];optionDB=data.optionDB||[...defaultOpt];dessertDB=data.dessertDB||[...defaultDes];}
-    else{depts=[];menuDB=[...defaultMenu];optionDB=[...defaultOpt];dessertDB=[...defaultDes];}
+    if(data){
+      // depts가 객체(Firebase array)로 저장된 경우 배열로 변환
+      const rawDepts=data.depts;
+      if(rawDepts&&typeof rawDepts==='object'&&!Array.isArray(rawDepts)){
+        depts=Object.values(rawDepts);
+      } else {
+        depts=rawDepts||[];
+      }
+      menuDB=data.menuDB||[...defaultMenu];
+      optionDB=data.optionDB||[...defaultOpt];
+      dessertDB=data.dessertDB||[...defaultDes];
+    } else {
+      depts=[];menuDB=[...defaultMenu];optionDB=[...defaultOpt];dessertDB=[...defaultDes];
+    }
     setSyncStatus('ok');initUI();
   }).catch(()=>{
     depts=[];menuDB=[...defaultMenu];optionDB=[...defaultOpt];dessertDB=[...defaultDes];
@@ -455,16 +485,27 @@ function loadFromFirebase(){
   });
 }
 function listenRealtime(){
-  db.ref('jangbu').on('value',snap=>{
-    const data=snap.val();if(!data)return;
-    // 로컬 저장 중 발생한 리스너 이벤트는 무시 (삭제 후 되돌아오기 방지)
-    if(isLocalSave)return;
-    depts=data.depts||[];menuDB=data.menuDB||[...defaultMenu];optionDB=data.optionDB||[...defaultOpt];dessertDB=data.dessertDB||[...defaultDes];
-    setSyncStatus('ok');
+  // depts: 각 부서별로 개별 감청
+  db.ref('jangbu/depts').on('value',snap=>{
+    const data=snap.val();
+    const newDepts=data?Object.values(data):[];
+    // 저장 중인 부서는 Firebase 값으로 덮어쓰지 않음
+    newDepts.forEach((d,i)=>{
+      if(!savingDepts.has(i))depts[i]=d;
+    });
+    // 부서 수가 줄었을 때 (삭제) 반영
+    if(newDepts.length<depts.length&&savingDepts.size===0)depts=newDepts;
     renderHome();renderSubnav();
-    if(curScreen==='ledger'&&curDeptIdx!==null&&curDeptIdx<depts.length)renderLedger(curDeptIdx);
+    // 현재 보고 있는 장부: 저장 중이 아닐 때만 다시 렌더
+    if(curScreen==='ledger'&&curDeptIdx!==null&&curDeptIdx<depts.length){
+      if(!savingDepts.has(curDeptIdx))renderLedger(curDeptIdx);
+    }
     if(curScreen==='summary')renderSummary();
   });
+  // menuDB/optionDB/dessertDB는 별도 감청
+  db.ref('jangbu/menuDB').on('value',snap=>{if(snap.val())menuDB=snap.val();});
+  db.ref('jangbu/optionDB').on('value',snap=>{if(snap.val())optionDB=snap.val();});
+  db.ref('jangbu/dessertDB').on('value',snap=>{if(snap.val())dessertDB=snap.val();});
 }
 
 // ── 화면 전환 ──
@@ -597,7 +638,7 @@ function mkOrderTd(di,ri,val){
     const di2=+inp.dataset.di,ri2=+inp.dataset.ri;
     depts[di2].rows[ri2].order=inp.value.trim();
     depts[di2].rows[ri2].basePrice=pn(inp.value);
-    stampDates(di2,ri2);calcBal(di2);sv();
+    stampDates(di2,ri2);calcBal(di2);saveDept(di2);
   });
   inp.addEventListener('keydown',e=>navKey(e,di,ri,'order'));
   inp.addEventListener('paste',e=>handlePaste(e,di,ri,'order'));
@@ -632,7 +673,7 @@ function stampDates(di,ri){
 function cc(inp){
   const di=+inp.dataset.di,ri=+inp.dataset.ri,col=inp.dataset.col;
   depts[di].rows[ri][col]=inp.value.trim();
-  stampDates(di,ri);if(col==='pay')calcBal(di);sv();
+  stampDates(di,ri);if(col==='pay')calcBal(di);saveDept(di);
 }
 function deleteRow(di,ri){
   if(!confirm((ri+1)+'행을 삭제할까요?'))return;
@@ -640,13 +681,7 @@ function deleteRow(di,ri){
   ensureRows(di);
   renderLedger(di);
   calcBal(di);
-  // 딜레이 없이 즉시 Firebase 저장
-  isLocalSave=true;
-  clearTimeout(saveTimer);
-  setSyncStatus('ing');
-  db.ref('jangbu').set({depts,menuDB,optionDB,dessertDB})
-    .then(()=>{setSyncStatus('ok');setTimeout(()=>{isLocalSave=false;},500);})
-    .catch(()=>{setSyncStatus('err');isLocalSave=false;});
+  saveDept(di,true); // 즉시 해당 부서만 저장
 }
 
 // 자동완성
@@ -670,7 +705,7 @@ function pa(i,di,ri){
   if(inp)inp.value=item.name;
   const row=depts[di].rows[ri];
   row.content=item.name;row.basePrice=item.price;row.order=item.price;
-  applyOrderWithOpts(di,ri);stampDates(di,ri);hideAC();calcBal(di);sv();
+  applyOrderWithOpts(di,ri);stampDates(di,ri);hideAC();calcBal(di);saveDept(di);
   const pi=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="pay"]`);
   if(pi)setTimeout(()=>pi.focus(),10);
 }
@@ -718,13 +753,13 @@ function toggleOpt(i){
   const selectedNames=row.opts.map(o=>o.name);
   document.getElementById('optList').querySelectorAll('.opt-item').forEach((el,j)=>el.classList.toggle('checked',selectedNames.includes(optionDB[j].name)));
   if(!row.basePrice)row.basePrice=pn(row.order);
-  applyOrderWithOpts(di,ri);stampDates(di,ri);calcBal(di);sv();
+  applyOrderWithOpts(di,ri);stampDates(di,ri);calcBal(di);saveDept(di);
 }
 function clearOpts(){
   if(!optTarget)return;
   const {di,ri}=optTarget;const row=depts[di].rows[ri];
   row.opts=[];if(row.basePrice!==undefined)row.order=row.basePrice;
-  applyOrderWithOpts(di,ri);hideOpt();calcBal(di);sv();
+  applyOrderWithOpts(di,ri);hideOpt();calcBal(di);saveDept(di);
 }
 function hideOpt(){document.getElementById('optPop').style.display='none';optTarget=null;}
 
@@ -753,7 +788,7 @@ function handlePaste(e,di,ri,col){
     });
     stampDates(di,tRi);
   });
-  calcBal(di);sv();
+  calcBal(di);saveDept(di);
 }
 function calcBal(di){
   const d=depts[di];let run=0,tp=0,to=0;
@@ -907,7 +942,9 @@ function openAddDept(){document.getElementById('deptModal').classList.add('open'
 function closeDM(){document.getElementById('deptModal').classList.remove('open');document.getElementById('newDept').value='';}
 function addDept(){
   const nm=document.getElementById('newDept').value.trim();if(!nm)return;
-  depts.push({name:nm,rows:[]});sv();
+  const newIdx=depts.length;
+  depts.push({name:nm,rows:[]});
+  saveDept(newIdx,true);
   renderSubnav();closeDM();goHome();
 }
 
