@@ -315,6 +315,7 @@ let curDeptIdx=null,curDBTab='menu';
 let acTarget=null,acIdx=-1,acList=[];
 let optTarget=null,saveTimer=null;
 let curScreen='home';
+let isLocalSave=false; // 로컬 저장 중 리스너 무시 플래그
 
 function setSyncStatus(s){
   const el=document.getElementById('syncStatus');
@@ -435,10 +436,11 @@ const defaultDes=[
 function sv(){
   setSyncStatus('ing');
   clearTimeout(saveTimer);
+  isLocalSave=true;
   saveTimer=setTimeout(()=>{
     db.ref('jangbu').set({depts,menuDB,optionDB,dessertDB})
-      .then(()=>setSyncStatus('ok'))
-      .catch(()=>setSyncStatus('err'));
+      .then(()=>{setSyncStatus('ok');setTimeout(()=>{isLocalSave=false;},500);})
+      .catch(()=>{setSyncStatus('err');isLocalSave=false;});
   },1500);
 }
 function loadFromFirebase(){
@@ -455,6 +457,8 @@ function loadFromFirebase(){
 function listenRealtime(){
   db.ref('jangbu').on('value',snap=>{
     const data=snap.val();if(!data)return;
+    // 로컬 저장 중 발생한 리스너 이벤트는 무시 (삭제 후 되돌아오기 방지)
+    if(isLocalSave)return;
     depts=data.depts||[];menuDB=data.menuDB||[...defaultMenu];optionDB=data.optionDB||[...defaultOpt];dessertDB=data.dessertDB||[...defaultDes];
     setSyncStatus('ok');
     renderHome();renderSubnav();
@@ -630,7 +634,20 @@ function cc(inp){
   depts[di].rows[ri][col]=inp.value.trim();
   stampDates(di,ri);if(col==='pay')calcBal(di);sv();
 }
-function deleteRow(di,ri){depts[di].rows.splice(ri,1);ensureRows(di);renderLedger(di);sv();}
+function deleteRow(di,ri){
+  if(!confirm((ri+1)+'행을 삭제할까요?'))return;
+  depts[di].rows.splice(ri,1);
+  ensureRows(di);
+  renderLedger(di);
+  calcBal(di);
+  // 딜레이 없이 즉시 Firebase 저장
+  isLocalSave=true;
+  clearTimeout(saveTimer);
+  setSyncStatus('ing');
+  db.ref('jangbu').set({depts,menuDB,optionDB,dessertDB})
+    .then(()=>{setSyncStatus('ok');setTimeout(()=>{isLocalSave=false;},500);})
+    .catch(()=>{setSyncStatus('err');isLocalSave=false;});
+}
 
 // 자동완성
 function ci(inp){
