@@ -205,20 +205,20 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
     <table id="ledgerTable">
       <colgroup>
         <col style="width:20px"><col style="width:24px"><col style="width:64px">
-        <col style="min-width:120px"><col style="width:100px"><col style="width:78px">
-        <col style="width:78px"><col style="width:78px"><col style="width:90px">
+        <col style="min-width:120px"><col style="width:100px"><col style="width:44px">
+        <col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:90px">
         <col style="width:66px"><col style="width:66px">
       </colgroup>
       <thead><tr>
         <th></th><th></th><th>날짜</th>
-        <th>내용</th><th>옵션</th><th>결제금액</th>
+        <th>내용</th><th>옵션</th><th>수량</th><th>결제금액</th>
         <th>주문금액</th><th>잔액</th><th>비고</th>
         <th>입력일</th><th>수정일</th>
       </tr></thead>
       <tbody id="ledgerBody"></tbody>
     </table>
   </div>
-  <div class="hint">내용 입력 시 자동완성 · 주문금액 직접 수정 가능 · 잔액 자동계산 · 엑셀 붙여넣기 지원</div>
+  <div class="hint">내용 입력 시 자동완성 · 수량 입력 시 주문금액 자동계산 · 잔액 자동계산 · 엑셀 붙여넣기 지원</div>
   <div class="sum-bar">
     <div class="sc"><div class="sc-label">총 결제</div><div class="sc-val" id="sumPay" style="color:#3B6D11;">0원</div></div>
     <div class="sc"><div class="sc-label">총 주문</div><div class="sc-val" id="sumOrder">0원</div></div>
@@ -315,7 +315,7 @@ let curDeptIdx=null,curDBTab='menu';
 let acTarget=null,acIdx=-1,acList=[];
 let optTarget=null,saveTimer=null,deptSaveTimers={};
 let curScreen='home';
-let savingDepts=new Set(); // 저장 중인 부서 인덱스 집합
+let savingDepts=new Set();
 
 function setSyncStatus(s){
   const el=document.getElementById('syncStatus');
@@ -434,7 +434,7 @@ const defaultDes=[
 
 // ── Firebase ──
 function sv(){
-  // menuDB/optionDB/dessertDB만 저장 (depts는 saveDept로 별도 관리)
+  // menuDB/optionDB/dessertDB 전용 (depts는 saveDept로)
   setSyncStatus('ing');
   clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>{
@@ -445,19 +445,14 @@ function sv(){
       .catch(()=>setSyncStatus('err'));
   },1500);
 }
-
 function saveDept(di,immediate){
-  // 특정 부서만 해당 경로에 저장 → 다른 부서나 주문이 덮어쓸 수 없음
   savingDepts.add(di);
   clearTimeout(deptSaveTimers[di]);
   setSyncStatus('ing');
   const delay=immediate?0:1500;
   deptSaveTimers[di]=setTimeout(()=>{
     db.ref('jangbu/depts/'+di).set(depts[di])
-      .then(()=>{
-        setSyncStatus('ok');
-        setTimeout(()=>savingDepts.delete(di),800);
-      })
+      .then(()=>{setSyncStatus('ok');setTimeout(()=>savingDepts.delete(di),800);})
       .catch(()=>{setSyncStatus('err');savingDepts.delete(di);});
   },delay);
 }
@@ -465,7 +460,6 @@ function loadFromFirebase(){
   db.ref('jangbu').once('value').then(snap=>{
     const data=snap.val();
     if(data){
-      // depts가 객체(Firebase array)로 저장된 경우 배열로 변환
       const rawDepts=data.depts;
       if(rawDepts&&typeof rawDepts==='object'&&!Array.isArray(rawDepts)){
         depts=Object.values(rawDepts);
@@ -485,24 +479,17 @@ function loadFromFirebase(){
   });
 }
 function listenRealtime(){
-  // depts: 각 부서별로 개별 감청
   db.ref('jangbu/depts').on('value',snap=>{
     const data=snap.val();
-    const newDepts=data?Object.values(data):[];
-    // 저장 중인 부서는 Firebase 값으로 덮어쓰지 않음
-    newDepts.forEach((d,i)=>{
-      if(!savingDepts.has(i))depts[i]=d;
-    });
-    // 부서 수가 줄었을 때 (삭제) 반영
+    const newDepts=data?(Array.isArray(data)?data:Object.values(data)):[];
+    newDepts.forEach((d,i)=>{if(!savingDepts.has(i))depts[i]=d;});
     if(newDepts.length<depts.length&&savingDepts.size===0)depts=newDepts;
     renderHome();renderSubnav();
-    // 현재 보고 있는 장부: 저장 중이 아닐 때만 다시 렌더
     if(curScreen==='ledger'&&curDeptIdx!==null&&curDeptIdx<depts.length){
       if(!savingDepts.has(curDeptIdx))renderLedger(curDeptIdx);
     }
     if(curScreen==='summary')renderSummary();
   });
-  // menuDB/optionDB/dessertDB는 별도 감청
   db.ref('jangbu/menuDB').on('value',snap=>{if(snap.val())menuDB=snap.val();});
   db.ref('jangbu/optionDB').on('value',snap=>{if(snap.val())optionDB=snap.val();});
   db.ref('jangbu/dessertDB').on('value',snap=>{if(snap.val())dessertDB=snap.val();});
@@ -588,7 +575,7 @@ function search(q){
   return res.slice(0,10);
 }
 function ensureRows(di){
-  while(depts[di].rows.length<ROWS)depts[di].rows.push({date:'',content:'',opts:[],order:'',pay:'',note:'',createdAt:'',updatedAt:''});
+  while(depts[di].rows.length<ROWS)depts[di].rows.push({date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''});
 }
 function renderLedger(di){
   const tb=document.getElementById('ledgerBody');
@@ -608,6 +595,7 @@ function makeRow(di,ri){
   tr.appendChild(mkInp(di,ri,'date',row.date,'center'));
   tr.appendChild(mkContent(di,ri,row.content));
   tr.appendChild(mkOptTd(di,ri,row.opts||[]));
+  tr.appendChild(mkQtyTd(di,ri,row.qty));
   tr.appendChild(mkInp(di,ri,'pay',row.pay,'right'));
   tr.appendChild(mkOrderTd(di,ri,row.order));
   const tdBal=document.createElement('td');tdBal.id=`bl-${di}-${ri}`;
@@ -626,6 +614,31 @@ function mkInp(di,ri,col,val,align){
   inp.addEventListener('change',()=>cc(inp));
   inp.addEventListener('keydown',e=>navKey(e,di,ri,col));
   inp.addEventListener('paste',e=>handlePaste(e,di,ri,col));
+  td.appendChild(inp);return td;
+}
+function mkQtyTd(di,ri,val){
+  const td=document.createElement('td');
+  const inp=document.createElement('input');
+  inp.type='text';inp.value=val||'';inp.style.textAlign='center';
+  inp.dataset.di=di;inp.dataset.ri=ri;inp.dataset.col='qty';
+  inp.id=`qty-inp-${di}-${ri}`;
+  inp.addEventListener('change',()=>{
+    const di2=+inp.dataset.di,ri2=+inp.dataset.ri;
+    const qty=parseInt(inp.value)||1;
+    inp.value=qty;
+    depts[di2].rows[ri2].qty=qty;
+    // basePrice 있으면 qty 곱해서 주문금액 자동계산
+    const base=depts[di2].rows[ri2].basePrice;
+    if(base){
+      const optTotal=(depts[di2].rows[ri2].opts||[]).reduce((s,o)=>s+(o.price||0),0);
+      const newOrder=(base+optTotal)*qty;
+      depts[di2].rows[ri2].order=newOrder;
+      const oInp=document.getElementById(`or-inp-${di2}-${ri2}`);
+      if(oInp)oInp.value=newOrder.toLocaleString();
+    }
+    stampDates(di2,ri2);calcBal(di2);saveDept(di2);
+  });
+  inp.addEventListener('keydown',e=>navKey(e,di,ri,'qty'));
   td.appendChild(inp);return td;
 }
 function mkOrderTd(di,ri,val){
@@ -681,7 +694,7 @@ function deleteRow(di,ri){
   ensureRows(di);
   renderLedger(di);
   calcBal(di);
-  saveDept(di,true); // 즉시 해당 부서만 저장
+  saveDept(di,true);
 }
 
 // 자동완성
@@ -705,15 +718,16 @@ function pa(i,di,ri){
   if(inp)inp.value=item.name;
   const row=depts[di].rows[ri];
   row.content=item.name;row.basePrice=item.price;row.order=item.price;
-  applyOrderWithOpts(di,ri);stampDates(di,ri);hideAC();calcBal(di);saveDept(di);
+  applyOrderWithOpts(di,ri);stampDates(di,ri);hideAC();calcBal(di);sv();
   const pi=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="pay"]`);
   if(pi)setTimeout(()=>pi.focus(),10);
 }
 function applyOrderWithOpts(di,ri){
   const row=depts[di].rows[ri];
   const base=row.basePrice||pn(row.order);
-  const optTotal=(row.opts||[]).reduce((s,o)=>s+o.price,0);
-  const total=base+optTotal;row.order=total;
+  const qty=parseInt(row.qty)||1;
+  const optTotal=(row.opts||[]).reduce((s,o)=>s+(o.price||0),0);
+  const total=(base+optTotal)*qty;row.order=total;
   const oInp=document.getElementById(`or-inp-${di}-${ri}`);if(oInp)oInp.value=total?total.toLocaleString():'';
   const optTd=document.getElementById(`opt-td-${di}-${ri}`);
   if(optTd){const btn=optTd.querySelector('.opt-trigger');if(btn){btn.textContent=optLabel(row.opts);btn.className='opt-trigger'+(row.opts&&row.opts.length>0?' has-opt':'');}}
@@ -885,11 +899,11 @@ function downloadCSV(filename,csv){
 function exportLedgerExcel(){
   if(curDeptIdx===null)return;
   const d=depts[curDeptIdx];
-  const headers=['날짜','내용','옵션','결제금액','주문금액','잔액','비고','입력일','수정일'];
+  const headers=['날짜','내용','옵션','수량','결제금액','주문금액','잔액','비고','입력일','수정일'];
   let run=0;
   const rows=(d.rows||[]).filter(r=>r.date||r.content||r.pay||r.order).map(row=>{
     const pay=pn(row.pay),order=pn(row.order);run+=pay-order;
-    return [row.date,row.content,(row.opts||[]).map(o=>o.name).join(', '),row.pay,row.order,run,row.note,row.createdAt,row.updatedAt];
+    return [row.date,row.content,(row.opts||[]).map(o=>o.name).join(', '),row.qty||'',row.pay,row.order,run,row.note,row.createdAt,row.updatedAt];
   });
   downloadCSV(`${d.name}_장부.csv`,toCSV(headers,rows));
 }
