@@ -84,6 +84,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
   <div class="top-right">
     <span class="sync-dot" id="syncDot"></span>
     <span class="top-time" id="topTime"></span>
+    <button onclick="playAlert()" style="background:none;border:1px solid #111;border-radius:10px;font-size:11px;padding:3px 8px;cursor:pointer;color:#111;">🔔 테스트</button>
     <span class="top-count" id="topCount">대기 0건</span>
   </div>
 </div>
@@ -117,6 +118,33 @@ const db=firebase.database();
 
 let orders={};
 let showDone=false;
+let audioCtx=null;
+let knownOrderIds=new Set(); // 이미 알림 울린 주문 ID
+
+function getAudioCtx(){
+  if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playAlert(){
+  try{
+    const ctx=getAudioCtx();
+    // 딩동 — 두 음
+    const notes=[{freq:880,start:0,dur:0.15},{freq:660,start:0.2,dur:0.25}];
+    notes.forEach(n=>{
+      const osc=ctx.createOscillator();
+      const gain=ctx.createGain();
+      osc.connect(gain);gain.connect(ctx.destination);
+      osc.type='sine';
+      osc.frequency.setValueAtTime(n.freq,ctx.currentTime+n.start);
+      gain.gain.setValueAtTime(0,ctx.currentTime+n.start);
+      gain.gain.linearRampToValueAtTime(0.4,ctx.currentTime+n.start+0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+n.start+n.dur);
+      osc.start(ctx.currentTime+n.start);
+      osc.stop(ctx.currentTime+n.start+n.dur+0.05);
+    });
+  }catch(e){console.warn('알림음 재생 실패:',e);}
+}
 
 // 시간 표시
 function updateTime(){
@@ -141,13 +169,31 @@ function isUrgent(createdAt){
 // Firebase 실시간 감지
 function listenOrders(){
   db.ref('orders').on('value',snap=>{
-    orders=snap.val()||{};
+    const newOrders=snap.val()||{};
     document.getElementById('syncDot').className='sync-dot';
+
+    // 새 주문(pending) 감지 → 알림음
+    let hasNew=false;
+    Object.values(newOrders).forEach(o=>{
+      if(o.status==='pending'&&!knownOrderIds.has(o.id)){
+        knownOrderIds.add(o.id);
+        hasNew=true;
+      }
+    });
+    if(hasNew)playAlert();
+
+    orders=newOrders;
     renderOrders();
   },()=>{
     document.getElementById('syncDot').className='sync-dot err';
   });
 }
+
+// 첫 클릭 시 AudioContext 활성화
+document.addEventListener('click',()=>{
+  if(!audioCtx){getAudioCtx();}
+  else if(audioCtx.state==='suspended')audioCtx.resume();
+},{once:false});
 
 // 주문 완료 처리
 function completeOrder(id){
@@ -208,6 +254,7 @@ function renderOrders(){
         <div class="head-right">
           ${urg?'<span class="urgent-badge">⚠ 5분초과</span>':''}
           <span class="order-time">${timeStr}</span>
+          <span style="font-size:10px;padding:1px 5px;border-radius:3px;background:${order.orderType==='take'?'#E6F1FB':'#EAF3DE'};color:${order.orderType==='take'?'#185FA5':'#3B6D11'};font-weight:500;">${order.orderType==='take'?'포장':'매장'}</span>
         </div>
       </div>`;
 

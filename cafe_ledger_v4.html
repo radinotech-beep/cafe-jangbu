@@ -21,6 +21,22 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .tbtn{color:#B4B2A9;font-size:12px;border:0.5px solid #5F5E5A;border-radius:6px;padding:4px 10px;cursor:pointer;background:none;white-space:nowrap;}
 .tbtn:hover{background:#444441;}
 
+/* 관리 탭 네비 */
+.mgmt-nav{display:flex;border-bottom:2px solid #e0dfd8;background:#fff;overflow-x:auto;flex-shrink:0;}
+.mgmt-nav::-webkit-scrollbar{display:none;}
+.mgmt-tab{padding:11px 20px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-2px;font-family:inherit;color:#888780;transition:all 0.15s;}
+.mgmt-tab:hover{background:#f5f4f0;}
+.mgmt-tab.t-menu{border-bottom-color:transparent;}
+.mgmt-tab.t-menu.active{color:#185FA5;border-bottom-color:#185FA5;background:#F0F6FF;}
+.mgmt-tab.t-dept{border-bottom-color:transparent;}
+.mgmt-tab.t-dept.active{color:#3B6D11;border-bottom-color:#3B6D11;background:#F0F8F0;}
+.mgmt-tab.t-opt{border-bottom-color:transparent;}
+.mgmt-tab.t-opt.active{color:#B8520A;border-bottom-color:#E8750A;background:#FFF5EE;}
+.mgmt-tab.t-soldout{border-bottom-color:transparent;}
+.mgmt-tab.t-soldout.active{color:#A32D2D;border-bottom-color:#E24B4A;background:#FFF0F0;}
+.mgmt-screen{display:none;padding:16px;}
+.mgmt-screen.active{display:block;}
+
 /* 서브 네비게이션 */
 .subnav{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 12px;display:flex;align-items:center;gap:0;position:sticky;top:42px;z-index:99;overflow-x:auto;}
 .subnav::-webkit-scrollbar{height:3px;}
@@ -161,6 +177,26 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
 .btn-s{padding:7px 16px;background:#2C2C2A;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;}
 .dm{width:340px;}
 .dm input{width:100%;padding:9px 10px;border:1px solid #e0dfd8;border-radius:6px;font-size:13px;margin-top:10px;font-family:inherit;}
+/* 설정 탭 */
+.set-section{margin-bottom:18px;}
+.set-title{font-size:12px;font-weight:500;color:#5F5E5A;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e0dfd8;}
+.set-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;}
+.set-row label{width:110px;color:#888780;flex-shrink:0;}
+.set-row input{flex:1;padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:5px;font-size:12px;font-family:inherit;}
+.set-row input[type=password]{letter-spacing:2px;}
+/* 품절 관리 */
+.soldout-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.so-item{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:5px;font-size:11px;cursor:pointer;background:#fff;}
+.so-item.sold{background:#FCEBEB;border-color:#E24B4A;color:#A32D2D;}
+.so-item:hover{background:#f5f4f0;}
+.so-cat{font-size:10px;color:#888780;margin-top:6px;margin-bottom:4px;font-weight:500;}
+/* 카테고리별 옵션 */
+.catopt-row{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid #f0efe8;}
+.catopt-row:last-child{border-bottom:none;}
+.catopt-label{width:100px;font-size:11px;color:#5F5E5A;padding-top:4px;flex-shrink:0;}
+.catopt-opts{display:flex;flex-wrap:wrap;gap:4px;flex:1;}
+.catopt-tag{font-size:10px;padding:2px 8px;border-radius:10px;border:0.5px solid #e0dfd8;background:#fff;cursor:pointer;color:#5F5E5A;}
+.catopt-tag.on{background:#2C2C2A;color:#fff;border-color:#2C2C2A;}
 </style>
 </head>
 <body>
@@ -170,8 +206,6 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
   <span class="topbar-title">☕ 카페 장부</span>
   <div class="topbar-right">
     <span class="sync-status sync-ing" id="syncStatus">연결 중...</span>
-    <button class="tbtn" onclick="openDB()">DB 관리</button>
-    <button class="tbtn" onclick="openAddDept()">+ 부서 추가</button>
   </div>
 </div>
 
@@ -181,7 +215,9 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
   <div class="snav-sep"></div>
   <div class="snav-dept-wrap" id="snavDepts"></div>
   <div class="snav-sep"></div>
-  <button class="snav-item summary-btn" id="snav-summary" onclick="goSummary()">📊 부서별 현황 요약</button>
+  <button class="snav-item summary-btn" id="snav-summary" onclick="goSummary()">📊 현황 요약</button>
+  <div class="snav-sep"></div>
+  <button class="snav-item" id="snav-mgmt" onclick="goMgmt()" style="color:#B8520A;">⚙️ 관리</button>
 </div>
 
 <!-- 홈 화면 -->
@@ -257,20 +293,49 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
   </div>
 </div>
 
-<!-- DB 모달 -->
-<div class="modal-bg" id="dbModal">
-  <div class="modal">
-    <div class="mhead"><h2>DB 관리</h2><button class="mclose" onclick="closeDB()">&#10005;</button></div>
-    <div class="mtabs">
-      <button class="mtab active" onclick="switchDBTab('menu')">음료메뉴</button>
-      <button class="mtab" onclick="switchDBTab('option')">옵션</button>
-      <button class="mtab" onclick="switchDBTab('dessert')">디저트</button>
+<!-- 관리 화면 -->
+<div class="screen" id="screen-mgmt">
+  <!-- 관리 탭 네비 -->
+  <div class="mgmt-nav">
+    <button class="mgmt-tab t-menu active" id="mtab-menu" onclick="switchMgmtTab('menu')">📋 메뉴 DB</button>
+    <button class="mgmt-tab t-dept" id="mtab-dept" onclick="switchMgmtTab('dept')">🏢 부서 관리</button>
+    <button class="mgmt-tab t-opt" id="mtab-opt" onclick="switchMgmtTab('opt')">⚙️ 옵션 관리</button>
+    <button class="mgmt-tab t-soldout" id="mtab-soldout" onclick="switchMgmtTab('soldout')">🚫 품절 관리</button>
+  </div>
+
+  <!-- 메뉴 DB -->
+  <div class="mgmt-screen active" id="mscreen-menu">
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="abtn" id="msub-drink" onclick="switchMenuSub('drink')" style="border-color:#185FA5;color:#185FA5;">음료메뉴</button>
+      <button class="abtn" id="msub-dessert" onclick="switchMenuSub('dessert')">디저트</button>
+      <button class="abtn primary" onclick="dba()" style="margin-left:auto;">+ 항목 추가</button>
+      <button class="abtn primary" onclick="saveDB()">저장</button>
     </div>
-    <div class="mbody" id="dbBody"></div>
-    <div class="mfoot">
-      <button class="btn-c" onclick="closeDB()">닫기</button>
-      <button class="btn-s" onclick="saveDB()">저장</button>
+    <div id="menuDbBody"></div>
+  </div>
+
+  <!-- 부서 관리 -->
+  <div class="mgmt-screen" id="mscreen-dept">
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="abtn primary" onclick="openAddDept()">+ 부서 추가</button>
     </div>
+    <div id="deptMgmtBody"></div>
+  </div>
+
+  <!-- 옵션 관리 -->
+  <div class="mgmt-screen" id="mscreen-opt">
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="abtn" id="osub-list" onclick="switchOptSub('list')" style="border-color:#B8520A;color:#B8520A;">옵션 목록</button>
+      <button class="abtn" id="osub-cat" onclick="switchOptSub('cat')">카테고리별 설정</button>
+      <button class="abtn primary" onclick="saveDB()" style="margin-left:auto;">저장</button>
+    </div>
+    <div id="optMgmtBody"></div>
+  </div>
+
+  <!-- 품절 관리 -->
+  <div class="mgmt-screen" id="mscreen-soldout">
+    <div style="font-size:12px;color:#888;margin-bottom:10px;">메뉴를 클릭하면 품절/해제 토글됩니다</div>
+    <div id="soldoutBody"></div>
   </div>
 </div>
 
@@ -316,6 +381,19 @@ let acTarget=null,acIdx=-1,acList=[];
 let optTarget=null,saveTimer=null,deptSaveTimers={};
 let curScreen='home';
 let savingDepts=new Set();
+let soldout={};  // {메뉴명: true}
+// 카테고리별 허용 옵션 인덱스 목록
+const defaultCatOpts={
+  '커피':['샷추가','2샷추가','디카페인샷추가','디카페인2샷추가','아몬드밀크변경','오트밀크변경','바닐라시럽추가','카라멜시럽추가','헤이즐넛시럽추가','라이트바닐라시럽추가','시럽추가BIG','연유추가','꿀추가','휘핑추가','젤라또추가','펄추가','꿀추가BIG','스테비아추가','스테비아추가BIG'],
+  '디카페인':['샷추가','2샷추가','디카페인샷추가','디카페인2샷추가','아몬드밀크변경','오트밀크변경','바닐라시럽추가','카라멜시럽추가','헤이즐넛시럽추가','라이트바닐라시럽추가','시럽추가BIG','연유추가','꿀추가','휘핑추가','젤라또추가','펄추가','꿀추가BIG','스테비아추가','스테비아추가BIG'],
+  '콜드브루':['아몬드밀크변경','오트밀크변경','바닐라시럽추가','카라멜시럽추가','헤이즐넛시럽추가','시럽추가BIG','연유추가','꿀추가','휘핑추가'],
+  '티(Tea)':['꿀추가','꿀추가BIG','펄추가','젤라또추가'],
+  '음료(논커피라떼)':['휘핑추가','젤라또추가','펄추가','샷추가'],
+  '에이드&주스':['펄추가','젤라또추가'],
+  '스무디&프라페':['펄추가','젤라또추가','휘핑추가'],
+  '디저트':[],
+};
+let catOptMap={...defaultCatOpts};  // Firebase에서 로드/저장
 
 function setSyncStatus(s){
   const el=document.getElementById('syncStatus');
@@ -434,16 +512,25 @@ const defaultDes=[
 
 // ── Firebase ──
 function sv(){
-  // menuDB/optionDB/dessertDB 전용 (depts는 saveDept로)
   setSyncStatus('ing');
   clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>{
     db.ref('jangbu/menuDB').set(menuDB)
       .then(()=>db.ref('jangbu/optionDB').set(optionDB))
       .then(()=>db.ref('jangbu/dessertDB').set(dessertDB))
+      .then(()=>db.ref('jangbu/catOptMap').set(catOptMap))
       .then(()=>setSyncStatus('ok'))
       .catch(()=>setSyncStatus('err'));
   },1500);
+}
+function saveSoldout(){
+  db.ref('soldout').set(soldout);
+}
+function saveDeptSettings(){
+  // 각 부서의 비밀번호를 해당 부서 경로에 저장
+  depts.forEach((d,i)=>{
+    if(d.password!==undefined)saveDept(i,true);
+  });
 }
 function saveDept(di,immediate){
   savingDepts.add(di);
@@ -469,8 +556,9 @@ function loadFromFirebase(){
       menuDB=data.menuDB||[...defaultMenu];
       optionDB=data.optionDB||[...defaultOpt];
       dessertDB=data.dessertDB||[...defaultDes];
+      catOptMap=data.catOptMap||{...defaultCatOpts};
     } else {
-      depts=[];menuDB=[...defaultMenu];optionDB=[...defaultOpt];dessertDB=[...defaultDes];
+      depts=[];menuDB=[...defaultMenu];optionDB=[...defaultOpt];dessertDB=[...defaultDes];catOptMap={...defaultCatOpts};
     }
     setSyncStatus('ok');initUI();
   }).catch(()=>{
@@ -493,6 +581,8 @@ function listenRealtime(){
   db.ref('jangbu/menuDB').on('value',snap=>{if(snap.val())menuDB=snap.val();});
   db.ref('jangbu/optionDB').on('value',snap=>{if(snap.val())optionDB=snap.val();});
   db.ref('jangbu/dessertDB').on('value',snap=>{if(snap.val())dessertDB=snap.val();});
+  db.ref('jangbu/catOptMap').on('value',snap=>{if(snap.val())catOptMap=snap.val();});
+  db.ref('soldout').on('value',snap=>{soldout=snap.val()||{};});
 }
 
 // ── 화면 전환 ──
@@ -500,10 +590,10 @@ function showScreen(id){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-'+id).classList.add('active');
   curScreen=id;
-  // 서브네비 활성
   document.querySelectorAll('.snav-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('snav-home').classList.toggle('active',id==='home');
   document.getElementById('snav-summary').classList.toggle('active',id==='summary');
+  document.getElementById('snav-mgmt').classList.toggle('active',id==='mgmt');
   if(id==='ledger'&&curDeptIdx!==null){
     const btns=document.querySelectorAll('.snav-dept-btn');
     btns.forEach((b,i)=>b.classList.toggle('active',i===curDeptIdx));
@@ -512,6 +602,137 @@ function showScreen(id){
 
 function goHome(){showScreen('home');renderHome();}
 function goSummary(){showScreen('summary');renderSummary();}
+
+let curMgmtTab='menu',curMenuSub='drink',curOptSub='list';
+
+function goMgmt(){
+  showScreen('mgmt');
+  switchMgmtTab(curMgmtTab);
+}
+
+function switchMgmtTab(tab){
+  curMgmtTab=tab;
+  ['menu','dept','opt','soldout'].forEach(t=>{
+    document.getElementById('mtab-'+t).classList.toggle('active',t===tab);
+    document.getElementById('mscreen-'+t).classList.toggle('active',t===tab);
+  });
+  if(tab==='menu')renderMenuDb();
+  if(tab==='dept')renderDeptMgmt();
+  if(tab==='opt')renderOptMgmt();
+  if(tab==='soldout')renderSoldoutMgmt();
+}
+
+// ── 메뉴 DB 탭 ──
+function switchMenuSub(sub){
+  curMenuSub=sub;
+  document.getElementById('msub-drink').style.cssText=sub==='drink'?'border-color:#185FA5;color:#185FA5;':'';
+  document.getElementById('msub-dessert').style.cssText=sub==='dessert'?'border-color:#185FA5;color:#185FA5;':'';
+  renderMenuDb();
+}
+function renderMenuDb(){
+  const arr=curMenuSub==='drink'?menuDB:dessertDB;
+  const col=curMenuSub==='dessert'?'디저트명':'메뉴명';
+  let h=`<table class="dbt"><thead><tr><th>${col}</th><th>별칭</th><th style="width:70px;">금액</th><th style="width:30px;"></th></tr></thead><tbody>`;
+  arr.forEach((it,i)=>{
+    h+=`<tr>
+      <td><input value="${esc(it.name)}" onchange="dbcM(${i},'name',this.value)"></td>
+      <td><input value="${esc(it.alias||'')}" onchange="dbcM(${i},'alias',this.value)"></td>
+      <td><input value="${it.price}" onchange="dbcM(${i},'price',this.value)" style="text-align:right;width:65px;"></td>
+      <td><button class="bdel" onclick="dbdM(${i})">✕</button></td></tr>`;
+  });
+  h+=`</tbody></table>`;
+  document.getElementById('menuDbBody').innerHTML=h;
+}
+function dbcM(i,col,val){const arr=curMenuSub==='drink'?menuDB:dessertDB;arr[i][col]=col==='price'?(parseInt(val)||0):val;}
+function dbdM(i){(curMenuSub==='drink'?menuDB:dessertDB).splice(i,1);renderMenuDb();}
+
+// ── 부서 관리 탭 ──
+function renderDeptMgmt(){
+  let h=`<table class="dbt"><thead><tr><th>부서명</th><th style="width:130px;">비밀번호 (숫자)</th><th style="width:30px;"></th></tr></thead><tbody>`;
+  depts.forEach((d,i)=>{
+    h+=`<tr>
+      <td><input value="${esc(d.name)}" onchange="depts[${i}].name=this.value;renderSubnav();saveDept(${i},true)"></td>
+      <td><input type="password" maxlength="6" placeholder="4~6자리" value="${esc(d.password||'')}" 
+          oninput="depts[${i}].password=this.value"
+          onchange="saveDept(${i},true)"
+          style="letter-spacing:3px;text-align:center;"></td>
+      <td><button class="bdel" onclick="delDept(${i})">✕</button></td></tr>`;
+  });
+  h+=`</tbody></table>`;
+  document.getElementById('deptMgmtBody').innerHTML=h;
+}
+function delDept(i){
+  if(!confirm(depts[i].name+' 부서를 삭제할까요? 장부 데이터도 모두 삭제됩니다.'))return;
+  // Firebase에서 삭제
+  db.ref('jangbu/depts/'+i).remove();
+  depts.splice(i,1);
+  renderSubnav();renderHome();renderDeptMgmt();
+}
+
+// ── 옵션 관리 탭 ──
+function switchOptSub(sub){
+  curOptSub=sub;
+  document.getElementById('osub-list').style.cssText=sub==='list'?'border-color:#B8520A;color:#B8520A;':'';
+  document.getElementById('osub-cat').style.cssText=sub==='cat'?'border-color:#B8520A;color:#B8520A;':'';
+  renderOptMgmt();
+}
+function renderOptMgmt(){
+  if(curOptSub==='list'){
+    let h=`<table class="dbt"><thead><tr><th>옵션명</th><th>별칭</th><th style="width:70px;">금액</th><th style="width:30px;"></th></tr></thead><tbody>`;
+    optionDB.forEach((it,i)=>{
+      h+=`<tr>
+        <td><input value="${esc(it.name)}" onchange="optionDB[${i}].name=this.value"></td>
+        <td><input value="${esc(it.alias||'')}" onchange="optionDB[${i}].alias=this.value"></td>
+        <td><input value="${it.price}" onchange="optionDB[${i}].price=parseInt(this.value)||0" style="text-align:right;width:65px;"></td>
+        <td><button class="bdel" onclick="optionDB.splice(${i},1);renderOptMgmt()">✕</button></td></tr>`;
+    });
+    h+=`</tbody></table><button class="btn-ar" onclick="optionDB.push({name:'',alias:'',price:0});renderOptMgmt()">+ 옵션 추가</button>`;
+    document.getElementById('optMgmtBody').innerHTML=h;
+  } else {
+    // 카테고리별 옵션 설정
+    const CAT_KEYS=['커피','디카페인','콜드브루','티(Tea)','음료(논커피라떼)','에이드&주스','스무디&프라페','디저트'];
+    let h='';
+    CAT_KEYS.forEach(cat=>{
+      const selected=catOptMap&&catOptMap[cat]?catOptMap[cat]:[];
+      h+=`<div class="catopt-row">
+        <div class="catopt-label">${cat}</div>
+        <div class="catopt-opts">`;
+      optionDB.forEach(opt=>{
+        const on=selected.includes(opt.name);
+        h+=`<span class="catopt-tag${on?' on':''}" onclick="toggleCatOpt('${esc(cat)}','${esc(opt.name)}')">${esc(opt.name)}</span>`;
+      });
+      h+=`</div></div>`;
+    });
+    document.getElementById('optMgmtBody').innerHTML=h;
+  }
+}
+
+// ── 품절 관리 탭 ──
+function renderSoldoutMgmt(){
+  const allMenus=[...menuDB,...dessertDB];
+  const cats=['커피','디카페인','콜드브루','티(Tea)','음료(논커피라떼)','에이드&주스','스무디&프라페','디저트'];
+  let h='';
+  cats.forEach(cat=>{
+    const items=cat==='디저트'?dessertDB:menuDB.filter(m=>{
+      if(cat==='커피')return!m.name.startsWith('디카페인')&&!m.name.startsWith('콜드브루')&&(m.name.includes('아메리카노')||m.name.includes('라떼')||m.name.includes('모카')||m.name.includes('카푸치노')||m.name.includes('마끼아또')||m.name.includes('에스프레소')||m.name.includes('할메가')||m.name.includes('메가리카노')||m.name.includes('큐브')||m.name.includes('헛개'));
+      if(cat==='디카페인')return m.name.startsWith('디카페인');
+      if(cat==='콜드브루')return m.name.startsWith('콜드브루');
+      if(cat==='티(Tea)')return(m.name.includes('티')&&!m.name.includes('라떼'))||m.name.includes('차')||m.name.includes('아이스티');
+      if(cat==='음료(논커피라떼)')return['딸기라떼','핫초코','아이스초코','왕메가초코','녹차라떼','토피넛라떼','고구마라떼','곡물라떼','로얄밀크티','오레오초코라떼','흑당라떼','흑당밀크티라떼','흑당버블라떼','흑당버블밀크티라떼'].some(n=>m.name.includes(n.replace(/\s.*/,'')));
+      if(cat==='에이드&주스')return m.name.includes('에이드')||m.name.includes('주스')||m.name.includes('모히또')||m.name.includes('체리');
+      if(cat==='스무디&프라페')return m.name.includes('스무디')||m.name.includes('프라페')||m.name.includes('퐁크러쉬');
+      return false;
+    });
+    if(items.length===0)return;
+    h+=`<div class="so-cat">${cat}</div><div class="soldout-grid">`;
+    items.forEach(m=>{
+      const isSold=!!soldout[m.name];
+      h+=`<div class="so-item${isSold?' sold':''}" onclick="toggleSoldout('${esc(m.name)}')">${esc(m.name)}${isSold?' 🚫':''}</div>`;
+    });
+    h+='</div>';
+  });
+  document.getElementById('soldoutBody').innerHTML=h;
+}
 function openDept(i){
   curDeptIdx=i;showScreen('ledger');
   document.getElementById('ledgerName').textContent=depts[i].name+' 장부';
@@ -925,15 +1146,17 @@ function exportSummaryExcel(){
 }
 
 // ── DB 관리 ──
-function openDB(){document.getElementById('dbModal').classList.add('open');renderDBTab();}
-function closeDB(){document.getElementById('dbModal').classList.remove('open');}
+function openDB(){goMgmt();} // 호환성 유지
+function closeDB(){} // 호환성 유지
 function switchDBTab(t){
   curDBTab=t;
-  document.querySelectorAll('.mtab').forEach((b,i)=>b.classList.toggle('active',['menu','option','dessert'][i]===t));
+  document.querySelectorAll('.mtab').forEach((b,i)=>b.classList.toggle('active',['menu','option','dessert','soldout','settings'][i]===t));
   renderDBTab();
 }
 function getDB(){return curDBTab==='menu'?menuDB:curDBTab==='option'?optionDB:dessertDB;}
 function renderDBTab(){
+  if(curDBTab==='soldout'){renderSoldoutTab();return;}
+  if(curDBTab==='settings'){renderSettingsTab();return;}
   const dbArr=getDB();const col=curDBTab==='dessert'?'디저트명':'메뉴명';
   let h=`<table class="dbt"><thead><tr><th>${col}</th><th>별칭</th><th style="width:70px;">금액</th><th style="width:30px;"></th></tr></thead><tbody>`;
   dbArr.forEach((it,i)=>{
@@ -946,10 +1169,89 @@ function renderDBTab(){
   h+=`</tbody></table><button class="btn-ar" onclick="dba()">+ 항목 추가</button>`;
   document.getElementById('dbBody').innerHTML=h;
 }
+
+// ── 품절 관리 탭 ──
+function renderSoldoutTab(){
+  const cats=['커피','디카페인','콜드브루','티(Tea)','음료(논커피라떼)','에이드&주스','스무디&프라페','디저트'];
+  const allMenus=[...menuDB,...dessertDB];
+  let h='<div style="font-size:11px;color:#888;margin-bottom:8px;">메뉴를 클릭하면 품절/해제 토글됩니다</div>';
+  cats.forEach(cat=>{
+    const items=allMenus.filter(m=>m.cat===cat||(cat==='디저트'&&dessertDB.includes(m)));
+    // menuDB는 cat 필드가 없으므로 dessertDB는 별도 처리
+    const menuItems=cat==='디저트'?dessertDB:menuDB.filter(m=>{
+      // 카테고리 매핑
+      if(cat==='커피')return!m.name.startsWith('디카페인')&&!m.name.startsWith('콜드브루')&&(m.name.includes('아메리카노')||m.name.includes('라떼')||m.name.includes('모카')||m.name.includes('카푸치노')||m.name.includes('마끼아또')||m.name.includes('에스프레소')||m.name.includes('할메가')||m.name.includes('메가리카노')||m.name.includes('큐브')||m.name.includes('헛개'));
+      if(cat==='디카페인')return m.name.startsWith('디카페인');
+      if(cat==='콜드브루')return m.name.startsWith('콜드브루');
+      if(cat==='티(Tea)')return m.name.includes('티')&&!m.name.includes('라떼')||m.name.includes('차')||m.name.includes('아이스티');
+      if(cat==='음료(논커피라떼)')return['딸기라떼','핫초코','아이스초코','왕메가초코','녹차라떼','토피넛라떼','고구마라떼','곡물라떼','로얄밀크티','오레오초코라떼','흑당라떼','흑당밀크티라떼','흑당버블라떼','흑당버블밀크티라떼'].some(n=>m.name.includes(n.replace(/\s.*/,'')));
+      if(cat==='에이드&주스')return m.name.includes('에이드')||m.name.includes('주스')||m.name.includes('모히또')||m.name.includes('체리');
+      if(cat==='스무디&프라페')return m.name.includes('스무디')||m.name.includes('프라페')||m.name.includes('퐁크러쉬');
+      return false;
+    });
+    if(menuItems.length===0)return;
+    h+=`<div class="so-cat">${cat}</div><div class="soldout-grid">`;
+    menuItems.forEach(m=>{
+      const isSold=!!soldout[m.name];
+      h+=`<div class="so-item${isSold?' sold':''}" onclick="toggleSoldout('${esc(m.name)}')">${esc(m.name)}${isSold?' 🚫':''}</div>`;
+    });
+    h+='</div>';
+  });
+  document.getElementById('dbBody').innerHTML=h;
+}
+function toggleSoldout(name){
+  if(soldout[name])delete soldout[name];
+  else soldout[name]=true;
+  saveSoldout();
+  renderSoldoutTab();
+}
+
+// ── 부서 설정 탭 ──
+const CAT_KEYS=['커피','디카페인','콜드브루','티(Tea)','음료(논커피라떼)','에이드&주스','스무디&프라페','디저트'];
+function renderSettingsTab(){
+  let h='';
+  // 1. 부서별 비밀번호
+  h+=`<div class="set-section">
+    <div class="set-title">🔐 부서별 비밀번호 (주문 완료 시 필요)</div>`;
+  depts.forEach((d,i)=>{
+    h+=`<div class="set-row">
+      <label>${esc(d.name)}</label>
+      <input type="password" maxlength="6" placeholder="숫자 4~6자리" 
+        value="${esc(d.password||'')}" 
+        oninput="depts[${i}].password=this.value" 
+        onchange="saveDept(${i},true)">
+    </div>`;
+  });
+  h+=`</div>`;
+  // 2. 카테고리별 옵션
+  h+=`<div class="set-section">
+    <div class="set-title">☕ 카테고리별 옵션 설정</div>`;
+  CAT_KEYS.forEach(cat=>{
+    const selected=catOptMap[cat]||[];
+    h+=`<div class="catopt-row">
+      <div class="catopt-label">${cat}</div>
+      <div class="catopt-opts">`;
+    optionDB.forEach(opt=>{
+      const on=selected.includes(opt.name);
+      h+=`<span class="catopt-tag${on?' on':''}" onclick="toggleCatOpt('${esc(cat)}','${esc(opt.name)}')">${esc(opt.name)}</span>`;
+    });
+    h+=`</div></div>`;
+  });
+  h+=`</div>`;
+  document.getElementById('dbBody').innerHTML=h;
+}
+function toggleCatOpt(cat,optName){
+  if(!catOptMap[cat])catOptMap[cat]=[];
+  const idx=catOptMap[cat].indexOf(optName);
+  if(idx>=0)catOptMap[cat].splice(idx,1);
+  else catOptMap[cat].push(optName);
+  sv();
+  renderSettingsTab();
+}
 function dbc(i,col,val){const dbArr=getDB();dbArr[i][col]=col==='price'?(parseInt(val)||0):val;}
 function dbd(i){getDB().splice(i,1);renderDBTab();}
-function dba(){getDB().push({name:'',alias:'',price:0});renderDBTab();document.getElementById('dbBody').scrollTop=99999;}
-function saveDB(){sv();closeDB();}
+function dba(){(curMenuSub==='drink'?menuDB:dessertDB).push({name:'',alias:'',price:0});renderMenuDb();document.getElementById('menuDbBody').scrollTop=99999;}
+function saveDB(){sv();saveSoldout();}
 
 // ── 부서 추가 ──
 function openAddDept(){document.getElementById('deptModal').classList.add('open');setTimeout(()=>document.getElementById('newDept').focus(),80);}
@@ -970,6 +1272,8 @@ window.addEventListener('scroll',()=>{hideAC();hideOpt();},true);
 
 function initUI(){
   renderSubnav();renderHome();showScreen('home');listenRealtime();
+  // 관리 탭 초기화
+  curMgmtTab='menu';curMenuSub='drink';curOptSub='list';
 }
 loadFromFirebase();
 </script>

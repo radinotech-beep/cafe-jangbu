@@ -120,9 +120,94 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 /* 주문완료 토스트 */
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2C2C2A;color:#F5C800;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:500;z-index:999;display:none;}
 .toast.show{display:block;}
+
+/* 도입/대기 화면 */
+.intro-screen,.wait-screen{display:none;position:fixed;inset:0;background:#FFFBE6;z-index:100;flex-direction:column;align-items:center;justify-content:center;}
+.intro-screen.active,.wait-screen.active{display:flex;}
+.intro-logo{font-size:28px;font-weight:700;color:#111;letter-spacing:-0.5px;margin-bottom:6px;}
+.intro-sub{font-size:13px;color:#888;margin-bottom:40px;}
+.intro-dept-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:90%;max-width:480px;max-height:60vh;overflow-y:auto;}
+.intro-dept-btn{background:#fff;border:2px solid #E8D84A;border-radius:12px;padding:16px 10px;font-size:14px;font-weight:500;cursor:pointer;text-align:center;color:#2C2C2A;font-family:inherit;}
+.intro-dept-btn:active{background:#F5C800;border-color:#F5C800;}
+.intro-dept-btn.selected{background:#F5C800;border-color:#E0B800;}
+.wait-logo{font-size:22px;font-weight:700;color:#111;margin-bottom:4px;}
+.wait-dept{font-size:15px;color:#555;margin-bottom:50px;}
+.wait-choices{display:flex;gap:20px;}
+.wait-btn{width:140px;height:140px;border-radius:16px;border:2px solid #E8D84A;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;font-family:inherit;transition:all 0.15s;}
+.wait-btn:active{transform:scale(0.97);}
+.wait-btn.eat{border-color:#F5C800;}
+.wait-btn.take{border-color:#185FA5;}
+.wait-icon{font-size:42px;}
+.wait-label{font-size:14px;font-weight:500;color:#2C2C2A;}
+.wait-back{margin-top:30px;font-size:12px;color:#aaa;cursor:pointer;background:none;border:none;font-family:inherit;}
+
+/* 비밀번호 모달 */
+.pwd-modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;align-items:center;justify-content:center;}
+.pwd-modal-bg.open{display:flex;}
+.pwd-modal{background:#fff;border-radius:14px;width:300px;padding:24px;text-align:center;border:1.5px solid #E8D84A;}
+.pwd-title{font-size:15px;font-weight:500;color:#2C2C2A;margin-bottom:6px;}
+.pwd-sub{font-size:12px;color:#888;margin-bottom:16px;}
+.pwd-dots{display:flex;gap:10px;justify-content:center;margin-bottom:20px;}
+.pwd-dot{width:14px;height:14px;border-radius:50%;background:#E8D84A;transition:background 0.15s;}
+.pwd-dot.filled{background:#2C2C2A;}
+.pwd-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.pwd-key{padding:14px;border-radius:10px;border:1.5px solid #E8D84A;background:#fff;font-size:18px;font-weight:500;cursor:pointer;font-family:inherit;color:#2C2C2A;}
+.pwd-key:active{background:#F5C800;border-color:#F5C800;}
+.pwd-key.del{font-size:14px;color:#888;}
+.pwd-err{font-size:12px;color:#E24B4A;min-height:16px;margin-bottom:8px;}
+.pwd-cancel{font-size:12px;color:#aaa;cursor:pointer;background:none;border:none;font-family:inherit;}
 </style>
 </head>
 <body>
+
+<!-- 도입화면: 부서 선택 -->
+<div class="intro-screen active" id="introScreen">
+  <div class="intro-logo">MEGA MGC COFFEE</div>
+  <div class="intro-sub">부서를 선택해 주세요</div>
+  <div class="intro-dept-grid" id="introDeptGrid"></div>
+</div>
+
+<!-- 대기화면: 먹고가기 / 포장하기 -->
+<div class="wait-screen" id="waitScreen">
+  <div class="wait-logo">MEGA MGC COFFEE</div>
+  <div class="wait-dept" id="waitDeptName">부서명</div>
+  <div class="wait-choices">
+    <button class="wait-btn eat" onclick="selectType('eat')">
+      <div class="wait-icon">🍽️</div>
+      <div class="wait-label">먹고 가기</div>
+    </button>
+    <button class="wait-btn take" onclick="selectType('take')">
+      <div class="wait-icon">🛍️</div>
+      <div class="wait-label">포장하기</div>
+    </button>
+  </div>
+  <button class="wait-back" onclick="goIntro()">← 부서 다시 선택</button>
+</div>
+
+<!-- 비밀번호 모달 -->
+<div class="pwd-modal-bg" id="pwdModal">
+  <div class="pwd-modal">
+    <div class="pwd-title">🔐 비밀번호 입력</div>
+    <div class="pwd-sub" id="pwdSub">주문을 완료하려면 비밀번호를 입력하세요</div>
+    <div class="pwd-dots" id="pwdDots"></div>
+    <div class="pwd-keypad">
+      <button class="pwd-key" onclick="pwdInput('1')">1</button>
+      <button class="pwd-key" onclick="pwdInput('2')">2</button>
+      <button class="pwd-key" onclick="pwdInput('3')">3</button>
+      <button class="pwd-key" onclick="pwdInput('4')">4</button>
+      <button class="pwd-key" onclick="pwdInput('5')">5</button>
+      <button class="pwd-key" onclick="pwdInput('6')">6</button>
+      <button class="pwd-key" onclick="pwdInput('7')">7</button>
+      <button class="pwd-key" onclick="pwdInput('8')">8</button>
+      <button class="pwd-key" onclick="pwdInput('9')">9</button>
+      <button class="pwd-key" onclick="pwdInput('0')">0</button>
+      <button class="pwd-key del" onclick="pwdDel()">⌫</button>
+      <button class="pwd-key" onclick="pwdConfirm()">✓</button>
+    </div>
+    <div class="pwd-err" id="pwdErr"></div>
+    <button class="pwd-cancel" onclick="closePwdModal()">취소</button>
+  </div>
+</div>
 
 <div class="topbar">
   <span class="top-logo">MEGA MGC COFFEE</span>
@@ -152,16 +237,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   </div>
 </div>
 
-<!-- 부서 선택 모달 -->
-<div class="modal-bg" id="deptModal">
-  <div class="modal">
-    <div class="modal-head">
-      <h2>부서 선택</h2>
-      <button class="modal-close" onclick="closeDeptModal()">✕</button>
-    </div>
-    <div class="dept-list" id="deptList"></div>
-  </div>
-</div>
+<!-- 부서 선택 모달 (도입화면으로 대체 - 호환성 유지) -->
+<div class="modal-bg" id="deptModal" style="display:none!important;"></div>
 
 <!-- 메뉴 팝업 -->
 <div class="popup-bg" id="popupBg">
@@ -221,9 +298,11 @@ firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
 // ── 상태 ──
-let depts=[],optionDB=[],soldout={};
+let depts=[],optionDB=[],soldout={},catOptMap={};
 let curDeptIdx=null,curCat=null,cart=[],orderCount=0;
+let orderType='eat'; // 'eat' or 'take'
 let popupItem=null,popupTemp=null,popupOpts=[],popupQty=1;
+let pwdBuffer='';
 
 // 카테고리 정의
 const CATEGORIES=[
@@ -436,7 +515,6 @@ function loadData(){
   db.ref('jangbu').once('value').then(snap=>{
     const data=snap.val();
     if(data){
-      // depts가 Firebase에서 객체로 올 수 있으므로 배열 변환
       const rawDepts=data.depts;
       if(rawDepts&&typeof rawDepts==='object'&&!Array.isArray(rawDepts)){
         depts=Object.values(rawDepts);
@@ -446,6 +524,7 @@ function loadData(){
       if(data.optionDB)optionDB=data.optionDB;
       else optionDB=[...defaultOpt];
       if(data.soldout)soldout=data.soldout;
+      catOptMap=data.catOptMap||null;
     } else {
       depts=[];optionDB=[...defaultOpt];
     }
@@ -457,10 +536,18 @@ function loadData(){
     initUI();
   });
 
-  // 품절 실시간
+  // 품절/catOptMap/depts 실시간
   db.ref('soldout').on('value',snap=>{
     soldout=snap.val()||{};
     if(curCat)renderMenuArea(curCat);
+  });
+  db.ref('jangbu/catOptMap').on('value',snap=>{catOptMap=snap.val()||null;});
+  db.ref('jangbu/depts').on('value',snap=>{
+    const data=snap.val();
+    if(!data)return;
+    const newDepts=Array.isArray(data)?data:Object.values(data);
+    depts=newDepts;
+    renderIntroScreen();
   });
 
   // 주문번호 로드
@@ -469,6 +556,45 @@ function loadData(){
 
 // ── UI 초기화 ──
 function initUI(){
+  renderIntroScreen();
+}
+
+// ── 도입화면 ──
+function renderIntroScreen(){
+  const grid=document.getElementById('introDeptGrid');
+  grid.innerHTML='';
+  if(depts.length===0){
+    grid.innerHTML='<div style="text-align:center;color:#888;font-size:13px;grid-column:1/-1;padding:20px;">장부 앱에서 부서를 먼저 추가해주세요</div>';
+  } else {
+    depts.forEach((d,i)=>{
+      const btn=document.createElement('button');
+      btn.className='intro-dept-btn'+(curDeptIdx===i?' selected':'');
+      btn.textContent=d.name;
+      btn.onclick=()=>selectDeptIntro(i);
+      grid.appendChild(btn);
+    });
+  }
+  document.getElementById('introScreen').classList.add('active');
+  document.getElementById('waitScreen').classList.remove('active');
+}
+function selectDeptIntro(i){
+  curDeptIdx=i;
+  document.getElementById('deptBtn').textContent=depts[i].name+' ▾';
+  document.getElementById('orderBtn').disabled=cart.length===0;
+  // 대기화면으로
+  document.getElementById('waitDeptName').textContent=depts[i].name;
+  document.getElementById('introScreen').classList.remove('active');
+  document.getElementById('waitScreen').classList.add('active');
+}
+function goIntro(){
+  document.getElementById('waitScreen').classList.remove('active');
+  document.getElementById('introScreen').classList.add('active');
+  renderIntroScreen();
+}
+function selectType(type){
+  orderType=type;
+  document.getElementById('waitScreen').classList.remove('active');
+  // 주문 화면으로
   renderCatBar();
   selectCat(CATEGORIES[0].key);
 }
@@ -615,11 +741,20 @@ function openPopup(item){
     popupTemp=item.tempFixed;
   }
 
-  // 옵션 (디저트는 옵션 없음)
+  // 옵션 — 카테고리별 허용 옵션만 표시 (catOptMap 없으면 전체 표시)
   const grid=document.getElementById('optGrid');
   grid.innerHTML='';
-  if(item.cat!=='디저트'){
+  const optSecLabel=document.querySelector('.sec-label:last-of-type');
+  // 디저트는 옵션 없음
+  if(item.cat==='디저트'){
+    if(optSecLabel)optSecLabel.style.display='none';
+  } else {
+    if(optSecLabel)optSecLabel.style.display='';
+    const allowedOpts=catOptMap&&catOptMap[item.cat];
+    // catOptMap 미로드 또는 설정 없으면 전체 옵션 표시
+    const useFilter=allowedOpts&&allowedOpts.length>0;
     optionDB.forEach((opt,i)=>{
+      if(useFilter&&!allowedOpts.includes(opt.name))return;
       const btn=document.createElement('button');
       btn.className='opt-btn';
       btn.innerHTML=`<span class="opt-name">${opt.name}</span><span class="opt-price">+${opt.price.toLocaleString()}</span>`;
@@ -726,6 +861,16 @@ function clearCart(){
 function submitOrder(){
   if(cart.length===0||curDeptIdx===null)return;
   const dept=depts[curDeptIdx];
+  // 비밀번호 설정된 부서는 모달로
+  if(dept.password){
+    openPwdModal();
+    return;
+  }
+  doSubmitOrder();
+}
+function doSubmitOrder(){
+  if(cart.length===0||curDeptIdx===null)return;
+  const dept=depts[curDeptIdx];
   const di=curDeptIdx;
   orderCount++;
   const order={
@@ -780,6 +925,57 @@ function submitOrder(){
 
   showToast(`#${orderCount} 주문 완료! KDS로 전송됐어요`);
   clearCart();
+  // 주문 완료 후 도입화면으로
+  setTimeout(()=>{
+    curDeptIdx=null;
+    document.getElementById('deptBtn').textContent='부서 선택 ▾';
+    goIntro();
+  },2000);
+}
+
+// ── 비밀번호 모달 ──
+function openPwdModal(){
+  pwdBuffer='';
+  document.getElementById('pwdErr').textContent='';
+  renderPwdDots();
+  document.getElementById('pwdModal').classList.add('open');
+}
+function closePwdModal(){
+  pwdBuffer='';
+  document.getElementById('pwdModal').classList.remove('open');
+}
+function renderPwdDots(){
+  const dept=depts[curDeptIdx];
+  const maxLen=dept&&dept.password?dept.password.length:4;
+  let h='';
+  for(let i=0;i<maxLen;i++){
+    h+=`<div class="pwd-dot${i<pwdBuffer.length?' filled':''}"></div>`;
+  }
+  document.getElementById('pwdDots').innerHTML=h;
+}
+function pwdInput(n){
+  const dept=depts[curDeptIdx];
+  const maxLen=dept&&dept.password?dept.password.length:4;
+  if(pwdBuffer.length>=maxLen)return;
+  pwdBuffer+=n;
+  renderPwdDots();
+  if(pwdBuffer.length>=maxLen)pwdConfirm();
+}
+function pwdDel(){
+  pwdBuffer=pwdBuffer.slice(0,-1);
+  renderPwdDots();
+}
+function pwdConfirm(){
+  const dept=depts[curDeptIdx];
+  if(!dept||!dept.password){closePwdModal();doSubmitOrder();return;}
+  if(pwdBuffer===dept.password){
+    closePwdModal();
+    doSubmitOrder();
+  } else {
+    document.getElementById('pwdErr').textContent='비밀번호가 틀렸습니다';
+    pwdBuffer='';
+    renderPwdDots();
+  }
 }
 
 function showToast(msg){
@@ -790,21 +986,8 @@ function showToast(msg){
 
 // ── 부서 모달 ──
 function openDeptModal(){
-  const list=document.getElementById('deptList');
-  list.innerHTML='';
-  if(depts.length===0){
-    list.innerHTML='<div style="padding:20px;text-align:center;color:#888;font-size:12px;">장부 앱에서 부서를 먼저 추가해주세요</div>';
-  } else {
-    depts.forEach((d,i)=>{
-      const bal=calcBal(i);
-      const div=document.createElement('div');
-      div.className='dept-item'+(curDeptIdx===i?' active':'');
-      div.innerHTML=`<span>${d.name}</span><span class="dept-bal ${bal<0?'neg':bal>0?'pos':''}">${bal.toLocaleString()}원</span>`;
-      div.onclick=()=>selectDept(i);
-      list.appendChild(div);
-    });
-  }
-  document.getElementById('deptModal').classList.add('open');
+  // 도입화면으로 이동
+  goIntro();
 }
 
 function calcBal(i){
