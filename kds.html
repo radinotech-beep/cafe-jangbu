@@ -274,6 +274,11 @@ function writeCancelRows(deptKey,order){
     let rows=snap.val()||[];
     if(!Array.isArray(rows))rows=Object.values(rows);
     while(rows.length<80)rows.push(emptyRow());
+    return db.ref('jangbu/depts/'+deptKey+'/deletedRows').once('value').then(delSnap=>{
+      const deleted=delSnap.val()||{};
+      if(deleted['cancel:'+sourceKey]||deleted['cancelId:'+orderId+':'+dateStr]){
+        return {ok:true,reason:'사용자가 삭제한 취소 줄이라 재생성하지 않음'};
+      }
     const alreadyCancelled=rows.some(row=>row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr)));
     if(alreadyCancelled)return {ok:true,reason:'이미 취소 줄 있음'};
     let insertAt=rows.findIndex(row=>row&&String(row.orderId||'')===orderId&&(!row.date||row.date===dateStr));
@@ -284,6 +289,7 @@ function writeCancelRows(deptKey,order){
       else rows.push(...cancelRows);
     }
     return db.ref('jangbu/depts/'+deptKey+'/rows').set(rows).then(()=>({ok:true,reason:'취소 줄 추가 완료'}));
+    });
   });
 }
 function markCancelledInLedger(order){

@@ -1293,10 +1293,20 @@ function cc(inp){
 }
 function deleteRow(di,ri){
   if(!confirm((ri+1)+'행을 삭제할까요?'))return;
+  const row=depts[di].rows[ri]||{};
+  const key=deptKey(di);
+  const deleted={};
+  if(row.orderId)deleted['order:'+String(row.orderId)]=true;
+  if(row.sourceOrderKey)deleted['cancel:'+String(row.sourceOrderKey)]=true;
+  if(row.sourceOrderId&&row.date)deleted['cancelId:'+String(row.sourceOrderId)+':'+String(row.date)]=true;
   depts[di].rows.splice(ri,1);
   ensureRows(di);
   renderLedger(di);
   calcBal(di);
+  if(Object.keys(deleted).length>0){
+    depts[di].deletedRows={...(depts[di].deletedRows||{}),...deleted};
+    db.ref('jangbu/depts/'+key+'/deletedRows').update(deleted);
+  }
   saveDept(di,true);
 }
 
