@@ -402,6 +402,9 @@ function deptKey(i){
 function firebaseSafeKey(v){
   return String(v||'unknown').replace(/[.#$/\[\]]/g,'_');
 }
+function deptNameKey(name){
+  return firebaseSafeKey(String(name||'').replace(/\s+/g,'').toLowerCase());
+}
 function deletedLedgerTokensForRow(row){
   const tokens={};
   const orderId=String(row&&row.orderId||'');
@@ -933,7 +936,7 @@ function renderDeptMgmt(){
   let h=`<table class="dbt"><thead><tr><th>부서명</th><th style="width:130px;">비밀번호 (숫자)</th><th style="width:30px;"></th></tr></thead><tbody>`;
   depts.forEach((d,i)=>{
     h+=`<tr>
-      <td><input value="${esc(d.name)}" onchange="depts[${i}].name=this.value;renderSubnav();saveDept(${i},true)"></td>
+      <td><input value="${esc(d.name)}" onchange="renameDept(${i},this)"></td>
       <td style="display:flex;align-items:center;gap:4px;">
         <input type="text" id="pwd-${i}" maxlength="6" placeholder="4~6자리" value="${esc(d.password||'')}" 
           oninput="depts[${i}].password=this.value"
@@ -946,11 +949,28 @@ function renderDeptMgmt(){
   h+=`</tbody></table>`;
   document.getElementById('deptMgmtBody').innerHTML=h;
 }
+function renameDept(i,input){
+  const next=input.value.trim();
+  const prev=depts[i].name;
+  if(!next){input.value=prev;return;}
+  const duplicate=depts.some((d,idx)=>idx!==i&&deptNameKey(d.name)===deptNameKey(next));
+  if(duplicate){alert('이미 사용 중인 부서명입니다.');input.value=prev;return;}
+  db.ref('jangbu/deletedDeptNames/'+deptNameKey(next)).once('value').then(snap=>{
+    if(snap.exists()){alert('삭제 이력이 있는 부서명은 사용할 수 없습니다. 새 부서명을 사용해주세요.');input.value=prev;return;}
+    depts[i].name=next;
+    renderSubnav();
+    saveDept(i,true);
+  });
+}
 function delDept(i){
   if(!confirm(depts[i].name+' 부서를 삭제할까요? 장부 데이터도 모두 삭제됩니다.'))return;
   const key=deptKey(i);
+  const dept={...depts[i]};
+  const updates={};
+  updates['jangbu/depts/'+key]=null;
+  updates['jangbu/deletedDeptNames/'+deptNameKey(dept.name)]={name:dept.name,id:dept.id||'',deletedAt:Date.now()};
   depts.splice(i,1);
-  db.ref('jangbu/depts/'+key).remove();
+  db.ref().update(updates);
   if(curScreen==='ledger'){curDeptIdx=null;curDeptId=null;showScreen('home');}
   renderSubnav();renderHome();renderDeptMgmt();
 }
@@ -1715,12 +1735,21 @@ function addDept(){
   const nm=document.getElementById('newDept').value.trim();if(!nm)return;
   const emptyRows=[];
   for(let i=0;i<80;i++)emptyRows.push({date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''});
-  db.ref('jangbu/depts').once('value').then(snap=>{
-    const key=nextDeptKey(snap.val()||{});
+  Promise.all([
+    db.ref('jangbu/depts').once('value'),
+    db.ref('jangbu/deletedDeptNames/'+deptNameKey(nm)).once('value')
+  ]).then(snaps=>{
+    const existing=snaps[0].val()||{};
+    const sameName=Object.values(existing).some(d=>d&&deptNameKey(d.name)===deptNameKey(nm));
+    if(sameName){alert('이미 사용 중인 부서명입니다.');return null;}
+    if(snaps[1].exists()){alert('삭제 이력이 있는 부서명은 다시 추가할 수 없습니다. 새 부서명을 사용해주세요.');return null;}
+    const key=nextDeptKey(existing);
     const dept={id:makeDeptId(),name:nm,rows:emptyRows,password:''};
-    return db.ref('jangbu/depts/'+key).set(dept);
+    return db.ref('jangbu/depts/'+key).set(dept).then(()=>{
+      depts.push({...dept,_key:key});
+      renderSubnav();renderHome();renderDeptMgmt();closeDM();goHome();
+    });
   });
-  renderSubnav();closeDM();goHome();
 }
 
 function togglePwdVis(i){
