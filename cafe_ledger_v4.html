@@ -402,6 +402,8 @@ let curScreen='home';
 let savingDepts=new Set();
 let soldout={};  // {메뉴명: true}
 let hiddenMenus={};  // {메뉴명: true} — 주문창에서 아예 안 보임
+let _skipSoldoutRender=false;
+let _skipHiddenRender=false;
 // catOptMap: { "대카>중카": [옵션명] }
 // catSubMap: { "대카": [{name:"중카명", menus:[메뉴명]}] }
 const defaultCatOpts={
@@ -766,11 +768,13 @@ function listenRealtime(){
   db.ref('jangbu/catSubMap').on('value',snap=>{catSubMap=snap.val()||JSON.parse(JSON.stringify(defaultCatSubs));});
   db.ref('soldout').on('value',snap=>{
     soldout=snap.val()||{};
-    if(curScreen==='mgmt'&&curMgmtTab==='soldout')renderSoldoutMgmt();
+    if(!_skipSoldoutRender&&curScreen==='mgmt'&&curMgmtTab==='soldout')renderSoldoutMgmt();
+    _skipSoldoutRender=false;
   });
   db.ref('hiddenMenus').on('value',snap=>{
     hiddenMenus=snap.val()||{};
-    if(curScreen==='mgmt'&&curMgmtTab==='soldout')renderSoldoutMgmt();
+    if(!_skipHiddenRender&&curScreen==='mgmt'&&curMgmtTab==='soldout')renderSoldoutMgmt();
+    _skipHiddenRender=false;
   });
 }
 
@@ -1070,10 +1074,8 @@ function toggleSubOpt(cat,subName,optName){
 // ── 품절 관리 탭 — cat 필드 기반 ──
 function renderSoldoutMgmt(){
   const allMenus=[...menuDB,...dessertDB];
-  let h=`<div style="display:flex;gap:8px;margin-bottom:10px;font-size:11px;align-items:center;">
-    <span style="color:#888;">좌클릭: 품절토글</span>
-    <span style="color:#888;">·</span>
-    <span style="color:#888;">우클릭: 숨김토글 (주문창에서 완전히 사라짐)</span>
+  let h=`<div style="display:flex;gap:6px;margin-bottom:10px;font-size:11px;align-items:center;flex-wrap:wrap;">
+    <span style="background:#eee;border-radius:4px;padding:2px 7px;color:#555;">탭: 정상 → 🚫품절 → 👻숨김 → 정상 순환</span>
   </div>`;
   MAIN_CATS.forEach(cat=>{
     const items=allMenus.filter(m=>(m.cat||guessCat(m.name))===cat);
@@ -1084,10 +1086,8 @@ function renderSoldoutMgmt(){
       const isSold=!!(soldout[m.name]||soldout[cleanName]);
       const isHidden=!!(hiddenMenus[m.name]||hiddenMenus[cleanName]);
       const cls=isHidden?'hidden':isSold?'sold':'';
-      const badge=isHidden?'<span class="so-badge hidden">숨김</span>':isSold?'<span class="so-badge sold">품절</span>':'';
-      h+=`<div class="so-item${cls?' '+cls:''}" 
-        onclick="toggleSoldout('${esc(cleanName)}')"
-        oncontextmenu="toggleHidden('${esc(cleanName)}');event.preventDefault();">
+      const badge=isHidden?'<span class="so-badge hidden">👻 숨김</span>':isSold?'<span class="so-badge sold">🚫 품절</span>':'';
+      h+=`<div class="so-item${cls?' '+cls:''}" onclick="cycleSoldout('${esc(cleanName)}')">
         ${esc(cleanName)}${badge}
       </div>`;
     });
@@ -1095,9 +1095,38 @@ function renderSoldoutMgmt(){
   });
   document.getElementById('soldoutBody').innerHTML=h;
 }
+// 탭할 때마다 정상 → 품절 → 숨김 → 정상 순환
+function cycleSoldout(name){
+  const isSold=!!soldout[name];
+  const isHidden=!!hiddenMenus[name];
+  if(!isSold&&!isHidden){
+    // 정상 → 품절
+    soldout[name]=true;
+    _skipSoldoutRender=true;
+    db.ref('soldout').set(soldout);
+  } else if(isSold&&!isHidden){
+    // 품절 → 숨김
+    delete soldout[name];
+    hiddenMenus[name]=true;
+    _skipSoldoutRender=true;
+    _skipHiddenRender=true;
+    db.ref('soldout').set(soldout);
+    db.ref('hiddenMenus').set(hiddenMenus);
+  } else {
+    // 숨김 → 정상
+    delete soldout[name];
+    delete hiddenMenus[name];
+    _skipSoldoutRender=true;
+    _skipHiddenRender=true;
+    db.ref('soldout').set(soldout);
+    db.ref('hiddenMenus').set(hiddenMenus);
+  }
+  renderSoldoutMgmt();
+}
 function toggleHidden(name){
   if(hiddenMenus[name])delete hiddenMenus[name];
   else hiddenMenus[name]=true;
+  _skipHiddenRender=true;
   db.ref('hiddenMenus').set(hiddenMenus);
   renderSoldoutMgmt();
 }
@@ -1581,8 +1610,8 @@ function renderSoldoutTab(){
 function toggleSoldout(name){
   if(soldout[name])delete soldout[name];
   else soldout[name]=true;
+  _skipSoldoutRender=true;
   db.ref('soldout').set(soldout);
-  // 즉시 시각적 반영
   if(curScreen==='mgmt')renderSoldoutMgmt();
   else renderSoldoutTab();
 }
