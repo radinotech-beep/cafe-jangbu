@@ -1232,7 +1232,13 @@ function makeRow(di,ri){
   // 삭제
   const tdD=document.createElement('td');tdD.className='del-cell';
   const db2=document.createElement('button');db2.className='del-btn';db2.textContent='×';
-  db2.onclick=()=>deleteRow(di,ri);tdD.appendChild(db2);tr.appendChild(tdD);
+  db2.onclick=()=>deleteRow(di,ri);tdD.appendChild(db2);
+  const insBtn=document.createElement('button');insBtn.className='del-btn';
+  insBtn.title='이 행 아래에 새 행 삽입';
+  insBtn.style.cssText='color:#3B6D11;font-size:14px;margin-left:2px;';
+  insBtn.textContent='+';
+  insBtn.onclick=()=>insertRowBelow(di,ri);tdD.appendChild(insBtn);
+  tr.appendChild(tdD);
   // 행번호
   const tdN=document.createElement('td');tdN.className='rn';tdN.textContent=ri+1;tr.appendChild(tdN);
   tr.appendChild(mkInp(di,ri,'date',row.date,'center'));
@@ -1338,6 +1344,19 @@ function deleteRow(di,ri){
   renderLedger(di);
   calcBal(di);
   saveDept(di,true);
+}
+function insertRowBelow(di,ri){
+  const today=todayDisplay();
+  const newRow={date:today,content:'',opts:[],qty:'',pay:'',order:'',note:'',createdAt:today,updatedAt:today};
+  depts[di].rows.splice(ri+1,0,newRow);
+  renderLedger(di);
+  calcBal(di);
+  saveDept(di,true);
+  // 새 행의 내용 입력칸으로 포커스
+  setTimeout(()=>{
+    const inp=document.querySelector(`input[data-di="${di}"][data-ri="${ri+1}"][data-col="content"]`);
+    if(inp)inp.focus();
+  },100);
 }
 
 // 자동완성

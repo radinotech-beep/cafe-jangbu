@@ -224,6 +224,30 @@ function cleanOldOrders(){
 cleanOldOrders();
 setInterval(cleanOldOrders,60*60*1000);
 
+// ── 장부 연동 — 취소 복구 시 order금액 원복 ──
+function restoreInLedger(order){
+  const di=order.deptIdx;
+  if(di===undefined||di===null)return;
+  const orderId=String(order.id);
+  db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
+    let rows=snap.val()||[];
+    if(!Array.isArray(rows))rows=Object.values(rows);
+    const today=new Date();
+    const dateStr=(today.getMonth()+1)+'/'+(today.getDate());
+    let updated=false;
+    // orderId로 매칭해서 금액 복구
+    for(let i=0;i<rows.length;i++){
+      if(rows[i]&&rows[i].orderId===orderId&&rows[i].note==='주문취소'){
+        // 원래 금액 복구 (basePrice 활용)
+        const origAmt=rows[i].basePrice||rows[i].order||0;
+        rows[i]={...rows[i],order:origAmt,note:'',updatedAt:dateStr};
+        updated=true;
+      }
+    }
+    if(updated)db.ref('jangbu/depts/'+di+'/rows').set(rows);
+  });
+}
+
 // ── 장부 연동 — 주문취소 시 order금액 0으로 변경 ──
 function markCancelledInLedger(order){
   const di=order.deptIdx;
@@ -350,10 +374,26 @@ function completeOrder(id){
 }
 // 주문 취소 처리
 function cancelOrder(id){
-  if(!confirm('주문을 취소할까요? 장부 비고에 취소 이력이 기록됩니다.'))return;
+  if(!confirm('주문을 취소할까요? 장부에서 금액이 0으로 변경됩니다.'))return;
   const order=Object.values(orders).find(o=>String(o.id)===String(id));
   db.ref('orders/'+id+'/status').set('cancelled');
   if(order)markCancelledInLedger(order);
+}
+// 취소 복구 — 취소 → 대기
+function restoreOrder(id){
+  if(!confirm('취소된 주문을 대기 상태로 복구할까요? 장부 금액도 복구됩니다.'))return;
+  const order=Object.values(orders).find(o=>String(o.id)===String(id));
+  db.ref('orders/'+id+'/status').set('pending');
+  if(order)restoreInLedger(order);
+  document.getElementById('detailOverlay').style.display='none';
+}
+// 완료건 취소 — 완료 → 취소
+function cancelCompletedOrder(id){
+  if(!confirm('완료된 주문을 취소 처리할까요? 장부 금액이 0으로 변경됩니다.'))return;
+  const order=Object.values(orders).find(o=>String(o.id)===String(id));
+  db.ref('orders/'+id+'/status').set('cancelled');
+  if(order)markCancelledInLedger(order);
+  document.getElementById('detailOverlay').style.display='none';
 }
 // 세부 음료 제조완료 토글
 function toggleMade(orderId,itemIdx){
@@ -646,6 +686,13 @@ function openDetail(order){
       ${optStr?`<div class="detail-item-opt">▶ ${esc(optStr)}</div>`:''}
     </div>`;
   });
+
+  // 취소 복구 버튼 (취소된 주문만)
+  if(isCancelled){
+    html+=`<button onclick="restoreOrder('${order.id}')" style="width:100%;margin-top:10px;padding:10px;background:#FFF3CD;border:1.5px solid #E8D84A;border-radius:8px;font-size:13px;font-weight:500;color:#2C2C2A;cursor:pointer;">↩ 취소 복구 (대기 상태로 되돌리기)</button>`;
+  } else {
+    html+=`<button onclick="cancelCompletedOrder('${order.id}')" style="width:100%;margin-top:10px;padding:10px;background:#fce8e8;border:1.5px solid #f0c0c0;border-radius:8px;font-size:13px;font-weight:500;color:#993C1D;cursor:pointer;">✕ 완료 취소 (취소 처리하기)</button>`;
+  }
 
   document.getElementById('detailBody').innerHTML=html;
   document.getElementById('detailOverlay').style.display='flex';
