@@ -828,7 +828,7 @@ function doSubmitOrder(){
       // 장부 기록명은 originalName 사용 (장부 menuDB와 일치)
       const ledgerName=item.originalName||item.displayName;
       const content=ledgerName+(item.opts.length>0?' +'+item.opts.map(o=>o.name).join('+'):'')+(item.qty>1?' x'+item.qty:'');
-      const newRow={date:dateStr,content,opts:item.opts,order:item.unitPrice*item.qty,pay:'',note:'',createdAt:dateStr,updatedAt:dateStr,basePrice:item.unitPrice*item.qty};
+      const newRow={date:dateStr,content,opts:item.opts,order:item.unitPrice*item.qty,pay:'',note:'',createdAt:dateStr,updatedAt:dateStr,basePrice:item.unitPrice*item.qty,orderId:String(orderCount)};
       const emptyIdx=rows.findIndex(r=>!r.content&&!r.date&&!r.pay&&!r.order);
       if(emptyIdx>=0)rows[emptyIdx]=newRow;
       else rows.push(newRow);
