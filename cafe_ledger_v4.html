@@ -723,7 +723,9 @@ function saveDept(di,immediate){
   setSyncStatus('ing');
   const delay=immediate?0:1500;
   deptSaveTimers[di]=setTimeout(()=>{
-    db.ref('jangbu/depts/'+di).set(depts[di])
+    const dept=depts[di];
+    const path=dept.id?'jangbu/deptMap/'+dept.id:'jangbu/depts/'+di;
+    db.ref(path).set(dept)
       .then(()=>{setSyncStatus('ok');setTimeout(()=>savingDepts.delete(di),800);})
       .catch(()=>{setSyncStatus('err');savingDepts.delete(di);});
   },delay);
@@ -732,13 +734,29 @@ function loadFromFirebase(){
   db.ref('jangbu').once('value').then(snap=>{
     const data=snap.val();
     if(data){
+      // deptMap(새방식) + depts(구방식) 둘 다 로드해서 합치기
+      const rawDeptMap=data.deptMap||{};
       const rawDepts=data.depts;
+      let oldDepts=[];
       if(rawDepts&&typeof rawDepts==='object'&&!Array.isArray(rawDepts)){
-        // 키를 숫자 순서로 정렬해서 부서 순서 보장
-        depts=Object.keys(rawDepts).map(Number).sort((a,b)=>a-b).map(k=>rawDepts[k]).filter(Boolean);
-      } else {
-        depts=rawDepts||[];
+        oldDepts=Object.keys(rawDepts).map(Number).sort((a,b)=>a-b).map(k=>rawDepts[k]).filter(Boolean);
+      } else if(Array.isArray(rawDepts)){
+        oldDepts=rawDepts||[];
       }
+      // 구방식 부서에 고유 ID 없으면 자동 부여 후 deptMap으로 마이그레이션
+      const migratedIds=new Set(Object.keys(rawDeptMap));
+      oldDepts.forEach((d,i)=>{
+        if(!d.id){
+          d.id='dept_'+Date.now()+'_'+Math.random().toString(36).substr(2,6)+'_'+i;
+          db.ref('jangbu/deptMap/'+d.id).set(d);
+        }
+      });
+      // deptMap 부서들 (등록순 정렬)
+      const mapDepts=Object.values(rawDeptMap);
+      // 구방식 중 deptMap에 없는 것만 추가
+      const allIds=new Set(mapDepts.map(d=>d.id));
+      const extraDepts=oldDepts.filter(d=>!allIds.has(d.id));
+      depts=[...mapDepts,...extraDepts];
       // menuDB — null이거나 빈 배열이면 defaultMenu 사용
       const rawMenu=(data.menuDB&&data.menuDB.length>0)?data.menuDB:[...defaultMenu];
       menuDB=rawMenu.map(m=>m&&m.name?(m.cat?m:{...m,cat:guessCat(m.name)}):null).filter(Boolean);
@@ -761,16 +779,36 @@ function loadFromFirebase(){
   });
 }
 function listenRealtime(){
-  db.ref('jangbu/depts').on('value',snap=>{
-    const data=snap.val();
-    const newDepts=data?(Array.isArray(data)?data:Object.keys(data).map(Number).sort((a,b)=>a-b).map(k=>data[k]).filter(Boolean)):[];
-    newDepts.forEach((d,i)=>{if(!savingDepts.has(i))depts[i]=d;});
-    if(newDepts.length<depts.length&&savingDepts.size===0)depts=newDepts;
+  db.ref('jangbu/deptMap').on('value',snap=>{
+    const data=snap.val()||{};
+    const newDepts=Object.values(data);
+    // 저장 중인 부서는 로컬 버전 유지
+    newDepts.forEach((d,i)=>{
+      const li=depts.findIndex(ld=>ld.id===d.id);
+      if(li>=0){if(!savingDepts.has(li))depts[li]=d;}
+      else depts.push(d);
+    });
+    // 삭제된 부서 제거
+    depts=depts.filter(d=>!d.id||newDepts.some(nd=>nd.id===d.id));
     renderHome();renderSubnav();
     if(curScreen==='ledger'&&curDeptIdx!==null&&curDeptIdx<depts.length){
       if(!savingDepts.has(curDeptIdx))renderLedger(curDeptIdx);
     }
     if(curScreen==='summary')renderSummary();
+  });
+  // 구방식 호환
+  db.ref('jangbu/depts').on('value',snap=>{
+    const data=snap.val();
+    if(!data)return;
+    const oldDepts=typeof data==='object'&&!Array.isArray(data)?
+      Object.keys(data).map(Number).sort((a,b)=>a-b).map(k=>data[k]).filter(Boolean):
+      (Array.isArray(data)?data:[]);
+    oldDepts.forEach(d=>{
+      if(!d.id){
+        d.id='dept_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
+        db.ref('jangbu/deptMap/'+d.id).set(d);
+      }
+    });
   });
   db.ref('jangbu/menuDB').on('value',snap=>{
     const v=snap.val();
@@ -934,10 +972,16 @@ function renderDeptMgmt(){
 }
 function delDept(i){
   if(!confirm(depts[i].name+' 부서를 삭제할까요? 장부 데이터도 모두 삭제됩니다.'))return;
-  // Firebase에서 삭제
-  db.ref('jangbu/depts/'+i).remove();
+  const dept=depts[i];
+  // 고유 ID 있으면 deptMap에서 삭제, 없으면 기존 경로
+  if(dept.id){
+    db.ref('jangbu/deptMap/'+dept.id).remove();
+  } else {
+    db.ref('jangbu/depts/'+i).remove();
+  }
   depts.splice(i,1);
   renderSubnav();renderHome();renderDeptMgmt();
+  if(curScreen==='ledger'){curDeptIdx=null;showScreen('home');}
 }
 
 // ── 옵션 관리 탭 ──
@@ -1727,12 +1771,14 @@ function togglePwdVis(i){
 }
 function addDept(){
   const nm=document.getElementById('newDept').value.trim();if(!nm)return;
-  const newIdx=depts.length;
-  // rows를 완전히 새 빈 배열로 초기화 (다른 부서 데이터 절대 참조 안 함)
   const emptyRows=[];
   for(let i=0;i<80;i++)emptyRows.push({date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''});
-  depts.push({name:nm,rows:emptyRows,password:''});
-  saveDept(newIdx,true);
+  // 고유 ID 생성
+  const deptId='dept_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
+  const newDept={id:deptId,name:nm,rows:emptyRows,password:''};
+  depts.push(newDept);
+  // Firebase에 고유 ID 경로로 저장
+  db.ref('jangbu/deptMap/'+deptId).set(newDept);
   renderSubnav();closeDM();goHome();
 }
 

@@ -416,12 +416,16 @@ function loadData(){
   db.ref('jangbu').once('value').then(snap=>{
     const data=snap.val();
     if(data){
+      const rawDeptMap=data.deptMap||{};
       const rawDepts=data.depts;
+      let oldDepts=[];
       if(rawDepts&&typeof rawDepts==='object'&&!Array.isArray(rawDepts)){
-        depts=Object.keys(rawDepts).map(Number).sort((a,b)=>a-b).map(k=>rawDepts[k]).filter(Boolean);
-      } else {
-        depts=rawDepts||[];
-      }
+        oldDepts=Object.keys(rawDepts).map(Number).sort((a,b)=>a-b).map(k=>rawDepts[k]).filter(Boolean);
+      } else if(Array.isArray(rawDepts)){oldDepts=rawDepts||[];}
+      const mapDepts=Object.values(rawDeptMap);
+      const allIds=new Set(mapDepts.map(d=>d.id));
+      const extraDepts=oldDepts.filter(d=>!allIds.has(d.id));
+      depts=[...mapDepts,...extraDepts];
       if(data.optionDB)optionDB=data.optionDB;
       else optionDB=[...defaultOpt];
       catOptMap=data.catOptMap||null;
@@ -463,7 +467,7 @@ function loadData(){
   db.ref('jangbu/depts').on('value',snap=>{
     const data=snap.val();
     if(!data)return;
-    const newDepts=Array.isArray(data)?data:Object.keys(data).map(Number).sort((a,b)=>a-b).map(k=>data[k]).filter(Boolean);
+    const newDepts=Array.isArray(data)?data:Object.values(data);
     depts=newDepts;
     renderIntroScreen();
   });
@@ -788,11 +792,13 @@ function doSubmitOrder(){
   if(cart.length===0||curDeptIdx===null)return;
   const dept=depts[curDeptIdx];
   const di=curDeptIdx;
+  const deptId=dept.id||null;
   orderCount++;
   const order={
     id:orderCount,
     deptName:dept.name,
     deptIdx:di,
+    deptId:deptId,
     items:cart.map(c=>({
       name:c.name,
       displayName:c.displayName,
@@ -817,7 +823,9 @@ function doSubmitOrder(){
   const dateStr=(today.getMonth()+1)+'/'+(today.getDate());
   const cartSnapshot=[...cart]; // 클리어 전에 복사
 
-  db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
+  // deptId 있으면 deptMap 경로, 없으면 기존 depts 경로
+  const ledgerPath=deptId?'jangbu/deptMap/'+deptId+'/rows':'jangbu/depts/'+di+'/rows';
+  db.ref(ledgerPath).once('value').then(snap=>{
     // Firebase 최신 rows 가져오기
     let rows=snap.val()||[];
     // Firebase가 객체로 저장한 경우 배열 변환
@@ -836,7 +844,7 @@ function doSubmitOrder(){
     });
 
     // 해당 부서의 rows 경로만 업데이트 → 다른 부서/삭제내역 절대 안 건드림
-    return db.ref('jangbu/depts/'+di+'/rows').set(rows);
+    return db.ref(ledgerPath).set(rows);
   }).catch(err=>{
     console.error('장부 기록 실패:', err);
   });

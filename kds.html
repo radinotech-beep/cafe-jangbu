@@ -226,10 +226,12 @@ setInterval(cleanOldOrders,60*60*1000);
 
 // ── 장부 연동 — 취소 복구 시 order금액 원복 ──
 function restoreInLedger(order){
+  const deptId=order.deptId||null;
   const di=order.deptIdx;
-  if(di===undefined||di===null)return;
+  if(!deptId&&(di===undefined||di===null))return;
   const orderId=String(order.id);
-  db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
+  const path=deptId?'jangbu/deptMap/'+deptId+'/rows':'jangbu/depts/'+di+'/rows';
+  db.ref(path).once('value').then(snap=>{
     let rows=snap.val()||[];
     if(!Array.isArray(rows))rows=Object.values(rows);
     const today=new Date();
@@ -244,16 +246,18 @@ function restoreInLedger(order){
         updated=true;
       }
     }
-    if(updated)db.ref('jangbu/depts/'+di+'/rows').set(rows);
+    if(updated)db.ref(path).set(rows);
   });
 }
 
 // ── 장부 연동 — 주문취소 시 order금액 0으로 변경 ──
 function markCancelledInLedger(order){
+  const deptId=order.deptId||null;
   const di=order.deptIdx;
-  if(di===undefined||di===null)return;
+  if(!deptId&&(di===undefined||di===null))return;
   const orderId=String(order.id);
-  db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
+  const path=deptId?'jangbu/deptMap/'+deptId+'/rows':'jangbu/depts/'+di+'/rows';
+  db.ref(path).once('value').then(snap=>{
     let rows=snap.val()||[];
     if(!Array.isArray(rows))rows=Object.values(rows);
     const today=new Date();
