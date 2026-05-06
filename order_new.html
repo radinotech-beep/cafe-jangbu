@@ -353,6 +353,9 @@ function deptKeyFromSelection(){
   const dept=depts[curDeptIdx];
   return dept&&dept._key!==undefined?String(dept._key):String(curDeptIdx);
 }
+function firebaseSafeKey(v){
+  return String(v||'unknown').replace(/[.#$/\[\]]/g,'_');
+}
 
 // 장부 menuDB → 주문 태블릿용으로 변환
 // (HOT)xxx → tempFixed:'HOT', needTemp:false
@@ -835,9 +838,16 @@ function doSubmitOrder(){
   const dateStr=(today.getMonth()+1)+'/'+(today.getDate());
   const cartSnapshot=[...cart]; // 클리어 전에 복사
 
-  db.ref('jangbu/depts/'+deptKey+'/rows').once('value').then(snap=>{
+  Promise.all([
+    db.ref('jangbu/depts/'+deptKey+'/rows').once('value'),
+    db.ref('jangbu/deletedLedgerRows/'+firebaseSafeKey(dept.id||deptKey)).once('value')
+  ]).then(snaps=>{
     // Firebase 최신 rows 가져오기
-    let rows=snap.val()||[];
+    let rows=snaps[0].val()||[];
+    const deleted=snaps[1].val()||{};
+    if(deleted['order_'+firebaseSafeKey(order.id)]||deleted['order:'+String(order.id)]){
+      return null;
+    }
     // Firebase가 객체로 저장한 경우 배열 변환
     if(!Array.isArray(rows))rows=Object.values(rows);
     // 80행 보장

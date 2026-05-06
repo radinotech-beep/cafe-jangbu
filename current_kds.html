@@ -214,6 +214,18 @@ function itemAmount(item){
 function sourceOrderKey(order){
   return String(order.id)+'_'+String(order.createdAt||'');
 }
+function firebaseSafeKey(v){
+  return String(v||'unknown').replace(/[.#$/\[\]]/g,'_');
+}
+function deletedLedgerTokenList(order){
+  const orderId=String(order.id);
+  const sourceKey=sourceOrderKey(order);
+  return [
+    'order_'+firebaseSafeKey(orderId),
+    'cancel_'+firebaseSafeKey(sourceKey),
+    'cancel_order_'+firebaseSafeKey(orderId)
+  ];
+}
 function normDeptName(name){
   return String(name||'').replace(/\s+/g,'').replace(/[·ㆍ\-.]/g,'').trim();
 }
@@ -264,7 +276,7 @@ function makeCancelRows(order,dateStr){
   }
   return rows;
 }
-function writeCancelRows(deptKey,order){
+function writeCancelRows(deptKey,order,dept){
   const orderId=String(order.id);
   const sourceKey=sourceOrderKey(order);
   const dateStr=orderDateStr(order);
@@ -274,9 +286,15 @@ function writeCancelRows(deptKey,order){
     let rows=snap.val()||[];
     if(!Array.isArray(rows))rows=Object.values(rows);
     while(rows.length<80)rows.push(emptyRow());
-    return db.ref('jangbu/depts/'+deptKey+'/deletedRows').once('value').then(delSnap=>{
-      const deleted=delSnap.val()||{};
-      if(deleted['cancel:'+sourceKey]||deleted['cancelId:'+orderId+':'+dateStr]){
+    const deptId=order.deptId||(dept&&dept.id)||deptKey;
+    const globalPath='jangbu/deletedLedgerRows/'+firebaseSafeKey(deptId);
+    return Promise.all([
+      db.ref(globalPath).once('value'),
+      db.ref('jangbu/depts/'+deptKey+'/deletedRows').once('value')
+    ]).then(snaps=>{
+      const deleted={...(snaps[0].val()||{}),...(snaps[1].val()||{})};
+      const tokens=deletedLedgerTokenList(order);
+      if(tokens.some(t=>deleted[t])||deleted['cancel:'+sourceKey]||deleted['cancelId:'+orderId+':'+dateStr]||deleted['order:'+orderId]){
         return {ok:true,reason:'사용자가 삭제한 취소 줄이라 재생성하지 않음'};
       }
     const alreadyCancelled=rows.some(row=>row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr)));
@@ -288,7 +306,7 @@ function writeCancelRows(deptKey,order){
       if(emptyIdx>=0)rows.splice(emptyIdx,0,...cancelRows);
       else rows.push(...cancelRows);
     }
-    return db.ref('jangbu/depts/'+deptKey+'/rows').set(rows).then(()=>({ok:true,reason:'취소 줄 추가 완료'}));
+      return db.ref('jangbu/depts/'+deptKey+'/rows').set(rows).then(()=>({ok:true,reason:'취소 줄 추가 완료'}));
     });
   });
 }
@@ -297,7 +315,7 @@ function markCancelledInLedger(order){
     const deptsData=snap.val()||{};
     const deptKey=findDeptKey(deptsData,order);
     if(deptKey===null)return {ok:false,reason:'장부에 해당 부서가 없음: '+(order.deptName||'부서명 없음')};
-    return writeCancelRows(deptKey,order);
+    return writeCancelRows(deptKey,order,deptsData[deptKey]||{});
   }).catch(err=>({ok:false,reason:err&&err.message?err.message:String(err)}));
 }
 

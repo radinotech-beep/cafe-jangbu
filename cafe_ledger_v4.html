@@ -399,6 +399,20 @@ function deptKey(i){
   const d=depts[i];
   return d&&d._key!==undefined?String(d._key):String(i);
 }
+function firebaseSafeKey(v){
+  return String(v||'unknown').replace(/[.#$/\[\]]/g,'_');
+}
+function deletedLedgerTokensForRow(row){
+  const tokens={};
+  const orderId=String(row&&row.orderId||'');
+  const sourceOrderId=String(row&&row.sourceOrderId||'');
+  const sourceOrderKey=String(row&&row.sourceOrderKey||'');
+  if(orderId)tokens['order_'+firebaseSafeKey(orderId)]=true;
+  if(sourceOrderId)tokens['order_'+firebaseSafeKey(sourceOrderId)]=true;
+  if(sourceOrderKey)tokens['cancel_'+firebaseSafeKey(sourceOrderKey)]=true;
+  if(sourceOrderId)tokens['cancel_order_'+firebaseSafeKey(sourceOrderId)]=true;
+  return tokens;
+}
 function findDeptIndexById(id){
   return depts.findIndex(d=>d&&String(d.id||'')===String(id||''));
 }
@@ -1304,20 +1318,14 @@ function deleteRow(di,ri){
   if(!confirm((ri+1)+'행을 삭제할까요?'))return;
   const row=depts[di].rows[ri]||{};
   const key=deptKey(di);
-  const deleted={};
-  if(row.orderId)deleted['order:'+String(row.orderId)]=true;
-  if(row.sourceOrderKey)deleted['cancel:'+String(row.sourceOrderKey)]=true;
-  if(row.sourceOrderId&&row.date)deleted['cancelId:'+String(row.sourceOrderId)+':'+String(row.date)]=true;
+  const deptId=(row.deptId||(depts[di]&&depts[di].id)||key);
+  let deleted={...deletedLedgerTokensForRow(row)};
   const orderId=String(row.orderId||'');
   if(orderId&&!row.cancelRow&&!orderId.includes('-cancel-')&&!orderId.includes('-cancel-total')){
     depts[di].rows=(depts[di].rows||[]).filter((r,idx)=>{
       if(idx===ri)return false;
       const linkedCancel=r&&r.cancelRow&&String(r.sourceOrderId||'')===orderId;
-      if(linkedCancel){
-        if(r.orderId)deleted['order:'+String(r.orderId)]=true;
-        if(r.sourceOrderKey)deleted['cancel:'+String(r.sourceOrderKey)]=true;
-        if(r.sourceOrderId&&r.date)deleted['cancelId:'+String(r.sourceOrderId)+':'+String(r.date)]=true;
-      }
+      if(linkedCancel)deleted={...deleted,...deletedLedgerTokensForRow(r)};
       return !linkedCancel;
     });
   }else{
@@ -1328,6 +1336,7 @@ function deleteRow(di,ri){
   calcBal(di);
   if(Object.keys(deleted).length>0){
     depts[di].deletedRows={...(depts[di].deletedRows||{}),...deleted};
+    db.ref('jangbu/deletedLedgerRows/'+firebaseSafeKey(deptId)).update(deleted);
     db.ref('jangbu/depts/'+key+'/deletedRows').update(deleted);
   }
   saveDept(di,true);
