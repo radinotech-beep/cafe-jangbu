@@ -418,7 +418,7 @@ function loadData(){
     if(data){
       const rawDepts=data.depts;
       if(rawDepts&&typeof rawDepts==='object'&&!Array.isArray(rawDepts)){
-        depts=Object.values(rawDepts);
+        depts=Object.keys(rawDepts).map(Number).sort((a,b)=>a-b).map(k=>rawDepts[k]).filter(Boolean);
       } else {
         depts=rawDepts||[];
       }
@@ -463,7 +463,7 @@ function loadData(){
   db.ref('jangbu/depts').on('value',snap=>{
     const data=snap.val();
     if(!data)return;
-    const newDepts=Array.isArray(data)?data:Object.values(data);
+    const newDepts=Array.isArray(data)?data:Object.keys(data).map(Number).sort((a,b)=>a-b).map(k=>data[k]).filter(Boolean);
     depts=newDepts;
     renderIntroScreen();
   });

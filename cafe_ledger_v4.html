@@ -734,7 +734,8 @@ function loadFromFirebase(){
     if(data){
       const rawDepts=data.depts;
       if(rawDepts&&typeof rawDepts==='object'&&!Array.isArray(rawDepts)){
-        depts=Object.values(rawDepts);
+        // 키를 숫자 순서로 정렬해서 부서 순서 보장
+        depts=Object.keys(rawDepts).map(Number).sort((a,b)=>a-b).map(k=>rawDepts[k]).filter(Boolean);
       } else {
         depts=rawDepts||[];
       }
@@ -762,7 +763,7 @@ function loadFromFirebase(){
 function listenRealtime(){
   db.ref('jangbu/depts').on('value',snap=>{
     const data=snap.val();
-    const newDepts=data?(Array.isArray(data)?data:Object.values(data)):[];
+    const newDepts=data?(Array.isArray(data)?data:Object.keys(data).map(Number).sort((a,b)=>a-b).map(k=>data[k]).filter(Boolean)):[];
     newDepts.forEach((d,i)=>{if(!savingDepts.has(i))depts[i]=d;});
     if(newDepts.length<depts.length&&savingDepts.size===0)depts=newDepts;
     renderHome();renderSubnav();
@@ -919,10 +920,13 @@ function renderDeptMgmt(){
   depts.forEach((d,i)=>{
     h+=`<tr>
       <td><input value="${esc(d.name)}" onchange="depts[${i}].name=this.value;renderSubnav();saveDept(${i},true)"></td>
-      <td><input type="password" maxlength="6" placeholder="4~6자리" value="${esc(d.password||'')}" 
+      <td style="display:flex;align-items:center;gap:4px;">
+        <input type="text" id="pwd-${i}" maxlength="6" placeholder="4~6자리" value="${esc(d.password||'')}" 
           oninput="depts[${i}].password=this.value"
           onchange="saveDept(${i},true)"
-          style="letter-spacing:3px;text-align:center;"></td>
+          style="letter-spacing:3px;text-align:center;flex:1;">
+        <button onclick="togglePwdVis(${i})" style="background:none;border:none;cursor:pointer;font-size:14px;" title="보이기/숨기기" id="pwd-eye-${i}">👁</button>
+      </td>
       <td><button class="bdel" onclick="delDept(${i})">✕</button></td></tr>`;
   });
   h+=`</tbody></table>`;
@@ -1716,10 +1720,18 @@ function saveDB(){sv();saveSoldout();}
 // ── 부서 추가 ──
 function openAddDept(){document.getElementById('deptModal').classList.add('open');setTimeout(()=>document.getElementById('newDept').focus(),80);}
 function closeDM(){document.getElementById('deptModal').classList.remove('open');document.getElementById('newDept').value='';}
+function togglePwdVis(i){
+  const inp=document.getElementById('pwd-'+i);
+  if(!inp)return;
+  inp.type=inp.type==='text'?'password':'text';
+}
 function addDept(){
   const nm=document.getElementById('newDept').value.trim();if(!nm)return;
   const newIdx=depts.length;
-  depts.push({name:nm,rows:[]});
+  // rows를 완전히 새 빈 배열로 초기화 (다른 부서 데이터 절대 참조 안 함)
+  const emptyRows=[];
+  for(let i=0;i<80;i++)emptyRows.push({date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''});
+  depts.push({name:nm,rows:emptyRows,password:''});
   saveDept(newIdx,true);
   renderSubnav();closeDM();goHome();
 }
