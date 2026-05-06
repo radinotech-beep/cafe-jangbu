@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -670,7 +670,7 @@ function sv(){
   },1500);
 }
 function saveSoldout(){
-  db.ref('soldout').set(soldout);
+  db.ref('soldout').set(soldout).then(()=>setSyncStatus('ok')).catch(()=>setSyncStatus('err'));
 }
 function saveHidden(){
   db.ref('hiddenMenus').set(hiddenMenus);
@@ -1565,13 +1565,14 @@ function renderSoldoutTab(){
   document.getElementById('dbBody').innerHTML=h;
 }
 function toggleSoldout(name){
-  if(soldout[name])delete soldout[name];
-  else soldout[name]=true;
+  const base=String(name||'').replace(/^\\((HOT|ICE)\\)/,'').replace(/\\s+(HOT|ICE)$/,'').trim();
+  const keys=[name,base,'(HOT)'+base,'(ICE)'+base,base+' HOT',base+' ICE'].filter(Boolean);
+  const next=!keys.some(k=>soldout[k]);
+  keys.forEach(k=>{if(next)soldout[k]=true;else delete soldout[k];});
   saveSoldout();
-  // 현재 활성 화면에 맞는 렌더 함수 호출
-  if(curScreen==='mgmt')renderSoldoutMgmt();
-  else renderSoldoutTab();
+  renderSoldoutMgmt();
 }
+
 
 // ── 부서 설정 탭 ──
 const CAT_KEYS=['커피','디카페인','콜드브루','티(Tea)','음료(논커피라떼)','에이드&주스','스무디&프라페','디저트'];
@@ -1658,3 +1659,4 @@ loadFromFirebase();
 </script>
 </body>
 </html>
+
