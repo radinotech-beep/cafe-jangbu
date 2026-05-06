@@ -378,7 +378,7 @@ const db=firebase.database();
 
 const ROWS=80;
 let depts=[],menuDB=[],optionDB=[],dessertDB=[];
-let curDeptIdx=null,curDBTab='menu';
+let curDeptIdx=null,curDeptId=null,curDBTab='menu';
 let acTarget=null,acIdx=-1,acList=[];
 let optTarget=null,saveTimer=null,deptSaveTimers={};
 let curScreen='home';
@@ -398,6 +398,9 @@ function cleanDeptForSave(dept){
 function deptKey(i){
   const d=depts[i];
   return d&&d._key!==undefined?String(d._key):String(i);
+}
+function findDeptIndexById(id){
+  return depts.findIndex(d=>d&&String(d.id||'')===String(id||''));
 }
 function nextDeptKey(data){
   const keys=data?Object.keys(data).map(k=>parseInt(k,10)).filter(n=>!isNaN(n)):[];
@@ -760,6 +763,11 @@ function listenRealtime(){
     // 저장 중인 부서만 로컬 버전 유지, 나머지 교체
     newDepts.forEach((d,i)=>{if(!savingDepts.has(i))depts[i]=d;});
     if(savingDepts.size===0)depts=newDepts;
+    if(curDeptId){
+      const nextIdx=findDeptIndexById(curDeptId);
+      if(nextIdx>=0)curDeptIdx=nextIdx;
+      else {curDeptIdx=null;curDeptId=null;if(curScreen==='ledger')showScreen('home');}
+    }
     renderSubnav();
     if(curScreen==='ledger'&&curDeptIdx!==null&&curDeptIdx<depts.length){
       if(!savingDepts.has(curDeptIdx))renderLedger(curDeptIdx);
@@ -929,7 +937,7 @@ function delDept(i){
   const key=deptKey(i);
   depts.splice(i,1);
   db.ref('jangbu/depts/'+key).remove();
-  if(curScreen==='ledger'){curDeptIdx=null;showScreen('home');}
+  if(curScreen==='ledger'){curDeptIdx=null;curDeptId=null;showScreen('home');}
   renderSubnav();renderHome();renderDeptMgmt();
 }
 
@@ -1122,6 +1130,7 @@ function toggleHidden(name){
 }
 function openDept(i){
   curDeptIdx=i;
+  curDeptId=depts[i]&&depts[i].id?depts[i].id:null;
   // 즉시 이전 내용 초기화
   const tb=document.getElementById('ledgerBody');
   if(tb)tb.innerHTML='';
