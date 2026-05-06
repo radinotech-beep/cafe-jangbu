@@ -1,0 +1,1722 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>카페 장부</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2C2C2A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="카페장부">
+<link rel="apple-touch-icon" href="../icon-ledger-192.png">
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/cafe-jangbu/ledger/service-worker.js');
+    });
+  }
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;color:#2C2C2A;}
+
+/* 탑바 */
+.topbar{background:#2C2C2A;padding:0 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;height:42px;}
+.topbar-title{color:#F1EFE8;font-size:15px;font-weight:500;}
+.topbar-right{display:flex;gap:6px;align-items:center;}
+.sync-status{font-size:11px;padding:2px 8px;border-radius:10px;}
+.sync-ok{background:#EAF3DE;color:#3B6D11;}
+.sync-ing{background:#FFF3CD;color:#856404;}
+.sync-err{background:#FCEBEB;color:#A32D2D;}
+.tbtn{color:#B4B2A9;font-size:12px;border:0.5px solid #5F5E5A;border-radius:6px;padding:4px 10px;cursor:pointer;background:none;white-space:nowrap;}
+.tbtn:hover{background:#444441;}
+
+/* 관리 탭 네비 */
+.mgmt-nav{display:flex;border-bottom:2px solid #e0dfd8;background:#fff;overflow-x:auto;flex-shrink:0;}
+#screen-mgmt{display:flex;flex-direction:column;overflow:hidden;}
+.mgmt-nav::-webkit-scrollbar{display:none;}
+.mgmt-tab{padding:11px 20px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-2px;font-family:inherit;color:#888780;transition:all 0.15s;}
+.mgmt-tab:hover{background:#f5f4f0;}
+.mgmt-tab.t-menu{border-bottom-color:transparent;}
+.mgmt-tab.t-menu.active{color:#185FA5;border-bottom-color:#185FA5;background:#F0F6FF;}
+.mgmt-tab.t-dept{border-bottom-color:transparent;}
+.mgmt-tab.t-dept.active{color:#3B6D11;border-bottom-color:#3B6D11;background:#F0F8F0;}
+.mgmt-tab.t-opt{border-bottom-color:transparent;}
+.mgmt-tab.t-opt.active{color:#B8520A;border-bottom-color:#E8750A;background:#FFF5EE;}
+.mgmt-tab.t-soldout{border-bottom-color:transparent;}
+.mgmt-tab.t-soldout.active{color:#A32D2D;border-bottom-color:#E24B4A;background:#FFF0F0;}
+.mgmt-screen{display:none;padding:16px;overflow-y:auto;flex:1;}
+.mgmt-screen.active{display:block;}
+
+/* 서브 네비게이션 */
+.subnav{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 12px;display:flex;align-items:center;gap:0;position:sticky;top:42px;z-index:99;overflow-x:auto;}
+.subnav::-webkit-scrollbar{height:3px;}
+.subnav::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px;}
+.snav-item{padding:9px 14px;font-size:13px;color:#888780;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;background:none;border-left:none;border-right:none;border-top:none;}
+.snav-item:hover{color:#2C2C2A;}
+.snav-item.active{color:#2C2C2A;border-bottom:2px solid #2C2C2A;font-weight:500;}
+.snav-item.summary-btn{color:#185FA5;}
+.snav-item.summary-btn.active{border-bottom:2px solid #185FA5;color:#185FA5;}
+.snav-sep{width:1px;height:20px;background:#e0dfd8;margin:0 4px;flex-shrink:0;}
+.snav-dept-wrap{display:flex;gap:0;overflow-x:auto;flex:1;}
+.snav-dept-wrap::-webkit-scrollbar{display:none;}
+
+/* 화면 */
+.screen{display:none;}
+.screen.active{display:block;}
+
+/* 홈 */
+.home-header{padding:14px 16px 10px;display:flex;justify-content:space-between;align-items:center;}
+.home-title{font-size:15px;font-weight:500;}
+.dept-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:0 16px 16px;}
+.dept-card{background:#fff;border-radius:10px;padding:14px;cursor:pointer;border:1px solid #e8e7e0;transition:all 0.15s;}
+.dept-card:hover{border-color:#2C2C2A;box-shadow:0 2px 8px rgba(0,0,0,0.08);}
+.dept-card-name{font-size:13px;font-weight:500;margin-bottom:6px;color:#2C2C2A;}
+.dept-card-label{font-size:10px;color:#B4B2A9;margin-bottom:2px;}
+.dept-card-bal{font-size:15px;font-weight:500;}
+.neg{color:#A32D2D;}.pos{color:#3B6D11;}.zero{color:#888780;}
+
+/* 장부 */
+.ledger-topbar{padding:9px 14px;background:#fff;border-bottom:1px solid #e0dfd8;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+.ledger-name{font-size:14px;font-weight:500;}
+.ledger-actions{display:flex;gap:6px;align-items:center;}
+.bal-badge{font-size:11px;padding:3px 10px;border-radius:6px;white-space:nowrap;}
+.neg-b{background:#FCEBEB;color:#A32D2D;}
+.pos-b{background:#EAF3DE;color:#3B6D11;}
+.zero-b{background:#F1EFE8;color:#5F5E5A;}
+.abtn{font-size:11px;padding:4px 10px;border-radius:6px;border:0.5px solid #e0dfd8;background:#fff;cursor:pointer;color:#5F5E5A;white-space:nowrap;}
+.abtn:hover{background:#f5f4f0;}
+.abtn.primary{background:#2C2C2A;color:#F1EFE8;border-color:#2C2C2A;}
+.abtn.primary:hover{background:#444441;}
+
+/* 테이블 - 셀 구분선 추가 */
+.tbl-wrap{overflow-x:auto;background:#fff;}
+table{width:100%;border-collapse:collapse;table-layout:fixed;}
+th{background:#f5f4f0;padding:7px 5px;text-align:center;color:#888780;font-weight:500;border-bottom:1px solid #d8d7d0;border-right:1px solid #e8e7e0;font-size:11px;white-space:nowrap;}
+th:last-child{border-right:none;}
+td{padding:0;border-bottom:1px solid #f0efe8;border-right:1px solid #eeede6;position:relative;}
+td:last-child{border-right:none;}
+td input{width:100%;padding:5px 6px;border:none;background:transparent;font-size:12px;color:#2C2C2A;font-family:inherit;outline:none;}
+td input:focus{background:#EDF4FF;}
+td.rn{padding:5px 3px;text-align:center;color:#ccc;background:#fafaf8;font-size:10px;border-right:1px solid #e8e7e0;}
+td.del-cell{text-align:center;background:#fafaf8;width:20px;border-right:1px solid #e8e7e0;}
+.del-btn{background:none;border:none;color:#ddd;cursor:pointer;font-size:12px;padding:1px 3px;line-height:1;}
+.del-btn:hover{color:#E24B4A;}
+td.opt-cell{padding:2px 3px;}
+.opt-trigger{width:100%;padding:4px 5px;border:none;background:transparent;font-size:11px;color:#888780;cursor:pointer;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.opt-trigger:hover{background:#f5f4f0;}
+.opt-trigger.has-opt{color:#185FA5;font-weight:500;}
+td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px;color:#B4B2A9;}
+
+/* 합계 */
+.sum-bar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 14px;background:#fff;border-top:1px solid #e0dfd8;}
+.sc{background:#f5f4f0;border-radius:6px;padding:8px 10px;text-align:center;}
+.sc-label{font-size:10px;color:#888780;margin-bottom:3px;}
+.sc-val{font-size:14px;font-weight:500;}
+.hint{font-size:11px;color:#B4B2A9;padding:4px 14px;background:#fff;border-top:1px solid #f5f4f0;}
+
+/* 자동완성 */
+.ac-pop{position:fixed;background:#fff;border:1px solid #e0dfd8;border-radius:6px;z-index:300;min-width:230px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-height:240px;overflow-y:auto;display:none;}
+.ac-item{padding:7px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:16px;font-size:12px;}
+.ac-item:hover,.ac-item.sel{background:#f5f4f0;}
+.ac-price{color:#3B6D11;font-weight:500;white-space:nowrap;}
+
+/* 옵션 팝업 */
+.opt-pop{position:fixed;background:#fff;border:1px solid #e0dfd8;border-radius:8px;z-index:400;width:240px;box-shadow:0 4px 20px rgba(0,0,0,0.14);display:none;}
+.opt-pop-head{padding:10px 12px 6px;font-size:11px;font-weight:500;color:#888780;border-bottom:1px solid #f0efe8;}
+.opt-list{max-height:220px;overflow-y:auto;padding:4px 0;}
+.opt-item{display:flex;justify-content:space-between;align-items:center;padding:6px 12px;font-size:12px;cursor:pointer;}
+.opt-item:hover{background:#f5f4f0;}
+.opt-item.checked .opt-name::before{content:'✓ ';color:#3B6D11;font-weight:600;}
+.opt-name{flex:1;color:#2C2C2A;}
+.opt-item-price{color:#3B6D11;font-size:11px;white-space:nowrap;margin-left:8px;}
+.opt-pop-foot{padding:6px 10px;border-top:1px solid #f0efe8;display:flex;justify-content:flex-end;}
+.opt-clear{font-size:11px;padding:4px 10px;background:none;border:0.5px solid #e0dfd8;border-radius:4px;cursor:pointer;color:#888780;}
+
+/* 부서별 현황 요약 */
+.summary-topbar{padding:10px 14px;background:#fff;border-bottom:1px solid #e0dfd8;display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;}
+.summary-title{font-size:14px;font-weight:500;}
+.period-row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.period-row input[type=date]{padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:6px;font-size:12px;font-family:inherit;color:#2C2C2A;}
+.period-row span{font-size:12px;color:#888780;}
+.period-search{padding:5px 12px;background:#2C2C2A;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;}
+.period-search:hover{background:#444441;}
+.period-reset{padding:5px 10px;background:none;border:0.5px solid #e0dfd8;border-radius:6px;font-size:12px;cursor:pointer;color:#888780;}
+.period-reset:hover{background:#f5f4f0;}
+.st-wrap{overflow-x:auto;background:#fff;}
+.st{width:100%;border-collapse:collapse;font-size:12px;}
+.st th{background:#f5f4f0;padding:8px 10px;text-align:right;color:#888780;font-weight:500;border-bottom:1px solid #e0dfd8;border-right:1px solid #e8e7e0;white-space:nowrap;}
+.st th:last-child{border-right:none;}
+.st th.tl{text-align:left;}
+.st th.tc{text-align:center;}
+.st td{padding:8px 10px;border-bottom:1px solid #f0efe8;border-right:1px solid #eeede6;text-align:right;}
+.st td:last-child{border-right:none;}
+.st td.no{text-align:center;color:#B4B2A9;}
+.st td.nm{text-align:left;font-weight:500;color:#185FA5;cursor:pointer;text-decoration:underline;text-decoration-color:#c0d8f0;}
+.st td.nm:hover{color:#0d4a8a;}
+.st td.nt{text-align:left;color:#888780;font-size:11px;}
+.st td.neg{color:#A32D2D;}
+.st td.pos{color:#3B6D11;}
+.st tr:hover td{background:#fafaf8;}
+.st tr.tot td{background:#f5f4f0;font-weight:500;border-top:1px solid #e0dfd8;color:#2C2C2A;}
+.st tr.tot td.neg{color:#A32D2D;}
+.st tr.tot td.pos{color:#3B6D11;}
+.export-row{padding:10px 14px;background:#fff;border-top:1px solid #e0dfd8;display:flex;justify-content:space-between;align-items:center;}
+.period-info{font-size:11px;color:#888780;}
+
+/* 모달 */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:500;align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:#fff;border-radius:10px;width:92%;max-width:580px;max-height:82vh;overflow:hidden;display:flex;flex-direction:column;}
+.mhead{padding:14px 16px;border-bottom:1px solid #e0dfd8;display:flex;justify-content:space-between;align-items:center;}
+.mhead h2{font-size:15px;font-weight:500;}
+.mclose{background:none;border:none;font-size:20px;cursor:pointer;color:#888780;line-height:1;}
+.mtabs{display:flex;border-bottom:1px solid #e0dfd8;}
+.mtab{flex:1;padding:9px;text-align:center;font-size:12px;cursor:pointer;border:none;background:#f5f4f0;color:#888780;border-bottom:2px solid transparent;}
+.mtab.active{background:#fff;color:#2C2C2A;font-weight:500;border-bottom:2px solid #2C2C2A;}
+.mbody{overflow-y:auto;padding:14px;flex:1;}
+.dbt{width:100%;border-collapse:collapse;font-size:12px;}
+.dbt th{background:#f5f4f0;padding:6px 8px;text-align:left;color:#888780;font-weight:500;border-bottom:1px solid #e0dfd8;}
+.dbt td{padding:4px 6px;border-bottom:1px solid #f0efe8;vertical-align:middle;}
+.dbt td input{width:100%;border:none;background:transparent;font-size:12px;font-family:inherit;color:#2C2C2A;padding:3px 2px;}
+.dbt td input:focus{outline:none;background:#EDF4FF;border-radius:3px;padding:3px 6px;}
+.btn-ar{margin-top:8px;padding:6px 12px;background:none;border:0.5px solid #e0dfd8;border-radius:6px;font-size:12px;cursor:pointer;color:#5F5E5A;}
+.btn-ar:hover{background:#f5f4f0;}
+.bdel{background:none;border:none;color:#E24B4A;cursor:pointer;font-size:14px;padding:2px 6px;}
+.mfoot{padding:10px 16px;border-top:1px solid #e0dfd8;display:flex;justify-content:flex-end;gap:8px;}
+.btn-c{padding:7px 16px;background:none;border:0.5px solid #e0dfd8;border-radius:6px;font-size:12px;cursor:pointer;}
+.btn-s{padding:7px 16px;background:#2C2C2A;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;}
+.dm{width:340px;}
+.dm input{width:100%;padding:9px 10px;border:1px solid #e0dfd8;border-radius:6px;font-size:13px;margin-top:10px;font-family:inherit;}
+/* 설정 탭 */
+.set-section{margin-bottom:18px;}
+.db-cat-header{background:#F5F4F0;padding:6px 10px;font-size:12px;font-weight:500;color:#5F5E5A;margin-top:10px;border-radius:6px 6px 0 0;border:0.5px solid #e0dfd8;border-bottom:none;}
+.set-title{font-size:12px;font-weight:500;color:#5F5E5A;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #e0dfd8;}
+.set-row{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12px;}
+.set-row label{width:110px;color:#888780;flex-shrink:0;}
+.set-row input{flex:1;padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:5px;font-size:12px;font-family:inherit;}
+.set-row input[type=password]{letter-spacing:2px;}
+/* 품절 관리 */
+.soldout-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.so-item{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:5px;font-size:11px;cursor:pointer;background:#fff;}
+.so-item.sold{background:#FCEBEB;border-color:#E24B4A;color:#A32D2D;}
+.so-item.hidden{background:#F0F0F0;border-color:#ccc;color:#aaa;text-decoration:line-through;}
+.so-item:hover{background:#f5f4f0;}
+.so-badge{font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;font-weight:500;}
+.so-badge.sold{background:#E24B4A;color:#fff;}
+.so-badge.hidden{background:#999;color:#fff;}
+.so-cat{font-size:10px;color:#888780;margin-top:6px;margin-bottom:4px;font-weight:500;}
+/* 카테고리별 옵션 */
+.catopt-row{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid #f0efe8;}
+.catopt-row:last-child{border-bottom:none;}
+.catopt-label{width:100px;font-size:11px;color:#5F5E5A;padding-top:4px;flex-shrink:0;}
+.catopt-opts{display:flex;flex-wrap:wrap;gap:4px;flex:1;}
+.catopt-tag{font-size:10px;padding:2px 8px;border-radius:10px;border:0.5px solid #e0dfd8;background:#fff;cursor:pointer;color:#5F5E5A;}
+.catopt-tag.on{background:#2C2C2A;color:#fff;border-color:#2C2C2A;}
+</style>
+</head>
+<body>
+
+<!-- 탑바 -->
+<div class="topbar">
+  <span class="topbar-title">☕ 카페 장부</span>
+  <div class="topbar-right">
+    <span class="sync-status sync-ing" id="syncStatus">연결 중...</span>
+  </div>
+</div>
+
+<!-- 서브 네비게이션 -->
+<div class="subnav" id="subnav">
+  <button class="snav-item active" id="snav-home" onclick="goHome()">🏠 홈</button>
+  <div class="snav-sep"></div>
+  <div class="snav-dept-wrap" id="snavDepts"></div>
+  <div class="snav-sep"></div>
+  <button class="snav-item summary-btn" id="snav-summary" onclick="goSummary()">📊 현황 요약</button>
+  <div class="snav-sep"></div>
+  <button class="snav-item" id="snav-mgmt" onclick="goMgmt()" style="color:#B8520A;">⚙️ 관리</button>
+</div>
+
+<!-- 홈 화면 -->
+<div class="screen active" id="screen-home">
+  <div class="home-header">
+    <span class="home-title">부서 선택</span>
+  </div>
+  <div class="dept-grid" id="deptGrid"></div>
+</div>
+
+<!-- 장부 화면 -->
+<div class="screen" id="screen-ledger">
+  <div class="ledger-topbar">
+    <span class="ledger-name" id="ledgerName">장부</span>
+    <div class="ledger-actions">
+      <span class="bal-badge zero-b" id="badge">잔액 0원</span>
+      <button class="abtn primary" onclick="exportLedgerExcel()">엑셀 저장</button>
+    </div>
+  </div>
+  <div class="tbl-wrap">
+    <table id="ledgerTable">
+      <colgroup>
+        <col style="width:20px"><col style="width:24px"><col style="width:64px">
+        <col style="min-width:120px"><col style="width:100px"><col style="width:44px">
+        <col style="width:78px"><col style="width:78px"><col style="width:78px"><col style="width:90px">
+        <col style="width:66px"><col style="width:66px">
+      </colgroup>
+      <thead><tr>
+        <th></th><th></th><th>날짜</th>
+        <th>내용</th><th>옵션</th><th>수량</th><th>결제금액</th>
+        <th>주문금액</th><th>잔액</th><th>비고</th>
+        <th>입력일</th><th>수정일</th>
+      </tr></thead>
+      <tbody id="ledgerBody"></tbody>
+    </table>
+  </div>
+  <div class="hint">내용 입력 시 자동완성 · 수량 입력 시 주문금액 자동계산 · 잔액 자동계산 · 엑셀 붙여넣기 지원</div>
+  <div class="sum-bar">
+    <div class="sc"><div class="sc-label">총 결제</div><div class="sc-val" id="sumPay" style="color:#3B6D11;">0원</div></div>
+    <div class="sc"><div class="sc-label">총 주문</div><div class="sc-val" id="sumOrder">0원</div></div>
+    <div class="sc"><div class="sc-label">현재잔액</div><div class="sc-val" id="sumBal">0원</div></div>
+  </div>
+</div>
+
+<!-- 부서별 현황 요약 -->
+<div class="screen" id="screen-summary">
+  <div class="summary-topbar">
+    <span class="summary-title">부서별 현황 요약</span>
+    <div class="period-row">
+      <input type="date" id="periodFrom" onchange="renderSummary()">
+      <span>~</span>
+      <input type="date" id="periodTo" onchange="renderSummary()">
+      <button class="period-reset" onclick="resetPeriod()">전체</button>
+    </div>
+  </div>
+  <div class="st-wrap">
+    <table class="st">
+      <thead><tr>
+        <th class="tc" style="width:34px;">NO</th>
+        <th class="tl" style="min-width:110px;">팀명</th>
+        <th style="width:88px;">주문금액</th>
+        <th style="width:80px;">결제금액</th>
+        <th style="width:100px;text-align:left;">결제일</th>
+        <th style="width:85px;">잔액</th>
+        <th class="tl">비고</th>
+      </tr></thead>
+      <tbody id="summaryBody"></tbody>
+    </table>
+  </div>
+  <div class="export-row">
+    <span class="period-info" id="periodInfo">전체 기간</span>
+    <button class="abtn primary" onclick="exportSummaryExcel()">엑셀 저장</button>
+  </div>
+</div>
+
+<!-- 관리 화면 -->
+<div class="screen" id="screen-mgmt">
+  <!-- 관리 탭 네비 -->
+  <div class="mgmt-nav">
+    <button class="mgmt-tab t-menu active" id="mtab-menu" onclick="switchMgmtTab('menu')">📋 메뉴 DB</button>
+    <button class="mgmt-tab t-dept" id="mtab-dept" onclick="switchMgmtTab('dept')">🏢 부서 관리</button>
+    <button class="mgmt-tab t-opt" id="mtab-opt" onclick="switchMgmtTab('opt')">⚙️ 옵션 관리</button>
+    <button class="mgmt-tab t-soldout" id="mtab-soldout" onclick="switchMgmtTab('soldout')">🚫 품절 관리</button>
+  </div>
+
+  <!-- 메뉴 DB -->
+  <div class="mgmt-screen active" id="mscreen-menu">
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="abtn" id="msub-drink" onclick="switchMenuSub('drink')" style="border-color:#185FA5;color:#185FA5;">음료메뉴</button>
+      <button class="abtn" id="msub-dessert" onclick="switchMenuSub('dessert')">디저트</button>
+      <button class="abtn primary" onclick="dba()" style="margin-left:auto;">+ 항목 추가</button>
+      <button class="abtn primary" onclick="saveDB()">저장</button>
+    </div>
+    <div id="menuDbBody"></div>
+  </div>
+
+  <!-- 부서 관리 -->
+  <div class="mgmt-screen" id="mscreen-dept">
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="abtn primary" onclick="openAddDept()">+ 부서 추가</button>
+    </div>
+    <div id="deptMgmtBody"></div>
+  </div>
+
+  <!-- 옵션 관리 -->
+  <div class="mgmt-screen" id="mscreen-opt">
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="abtn" id="osub-list" onclick="switchOptSub('list')" style="border-color:#B8520A;color:#B8520A;">옵션 목록</button>
+      <button class="abtn" id="osub-cat" onclick="switchOptSub('cat')">카테고리별 설정</button>
+      <button class="abtn primary" onclick="saveDB()" style="margin-left:auto;">저장</button>
+    </div>
+    <div id="optMgmtBody"></div>
+  </div>
+
+  <!-- 품절 관리 -->
+  <div class="mgmt-screen" id="mscreen-soldout">
+    <div style="font-size:12px;color:#888;margin-bottom:10px;">메뉴를 클릭하면 품절/해제 토글됩니다</div>
+    <div id="soldoutBody"></div>
+  </div>
+</div>
+
+<!-- 부서 추가 모달 -->
+<div class="modal-bg" id="deptModal">
+  <div class="modal dm">
+    <div class="mhead"><h2>부서 추가</h2><button class="mclose" onclick="closeDM()">&#10005;</button></div>
+    <div style="padding:14px;">
+      <div style="font-size:12px;color:#888780;">부서명을 입력하세요</div>
+      <input type="text" id="newDept" placeholder="예: 기획예산팀" onkeydown="if(event.key==='Enter')addDept()">
+    </div>
+    <div class="mfoot">
+      <button class="btn-c" onclick="closeDM()">취소</button>
+      <button class="btn-s" onclick="addDept()">추가</button>
+    </div>
+  </div>
+</div>
+
+<div class="ac-pop" id="acPop"></div>
+<div class="opt-pop" id="optPop">
+  <div class="opt-pop-head">옵션 선택 (복수 가능)</div>
+  <div class="opt-list" id="optList"></div>
+  <div class="opt-pop-foot"><button class="opt-clear" onclick="clearOpts()">초기화</button></div>
+</div>
+
+<script>
+const firebaseConfig={
+  apiKey:"AIzaSyBKvoTCTV0F1W9OukvbqbxLhMW6Y3jZmzc",
+  authDomain:"cafe-jangbu.firebaseapp.com",
+  projectId:"cafe-jangbu",
+  storageBucket:"cafe-jangbu.firebasestorage.app",
+  messagingSenderId:"570502999010",
+  appId:"1:570502999010:web:207c71a8d8e77d8034a7bb",
+  databaseURL:"https://cafe-jangbu-default-rtdb.firebaseio.com"
+};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+
+const ROWS=80;
+let depts=[],menuDB=[],optionDB=[],dessertDB=[];
+let curDeptIdx=null,curDBTab='menu';
+let acTarget=null,acIdx=-1,acList=[];
+let optTarget=null,saveTimer=null,deptSaveTimers={};
+let curScreen='home';
+let savingDepts=new Set();
+let soldout={};  // {메뉴명: true}
+let hiddenMenus={};  // {메뉴명: true} — 주문창에서 아예 안 보임
+let _skipSoldoutRender=false;
+let _skipHiddenRender=false;
+// catOptMap: { "대카>중카": [옵션명] }
+// catSubMap: { "대카": [{name:"중카명", menus:[메뉴명]}] }
+const defaultCatOpts={
+  '커피':['샷추가','2샷추가','디카페인샷추가','디카페인2샷추가','아몬드밀크변경','오트밀크변경','바닐라시럽추가','카라멜시럽추가','헤이즐넛시럽추가','라이트바닐라시럽추가','시럽추가BIG','연유추가','꿀추가','휘핑추가','젤라또추가','펄추가','꿀추가BIG','스테비아추가','스테비아추가BIG'],
+  '디카페인':['샷추가','2샷추가','디카페인샷추가','디카페인2샷추가','아몬드밀크변경','오트밀크변경','바닐라시럽추가','카라멜시럽추가','헤이즐넛시럽추가','라이트바닐라시럽추가','시럽추가BIG','연유추가','꿀추가','휘핑추가','젤라또추가','펄추가','꿀추가BIG','스테비아추가','스테비아추가BIG'],
+  '콜드브루':['아몬드밀크변경','오트밀크변경','바닐라시럽추가','카라멜시럽추가','헤이즐넛시럽추가','시럽추가BIG','연유추가','꿀추가','휘핑추가'],
+  '티(Tea)':['꿀추가','꿀추가BIG','펄추가','젤라또추가'],
+  '음료(논커피라떼)':['휘핑추가','젤라또추가','펄추가','샷추가'],
+  '에이드&주스':['펄추가','젤라또추가'],
+  '스무디&프라페':['펄추가','젤라또추가','휘핑추가'],
+  '디저트':[],
+};
+const defaultCatSubs={
+  '커피':[{name:'아메리카노류',menus:[]},{name:'라떼류',menus:[]}],
+  '디카페인':[{name:'디카 아메리카노류',menus:[]},{name:'디카 라떼류',menus:[]}],
+  '콜드브루':[],
+  '티(Tea)':[],
+  '음료(논커피라떼)':[],
+  '에이드&주스':[],
+  '스무디&프라페':[],
+  '디저트':[],
+};
+let catOptMap={...defaultCatOpts};
+let catSubMap={...defaultCatSubs};
+
+function setSyncStatus(s){
+  const el=document.getElementById('syncStatus');
+  if(s==='ok'){el.textContent='저장됨 ✓';el.className='sync-status sync-ok';}
+  else if(s==='ing'){el.textContent='저장 중...';el.className='sync-status sync-ing';}
+  else{el.textContent='오프라인';el.className='sync-status sync-err';}
+}
+function today(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+function todayDisplay(){
+  const d=new Date();
+  return (d.getMonth()+1)+'/'+d.getDate();
+}
+
+// ── 기본 DB ──
+const defaultMenu=[
+  // 커피 HOT
+  {name:'(HOT)아메리카노',alias:'뜨아',price:1700,cat:'커피'},
+  {name:'(HOT)헛개리카노',alias:'헛개핫',price:2400,cat:'커피'},
+  {name:'(HOT)꿀아메리카노',alias:'꿀아핫',price:2700,cat:'커피'},
+  {name:'(HOT)헤이즐넛아메리카노',alias:'헤이즐뜨아',price:2700,cat:'커피'},
+  {name:'(HOT)바닐라아메리카노',alias:'바닐라뜨아',price:2700,cat:'커피'},
+  {name:'(HOT)카페라떼',alias:'핫라떼;뜨라떼',price:2900,cat:'커피'},
+  {name:'(HOT)바닐라라떼',alias:'핫바닐라라떼',price:3400,cat:'커피'},
+  {name:'(HOT)연유라떼',alias:'연유라떼핫',price:3900,cat:'커피'},
+  {name:'(HOT)카라멜마끼아또',alias:'마끼야또핫',price:3700,cat:'커피'},
+  {name:'(HOT)카페모카',alias:'카페모카핫',price:3900,cat:'커피'},
+  {name:'(HOT)카푸치노',alias:'카푸치노핫',price:2900,cat:'커피'},
+  {name:'(HOT)헤이즐넛라떼',alias:'헤이즐라떼핫',price:3400,cat:'커피'},
+  // 커피 ICE
+  {name:'슈크림라떼',alias:'슈크림',price:3700,cat:'커피'},
+  {name:'커피초코칩 젤라또 슈크림라떼',alias:'커피짤라또',price:4400,cat:'커피'},
+  {name:'초코젤라또 말차라떼',alias:'초코말차',price:4400,cat:'커피'},
+  {name:'(ICE)헛개리카노',alias:'헛개',price:2400,cat:'커피'},
+  {name:'(ICE)왕메가헛개리카노',alias:'왕헛개',price:3400,cat:'커피'},
+  {name:'왕메가카페라떼',alias:'왕라떼',price:4400,cat:'커피'},
+  {name:'(ICE)할메가미숫커피',alias:'할미숫',price:2900,cat:'커피'},
+  {name:'(ICE)라이트 바닐라 아몬드라떼',alias:'라이트바닐라',price:3900,cat:'커피'},
+  {name:'(ICE)할메가커피',alias:'할메가',price:2100,cat:'커피'},
+  {name:'(ICE)왕할메가커피',alias:'왕할메가',price:3200,cat:'커피'},
+  {name:'(ICE)메가리카노',alias:'메가리',price:3300,cat:'커피'},
+  {name:'(ICE)아메리카노',alias:'아아',price:2000,cat:'커피'},
+  {name:'(ICE)꿀아메리카노',alias:'꿀아',price:2700,cat:'커피'},
+  {name:'(ICE)헤이즐넛아메리카노',alias:'헤이즐아아',price:2700,cat:'커피'},
+  {name:'(ICE)바닐라아메리카노',alias:'바닐라아아',price:2700,cat:'커피'},
+  {name:'(ICE)큐브라떼',alias:'큐브',price:4200,cat:'커피'},
+  {name:'(ICE)카페라떼',alias:'아라떼;아이스라떼',price:2900,cat:'커피'},
+  {name:'(ICE)바닐라라떼',alias:'바닐라라떼',price:3400,cat:'커피'},
+  {name:'(ICE)연유라떼',alias:'연유라떼',price:3900,cat:'커피'},
+  {name:'(ICE)카라멜마끼아또',alias:'마끼야또',price:3700,cat:'커피'},
+  {name:'(ICE)카페모카',alias:'모카',price:3900,cat:'커피'},
+  {name:'(ICE)카푸치노',alias:'카푸치노',price:2900,cat:'커피'},
+  {name:'(ICE)헤이즐넛라떼',alias:'헤이즐라떼',price:3400,cat:'커피'},
+  // 디카페인
+  {name:'(ICE)디카페인_왕메가헛개리카노',alias:'디카왕헛개',price:4900,cat:'디카페인'},
+  {name:'디카페인_왕메가카페라떼',alias:'디카왕라떼',price:5900,cat:'디카페인'},
+  {name:'(ICE)디카페인_라이트바닐라아몬드라떼',alias:'디카라이트바닐라',price:4900,cat:'디카페인'},
+  {name:'(ICE)디카페인_헛개리카노',alias:'디카헛개',price:3400,cat:'디카페인'},
+  {name:'(ICE)디카페인 메가리카노',alias:'디카메가리',price:4500,cat:'디카페인'},
+  {name:'(ICE)디카페인 아메리카노',alias:'디카아아',price:3000,cat:'디카페인'},
+  {name:'(ICE)디카페인 꿀아메리카노',alias:'디카꿀아',price:3700,cat:'디카페인'},
+  {name:'(ICE)디카페인 헤이즐넛아메리카노',alias:'디카헤이즐아아',price:3700,cat:'디카페인'},
+  {name:'(ICE)디카페인 바닐라아메리카노',alias:'디카바닐라아아',price:3700,cat:'디카페인'},
+  {name:'(ICE)디카페인 카페라떼',alias:'디카라떼',price:3900,cat:'디카페인'},
+  {name:'(ICE)디카페인 바닐라라떼',alias:'디카바닐라라떼',price:4400,cat:'디카페인'},
+  {name:'(ICE)디카페인 연유라떼',alias:'디카연유',price:4900,cat:'디카페인'},
+  {name:'(ICE)디카페인 카라멜마끼아또',alias:'디카마끼야또',price:4700,cat:'디카페인'},
+  {name:'(ICE)디카페인 카페모카',alias:'디카모카',price:4900,cat:'디카페인'},
+  {name:'(ICE)디카페인 카푸치노',alias:'디카카푸치노',price:3900,cat:'디카페인'},
+  {name:'(ICE)디카페인 헤이즐넛라떼',alias:'디카헤이즐라떼',price:4400,cat:'디카페인'},
+  {name:'(HOT)디카페인 아메리카노',alias:'디카뜨아',price:2500,cat:'디카페인'},
+  {name:'(HOT)디카페인 꿀아메리카노',alias:'디카꿀아핫',price:3700,cat:'디카페인'},
+  {name:'(HOT)디카페인 헤이즐넛아메리카노',alias:'디카헤이즐뜨아',price:3700,cat:'디카페인'},
+  {name:'(HOT)디카페인 바닐라아메리카노',alias:'디카바닐라뜨아',price:3700,cat:'디카페인'},
+  {name:'(HOT)디카페인 카페라떼',alias:'디카라떼핫',price:3900,cat:'디카페인'},
+  {name:'(HOT)디카페인 바닐라라떼',alias:'디카바닐라핫',price:4400,cat:'디카페인'},
+  {name:'(HOT)디카페인 연유라떼',alias:'디카연유핫',price:4900,cat:'디카페인'},
+  {name:'(HOT)디카페인 카라멜마끼아또',alias:'디카마끼핫',price:4700,cat:'디카페인'},
+  {name:'(HOT)디카페인 카페모카',alias:'디카모카핫',price:4900,cat:'디카페인'},
+  {name:'(HOT)디카페인 카푸치노',alias:'디카카푸치노핫',price:3900,cat:'디카페인'},
+  {name:'(HOT)디카페인 헤이즐넛라떼',alias:'디카헤이즐핫',price:4400,cat:'디카페인'},
+  {name:'(HOT)디카페인_헛개리카노',alias:'디카헛개핫',price:3400,cat:'디카페인'},
+  // 콜드브루
+  {name:'(HOT)콜드브루오리지널',alias:'콜드오리핫',price:3500,cat:'콜드브루'},
+  {name:'(HOT)콜드브루라떼',alias:'콜드라떼핫',price:4000,cat:'콜드브루'},
+  {name:'(ICE)콜드브루오리지널',alias:'콜드오리',price:3500,cat:'콜드브루'},
+  {name:'(ICE)콜드브루라떼',alias:'콜드라떼',price:4000,cat:'콜드브루'},
+  {name:'(HOT)콜드브루디카페인',alias:'콜드디카핫',price:3500,cat:'콜드브루'},
+  {name:'(HOT)콜드브루디카페인라떼',alias:'콜드디카라떼핫',price:4000,cat:'콜드브루'},
+  {name:'(ICE)콜드브루디카페인',alias:'콜드디카',price:3500,cat:'콜드브루'},
+  {name:'(ICE)콜드브루디카페인라떼',alias:'콜드디카라떼',price:4000,cat:'콜드브루'},
+  // 스무디&프라페
+  {name:'수박소르베 밀키 스무디',alias:'수박소르베',price:4400,cat:'스무디&프라페'},
+  {name:'수박 리치코코 슬러시',alias:'수박리치',price:4000,cat:'스무디&프라페'},
+  {name:'파인망고코코 스무디',alias:'파인망고',price:4400,cat:'스무디&프라페'},
+  {name:'자몽 톡톡 스무디',alias:'자몽톡톡',price:4000,cat:'스무디&프라페'},
+  {name:'애플머스캣_요거트 스무디',alias:'애플무스캣',price:3900,cat:'스무디&프라페'},
+  {name:'그린키위 훅훅 딸기스무디',alias:'그린키위훅훅',price:4000,cat:'스무디&프라페'},
+  {name:'밀크쉐이크',alias:'밀크쉐',price:2900,cat:'스무디&프라페'},
+  {name:'귤톡톡_젤리 스무디',alias:'꿀톡톡',price:3900,cat:'스무디&프라페'},
+  {name:'블루베리요거트스무디',alias:'블루베리요거트',price:3900,cat:'스무디&프라페'},
+  {name:'코코넛커피 스무디',alias:'코코넛',price:4800,cat:'스무디&프라페'},
+  {name:'골드망고스무디',alias:'골망스',price:3900,cat:'스무디&프라페'},
+  {name:'플레인퐁크러쉬',alias:'플레인퐁',price:3900,cat:'스무디&프라페'},
+  {name:'초코허니퐁크러쉬',alias:'초코허니퐁',price:3900,cat:'스무디&프라페'},
+  {name:'슈크림허니퐁크러쉬',alias:'슈크림퐁',price:3900,cat:'스무디&프라페'},
+  {name:'딸기퐁크러쉬',alias:'딸기퐁',price:3900,cat:'스무디&프라페'},
+  {name:'바나나퐁크러쉬',alias:'바나나퐁',price:3900,cat:'스무디&프라페'},
+  {name:'쿠키프라페',alias:'쿠키프',price:3900,cat:'스무디&프라페'},
+  {name:'딸기쿠키프라페',alias:'딸쿠',price:3900,cat:'스무디&프라페'},
+  {name:'민트프라페',alias:'민트프',price:3900,cat:'스무디&프라페'},
+  {name:'커피프라페',alias:'커피프',price:3900,cat:'스무디&프라페'},
+  {name:'스트로베리치즈홀릭',alias:'스트로베리치즈',price:4500,cat:'스무디&프라페'},
+  {name:'리얼초코프라페',alias:'리얼초코',price:3900,cat:'스무디&프라페'},
+  {name:'녹차프라페',alias:'녹프',price:3900,cat:'스무디&프라페'},
+  {name:'플레인요거트스무디',alias:'플요스',price:3900,cat:'스무디&프라페'},
+  {name:'딸기요거트스무디',alias:'딸요스',price:3900,cat:'스무디&프라페'},
+  {name:'망고요거트스무디',alias:'망요스',price:3900,cat:'스무디&프라페'},
+  // 에이드&주스
+  {name:'꿀수박주스',alias:'꿀수박',price:4000,cat:'에이드&주스'},
+  {name:'저당 꿀배_XO야쿠르트',alias:'꿀배',price:3700,cat:'에이드&주스'},
+  {name:'M망고 G구아바_C캐럿 주스',alias:'망고구아바',price:4000,cat:'에이드&주스'},
+  {name:'골드키위주스',alias:'골드키위',price:4000,cat:'에이드&주스'},
+  {name:'제로 부스트 에이드',alias:'제로부스트',price:3000,cat:'에이드&주스'},
+  {name:'블루베리플럼주스',alias:'블루베리',price:4000,cat:'에이드&주스'},
+  {name:'딸기주스',alias:'딸주',price:4000,cat:'에이드&주스'},
+  {name:'딸기바나나주스',alias:'딸바',price:4000,cat:'에이드&주스'},
+  {name:'사인머스캣그린주스',alias:'사인머스캣',price:4000,cat:'에이드&주스'},
+  {name:'레드오렌지자몽주스',alias:'레드오렌지',price:4000,cat:'에이드&주스'},
+  {name:'메가에이드',alias:'메가에',price:3900,cat:'에이드&주스'},
+  {name:'레몬에이드',alias:'레몬에',price:3500,cat:'에이드&주스'},
+  {name:'블루레몬에이드',alias:'블루레몬',price:3500,cat:'에이드&주스'},
+  {name:'자몽에이드',alias:'자몽에',price:3500,cat:'에이드&주스'},
+  {name:'청포도에이드',alias:'청포도',price:3500,cat:'에이드&주스'},
+  {name:'체리콜라',alias:'체리콜라',price:3300,cat:'에이드&주스'},
+  {name:'라임모히또',alias:'모히또',price:3800,cat:'에이드&주스'},
+  // 티(Tea)
+  {name:'제로 레몬말차_아이스티',alias:'제로레몬말차',price:2400,cat:'티(Tea)'},
+  {name:'망고풀 자스민 티플레저',alias:'망고자스민',price:3700,cat:'티(Tea)'},
+  {name:'유자생강차',alias:'유자생강',price:3300,cat:'티(Tea)'},
+  {name:'왕메가사과유자차',alias:'왕사유',price:4400,cat:'티(Tea)'},
+  {name:'(HOT)상큼 리치티',alias:'리치티핫',price:3900,cat:'티(Tea)'},
+  {name:'(ICE)상큼 리치티',alias:'리치티',price:3900,cat:'티(Tea)'},
+  {name:'복숭아아이스티',alias:'복숭아;아이스티',price:3000,cat:'티(Tea)'},
+  {name:'제로 복숭아 아이스티',alias:'제로복숭아',price:3000,cat:'티(Tea)'},
+  {name:'왕메가아이스티',alias:'왕아이스티',price:3900,cat:'티(Tea)'},
+  {name:'(ICE)허니자몽블랙티',alias:'허자블',price:3700,cat:'티(Tea)'},
+  {name:'(ICE)사과유자차',alias:'사유',price:3500,cat:'티(Tea)'},
+  {name:'(ICE)유자차',alias:'유자',price:3300,cat:'티(Tea)'},
+  {name:'(ICE)레몬차',alias:'레몬',price:3300,cat:'티(Tea)'},
+  {name:'(ICE)자몽차',alias:'자몽',price:3300,cat:'티(Tea)'},
+  {name:'(ICE)녹차',alias:'녹차',price:2500,cat:'티(Tea)'},
+  {name:'(ICE)페퍼민트',alias:'페퍼',price:2500,cat:'티(Tea)'},
+  {name:'(ICE)캐모마일',alias:'캐모',price:2500,cat:'티(Tea)'},
+  {name:'(ICE)얼그레이',alias:'얼그',price:2500,cat:'티(Tea)'},
+  {name:'(HOT)허니자몽블랙티',alias:'허자블핫',price:3700,cat:'티(Tea)'},
+  {name:'(HOT)사과유자차',alias:'사과유자핫',price:3500,cat:'티(Tea)'},
+  {name:'(HOT)유자차',alias:'유자핫',price:3300,cat:'티(Tea)'},
+  {name:'(HOT)레몬차',alias:'레몬핫',price:3300,cat:'티(Tea)'},
+  {name:'(HOT)자몽차',alias:'자몽핫',price:3300,cat:'티(Tea)'},
+  {name:'(HOT)녹차',alias:'녹차핫',price:2500,cat:'티(Tea)'},
+  {name:'(HOT)페퍼민트',alias:'페퍼핫',price:2500,cat:'티(Tea)'},
+  {name:'(HOT)캐모마일',alias:'캐모핫',price:2500,cat:'티(Tea)'},
+  {name:'(HOT)얼그레이',alias:'얼그핫',price:2500,cat:'티(Tea)'},
+  // 음료(논커피라떼)
+  {name:'딸기라떼',alias:'딸기라떼',price:3700,cat:'음료(논커피라떼)'},
+  {name:'왕메가초코',alias:'왕초코',price:4400,cat:'음료(논커피라떼)'},
+  {name:'(ICE)오레오초코라떼',alias:'오레오초코',price:3900,cat:'음료(논커피라떼)'},
+  {name:'아이스초코',alias:'아이스초코',price:3500,cat:'음료(논커피라떼)'},
+  {name:'(ICE)녹차라떼',alias:'녹라',price:3500,cat:'음료(논커피라떼)'},
+  {name:'(ICE)곡물라떼',alias:'곡물',price:3300,cat:'음료(논커피라떼)'},
+  {name:'(ICE)고구마라떼',alias:'고구마',price:3500,cat:'음료(논커피라떼)'},
+  {name:'(ICE)토피넛라떼',alias:'토피넛',price:3800,cat:'음료(논커피라떼)'},
+  {name:'(ICE)로얄밀크티라떼',alias:'로얄',price:3700,cat:'음료(논커피라떼)'},
+  {name:'(ICE)흑당버블라떼',alias:'흑당버블',price:3700,cat:'음료(논커피라떼)'},
+  {name:'(ICE)흑당버블밀크티라떼',alias:'흑당버블밀크',price:3800,cat:'음료(논커피라떼)'},
+  {name:'(ICE)흑당라떼(펄X)',alias:'흑당',price:3300,cat:'음료(논커피라떼)'},
+  {name:'(ICE)흑당밀크티라떼(펄X)',alias:'흑당밀크',price:3500,cat:'음료(논커피라떼)'},
+  {name:'핫초코',alias:'핫초코',price:3500,cat:'음료(논커피라떼)'},
+  {name:'(HOT)로얄밀크티라떼',alias:'로얄핫',price:3700,cat:'음료(논커피라떼)'},
+  {name:'(HOT)녹차라떼',alias:'녹라핫',price:3500,cat:'음료(논커피라떼)'},
+  {name:'(HOT)고구마라떼',alias:'고구마핫',price:3500,cat:'음료(논커피라떼)'},
+  {name:'(HOT)곡물라떼',alias:'곡물핫',price:3300,cat:'음료(논커피라떼)'},
+  {name:'(HOT)토피넛라떼',alias:'토피넛핫',price:3800,cat:'음료(논커피라떼)'},
+];
+const defaultOpt=[
+  {name:'샷추가',alias:'샷',price:600},{name:'2샷추가',alias:'2샷',price:1200},
+  {name:'디카페인샷추가',alias:'디카샷',price:1000},{name:'디카페인2샷추가',alias:'디카2샷',price:2000},
+  {name:'아몬드밀크변경',alias:'아몬드',price:500},{name:'오트밀크변경',alias:'오트',price:500},
+  {name:'바닐라시럽추가',alias:'바닐라시럽',price:500},{name:'카라멜시럽추가',alias:'카라멜시럽',price:500},
+  {name:'헤이즐넛시럽추가',alias:'헤이즐시럽',price:500},{name:'라이트바닐라시럽추가',alias:'라이트바닐시럽;라이트바닐라시럽',price:800},
+  {name:'시럽추가BIG',alias:'시럽빅',price:700},{name:'연유추가',alias:'연유',price:700},
+  {name:'꿀추가',alias:'꿀',price:700},{name:'휘핑추가',alias:'휘핑',price:500},
+  {name:'젤라또추가',alias:'젤라또',price:700},{name:'펄추가',alias:'펄',price:700},
+  {name:'꿀추가BIG',alias:'꿀빅',price:1000},{name:'스테비아추가',alias:'스테비아',price:600},
+  {name:'스테비아추가BIG',alias:'스테비아빅',price:1000},
+];
+const defaultDes=[
+  {name:'팥빙 젤라또 파르페',alias:'팥빙젤라또',price:4400,cat:'디저트'},
+  {name:'말차 젤라또 팥빙 파르페',alias:'말차젤라또',price:4400,cat:'디저트'},
+  {name:'엠지씨네 통쏘시지 김밥빔',alias:'통쏘시지',price:4400,cat:'디저트'},
+  {name:'버터가 쫀득해떡',alias:'쫀득',price:1400,cat:'디저트'},
+  {name:'버터가 쫀득해떡(6개입)',alias:'쫀득6개',price:8000,cat:'디저트'},
+  {name:'내 맘대로 다봄 젤라또 (딸기&요거트)',alias:'다봄젤라또딸기',price:3900,cat:'디저트'},
+  {name:'내 맘대로 다봄 젤라또 (초코&말차)',alias:'다봄젤라또초코',price:3900,cat:'디저트'},
+  {name:'에그머니 머핀졀 브런치빵',alias:'에그머니',price:3800,cat:'디저트'},
+  {name:'엠지씨네 양념 컵치킨',alias:'컵치킨',price:4400,cat:'디저트'},
+  {name:'딸기 크림치즈 쫀득빵',alias:'딸기쫀득',price:3200,cat:'디저트'},
+  {name:'닭치즈 불고기 베이크',alias:'불고기베이크',price:3900,cat:'디저트'},
+  {name:'엠지씨네 라면땅',alias:'라면땅',price:1900,cat:'디저트'},
+  {name:'요거젤라또 씨리얼_초코베리믹스',alias:'요거젤초코',price:3900,cat:'디저트'},
+  {name:'요거젤라또 초코베리믹스',alias:'요거젤',price:3900,cat:'디저트'},
+  {name:'멕시칸 미트젤리 핫도그',alias:'멕시칸',price:3800,cat:'디저트'},
+  {name:'치즈 품은 감자빵',alias:'감자',price:3900,cat:'디저트'},
+  {name:'엠지씨네 메가칩',alias:'메가칩',price:1900,cat:'디저트'},
+  {name:'로얄 말스토리 스모어 쿠키',alias:'스모어쿠키',price:2900,cat:'디저트'},
+  {name:'메가베리 아사이볼',alias:'아사이',price:3900,cat:'디저트'},
+  {name:'와앙메리칸 쫀득 핫도그',alias:'핫도그',price:3600,cat:'디저트'},
+  {name:'햄&치즈샌드위치',alias:'햄치즈',price:2400,cat:'디저트'},
+  {name:'바질 치폴레 치킨 치아바타',alias:'치아바타',price:4400,cat:'디저트'},
+  {name:'버터버터 뜰어먹는 식빵(ICE)브런치 세트',alias:'브런치세트ICE',price:5700,cat:'디저트'},
+  {name:'버터버터 뜰어먹는 식빵(HOT)브런치 세트',alias:'브런치세트HOT',price:5400,cat:'디저트'},
+  {name:'버터버터 뜰어먹는 식빵과 딸기잼 세트',alias:'딸기잼세트',price:3700,cat:'디저트'},
+  {name:'감자빵',alias:'감자빵',price:3500,cat:'디저트'},
+  {name:'딸기요거트 마카롱',alias:'딸기마카롱',price:2100,cat:'디저트'},
+  {name:'메가초코 마카롱',alias:'초코마카롱',price:2100,cat:'디저트'},
+  {name:'유니콘프라페 마카롱',alias:'유니콘마카롱',price:2100,cat:'디저트'},
+  {name:'초코스모어쿠키',alias:'초코쿠키',price:2900,cat:'디저트'},
+  {name:'메가쿠키(마카다미아)',alias:'메가쿠키마카',price:2000,cat:'디저트'},
+  {name:'메가쿠키(초코칩)',alias:'메가쿠키초코',price:2000,cat:'디저트'},
+  {name:'초코무스케익',alias:'초코무스',price:3500,cat:'디저트'},
+  {name:'치즈케익',alias:'치즈케',price:3500,cat:'디저트'},
+  {name:'티라미수케익',alias:'티라미수',price:3500,cat:'디저트'},
+  {name:'버터버터 뜰어먹는 식빵',alias:'버터식빵',price:2900,cat:'디저트'},
+  {name:'버터버터소금빵',alias:'소금빵',price:3200,cat:'디저트'},
+  {name:'버터버터소금빵(쥬에그젤)',alias:'쥬에그젤',price:3800,cat:'디저트'},
+  {name:'아이스 딸기라떼 와잉 슈',alias:'딸기와잉슈',price:2400,cat:'디저트'},
+  {name:'초코젤라또크로플',alias:'초코크로플',price:3500,cat:'디저트'},
+  {name:'크로크무슈',alias:'크로크무슈',price:3800,cat:'디저트'},
+  {name:'플레인크로플',alias:'크로플',price:2500,cat:'디저트'},
+  {name:'핫 치킨&딥치즈_치아바타',alias:'핫치킨치아',price:4400,cat:'디저트'},
+  {name:'허니브레드',alias:'허니브',price:4500,cat:'디저트'},
+];
+
+// ── Firebase ──
+function sv(){
+  setSyncStatus('ing');
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    db.ref('jangbu/menuDB').set(menuDB)
+      .then(()=>db.ref('jangbu/optionDB').set(optionDB))
+      .then(()=>db.ref('jangbu/dessertDB').set(dessertDB))
+      .then(()=>db.ref('jangbu/catOptMap').set(catOptMap))
+      .then(()=>db.ref('jangbu/catSubMap').set(catSubMap))
+      .then(()=>setSyncStatus('ok'))
+      .catch(()=>setSyncStatus('err'));
+  },1500);
+}
+function saveSoldout(){
+  db.ref('soldout').set(soldout);
+}
+function saveHidden(){
+  db.ref('hiddenMenus').set(hiddenMenus);
+}
+// Firebase에 쌓인 (HOT)xxx / (ICE)xxx 형태 키를 cleanName으로 정규화
+function normalizeSoldoutKeys(){
+  let changed=false;
+  [soldout,hiddenMenus].forEach((obj,i)=>{
+    const ref=i===0?'soldout':'hiddenMenus';
+    Object.keys(obj).forEach(k=>{
+      const clean=k.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
+      if(clean!==k){
+        if(!obj[clean])obj[clean]=obj[k]; // cleanName 없으면 이관
+        delete obj[k];
+        changed=true;
+      }
+    });
+    if(changed)db.ref(ref).set(obj);
+  });
+  if(changed)console.log('soldout/hiddenMenus 키 정규화 완료');
+}
+function saveDeptSettings(){
+  // 각 부서의 비밀번호를 해당 부서 경로에 저장
+  depts.forEach((d,i)=>{
+    if(d.password!==undefined)saveDept(i,true);
+  });
+}
+function saveDept(di,immediate){
+  savingDepts.add(di);
+  clearTimeout(deptSaveTimers[di]);
+  setSyncStatus('ing');
+  const delay=immediate?0:1500;
+  deptSaveTimers[di]=setTimeout(()=>{
+    db.ref('jangbu/depts/'+di).set(depts[di])
+      .then(()=>{setSyncStatus('ok');setTimeout(()=>savingDepts.delete(di),800);})
+      .catch(()=>{setSyncStatus('err');savingDepts.delete(di);});
+  },delay);
+}
+function loadFromFirebase(){
+  db.ref('jangbu').once('value').then(snap=>{
+    const data=snap.val();
+    if(data){
+      const rawDepts=data.depts;
+      if(rawDepts&&typeof rawDepts==='object'&&!Array.isArray(rawDepts)){
+        depts=Object.values(rawDepts);
+      } else {
+        depts=rawDepts||[];
+      }
+      // menuDB — null이거나 빈 배열이면 defaultMenu 사용
+      const rawMenu=(data.menuDB&&data.menuDB.length>0)?data.menuDB:[...defaultMenu];
+      menuDB=rawMenu.map(m=>m&&m.name?(m.cat?m:{...m,cat:guessCat(m.name)}):null).filter(Boolean);
+      if(menuDB.length===0)menuDB=[...defaultMenu];
+      optionDB=(data.optionDB&&data.optionDB.length>0)?data.optionDB:[...defaultOpt];
+      // dessertDB — null이거나 빈 배열이면 defaultDes 사용
+      const rawDes=(data.dessertDB&&data.dessertDB.length>0)?data.dessertDB:[...defaultDes];
+      dessertDB=rawDes.map(m=>m&&m.name?(m.cat?m:{...m,cat:'디저트'}):null).filter(Boolean);
+      if(dessertDB.length===0)dessertDB=[...defaultDes];
+      catOptMap=data.catOptMap||{...defaultCatOpts};
+      catSubMap=data.catSubMap||JSON.parse(JSON.stringify(defaultCatSubs));
+    } else {
+      depts=[];menuDB=[...defaultMenu];optionDB=[...defaultOpt];dessertDB=[...defaultDes];catOptMap={...defaultCatOpts};
+    setTimeout(normalizeSoldoutKeys,2000);
+    }
+    setSyncStatus('ok');initUI();
+  }).catch(()=>{
+    depts=[];menuDB=[...defaultMenu];optionDB=[...defaultOpt];dessertDB=[...defaultDes];
+    setSyncStatus('err');initUI();
+  });
+}
+function listenRealtime(){
+  db.ref('jangbu/depts').on('value',snap=>{
+    const data=snap.val();
+    const newDepts=data?(Array.isArray(data)?data:Object.values(data)):[];
+    newDepts.forEach((d,i)=>{if(!savingDepts.has(i))depts[i]=d;});
+    if(newDepts.length<depts.length&&savingDepts.size===0)depts=newDepts;
+    renderHome();renderSubnav();
+    if(curScreen==='ledger'&&curDeptIdx!==null&&curDeptIdx<depts.length){
+      if(!savingDepts.has(curDeptIdx))renderLedger(curDeptIdx);
+    }
+    if(curScreen==='summary')renderSummary();
+  });
+  db.ref('jangbu/menuDB').on('value',snap=>{
+    const v=snap.val();
+    if(v&&v.length>0)menuDB=v.map(m=>m.cat?m:{...m,cat:guessCat(m.name)});
+    else menuDB=[...defaultMenu]; // null이면 기본값
+  });
+  db.ref('jangbu/optionDB').on('value',snap=>{if(snap.val())optionDB=snap.val();});
+  db.ref('jangbu/dessertDB').on('value',snap=>{
+    const v=snap.val();
+    if(v&&v.length>0)dessertDB=v.map(m=>m.cat?m:{...m,cat:'디저트'});
+    else dessertDB=[...defaultDes];
+  });
+  db.ref('jangbu/catOptMap').on('value',snap=>{if(snap.val())catOptMap=snap.val();});
+  db.ref('jangbu/catSubMap').on('value',snap=>{catSubMap=snap.val()||JSON.parse(JSON.stringify(defaultCatSubs));});
+  db.ref('soldout').on('value',snap=>{
+    soldout=snap.val()||{};
+    if(!_skipSoldoutRender&&curScreen==='mgmt'&&curMgmtTab==='soldout')renderSoldoutMgmt();
+    _skipSoldoutRender=false;
+  });
+  db.ref('hiddenMenus').on('value',snap=>{
+    hiddenMenus=snap.val()||{};
+    if(!_skipHiddenRender&&curScreen==='mgmt'&&curMgmtTab==='soldout')renderSoldoutMgmt();
+    _skipHiddenRender=false;
+  });
+}
+
+// ── 화면 전환 ──
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  curScreen=id;
+  document.querySelectorAll('.snav-item').forEach(b=>b.classList.remove('active'));
+  document.getElementById('snav-home').classList.toggle('active',id==='home');
+  document.getElementById('snav-summary').classList.toggle('active',id==='summary');
+  document.getElementById('snav-mgmt').classList.toggle('active',id==='mgmt');
+  if(id==='ledger'&&curDeptIdx!==null){
+    const btns=document.querySelectorAll('.snav-dept-btn');
+    btns.forEach((b,i)=>b.classList.toggle('active',i===curDeptIdx));
+  }
+}
+
+function goHome(){showScreen('home');renderHome();}
+function goSummary(){showScreen('summary');renderSummary();}
+
+let curMgmtTab='menu',curMenuSub='drink',curOptSub='list';
+
+function goMgmt(){
+  showScreen('mgmt');
+  switchMgmtTab(curMgmtTab);
+}
+
+function switchMgmtTab(tab){
+  curMgmtTab=tab;
+  ['menu','dept','opt','soldout'].forEach(t=>{
+    document.getElementById('mtab-'+t).classList.toggle('active',t===tab);
+    document.getElementById('mscreen-'+t).classList.toggle('active',t===tab);
+  });
+  if(tab==='menu')renderMenuDb();
+  if(tab==='dept')renderDeptMgmt();
+  if(tab==='opt')renderOptMgmt();
+  if(tab==='soldout')renderSoldoutMgmt();
+}
+
+// ── 메뉴 DB 탭 ──
+function switchMenuSub(sub){
+  curMenuSub=sub;
+  document.getElementById('msub-drink').style.cssText=sub==='drink'?'border-color:#185FA5;color:#185FA5;':'';
+  document.getElementById('msub-dessert').style.cssText=sub==='dessert'?'border-color:#185FA5;color:#185FA5;':'';
+  renderMenuDb();
+}
+const MAIN_CATS=['커피','디카페인','콜드브루','티(Tea)','음료(논커피라떼)','에이드&주스','스무디&프라페','디저트'];
+let dragSrcIdx=null,dragSrcArr=null;
+
+function renderMenuDb(){
+  const isDesert=curMenuSub==='dessert';
+  const arr=isDesert?dessertDB:menuDB;
+  // 카테고리별로 그룹핑
+  const cats=isDesert?['디저트']:MAIN_CATS.filter(c=>c!=='디저트');
+  let h='';
+  cats.forEach(cat=>{
+    const items=arr.map((it,i)=>({it,i})).filter(({it})=>(it.cat||guessCat(it.name))===cat);
+    if(items.length===0)return;
+    h+=`<div class="db-cat-header" ondragover="event.preventDefault()" ondrop="dropOnCat('${esc(cat)}',event)">
+      📂 ${cat} <span style="font-size:11px;color:#aaa;">(${items.length}개)</span>
+    </div>`;
+    h+=`<table class="dbt" style="margin-bottom:0;"><thead><tr>
+      <th style="width:20px;"></th><th>메뉴명</th><th>별칭</th>
+      <th style="width:65px;">금액</th><th style="width:60px;">카테고리</th><th style="width:24px;"></th>
+    </tr></thead><tbody>`;
+    items.forEach(({it,i})=>{
+      h+=`<tr draggable="true"
+        ondragstart="dragStart(${i},event)"
+        ondragover="event.preventDefault();this.style.background='#FFF9D6'"
+        ondragleave="this.style.background=''"
+        ondrop="dropOnRow(${i},event)"
+        style="cursor:grab;">
+        <td style="text-align:center;color:#aaa;font-size:12px;">⠿</td>
+        <td><input value="${esc(it.name)}" onchange="dbcM(${i},'name',this.value)"></td>
+        <td><input value="${esc(it.alias||'')}" onchange="dbcM(${i},'alias',this.value)"></td>
+        <td><input value="${it.price}" onchange="dbcM(${i},'price',this.value)" style="text-align:right;width:60px;"></td>
+        <td><select onchange="dbcM(${i},'cat',this.value)" style="font-size:11px;width:100%;border:0.5px solid #e0dfd8;border-radius:4px;padding:2px;">
+          ${MAIN_CATS.map(c=>`<option value="${c}"${(it.cat||guessCat(it.name))===c?' selected':''}>${c}</option>`).join('')}
+        </select></td>
+        <td><button class="bdel" onclick="dbdM(${i})">✕</button></td>
+      </tr>`;
+    });
+    h+=`</tbody></table>`;
+  });
+  h+=`<div style="height:12px;"></div>`;
+  document.getElementById('menuDbBody').innerHTML=h;
+}
+function dbcM(i,col,val){
+  const arr=curMenuSub==='dessert'?dessertDB:menuDB;
+  arr[i][col]=col==='price'?(parseInt(val)||0):val;
+  if(col==='cat')renderMenuDb();
+}
+function dbdM(i){(curMenuSub==='dessert'?dessertDB:menuDB).splice(i,1);renderMenuDb();}
+
+// 드래그앤드롭
+function dragStart(i,e){
+  dragSrcIdx=i;
+  dragSrcArr=curMenuSub==='dessert'?dessertDB:menuDB;
+  e.dataTransfer.effectAllowed='move';
+}
+function dropOnRow(targetIdx,e){
+  e.preventDefault();
+  if(dragSrcIdx===null||dragSrcIdx===targetIdx)return;
+  const arr=dragSrcArr;
+  const item=arr.splice(dragSrcIdx,1)[0];
+  const newTarget=dragSrcIdx<targetIdx?targetIdx-1:targetIdx;
+  arr.splice(newTarget,0,item);
+  dragSrcIdx=null;
+  renderMenuDb();
+}
+function dropOnCat(cat,e){
+  e.preventDefault();
+  if(dragSrcIdx===null)return;
+  const arr=dragSrcArr;
+  arr[dragSrcIdx].cat=cat;
+  dragSrcIdx=null;
+  renderMenuDb();
+}
+
+// ── 부서 관리 탭 ──
+function renderDeptMgmt(){
+  let h=`<table class="dbt"><thead><tr><th>부서명</th><th style="width:130px;">비밀번호 (숫자)</th><th style="width:30px;"></th></tr></thead><tbody>`;
+  depts.forEach((d,i)=>{
+    h+=`<tr>
+      <td><input value="${esc(d.name)}" onchange="depts[${i}].name=this.value;renderSubnav();saveDept(${i},true)"></td>
+      <td><input type="password" maxlength="6" placeholder="4~6자리" value="${esc(d.password||'')}" 
+          oninput="depts[${i}].password=this.value"
+          onchange="saveDept(${i},true)"
+          style="letter-spacing:3px;text-align:center;"></td>
+      <td><button class="bdel" onclick="delDept(${i})">✕</button></td></tr>`;
+  });
+  h+=`</tbody></table>`;
+  document.getElementById('deptMgmtBody').innerHTML=h;
+}
+function delDept(i){
+  if(!confirm(depts[i].name+' 부서를 삭제할까요? 장부 데이터도 모두 삭제됩니다.'))return;
+  // Firebase에서 삭제
+  db.ref('jangbu/depts/'+i).remove();
+  depts.splice(i,1);
+  renderSubnav();renderHome();renderDeptMgmt();
+}
+
+// ── 옵션 관리 탭 ──
+function switchOptSub(sub){
+  curOptSub=sub;
+  document.getElementById('osub-list').style.cssText=sub==='list'?'border-color:#B8520A;color:#B8520A;':'';
+  document.getElementById('osub-cat').style.cssText=sub==='cat'?'border-color:#B8520A;color:#B8520A;':'';
+  renderOptMgmt();
+}
+let dragSubSrc=null,dragSubSrcCat=null,dragSubSrcSub=null;
+
+function renderOptMgmt(){
+  if(curOptSub==='list'){
+    let h=`<table class="dbt"><thead><tr><th>옵션명</th><th>별칭</th><th style="width:70px;">금액</th><th style="width:30px;"></th></tr></thead><tbody>`;
+    optionDB.forEach((it,i)=>{
+      h+=`<tr>
+        <td><input value="${esc(it.name)}" onchange="optionDB[${i}].name=this.value"></td>
+        <td><input value="${esc(it.alias||'')}" onchange="optionDB[${i}].alias=this.value"></td>
+        <td><input value="${it.price}" onchange="optionDB[${i}].price=parseInt(this.value)||0" style="text-align:right;width:65px;"></td>
+        <td><button class="bdel" onclick="optionDB.splice(${i},1);renderOptMgmt()">✕</button></td></tr>`;
+    });
+    h+=`</tbody></table><button class="btn-ar" onclick="optionDB.push({name:'',alias:'',price:0});renderOptMgmt()">+ 옵션 추가</button>`;
+    document.getElementById('optMgmtBody').innerHTML=h;
+  } else {
+    // 대카테고리 > 중카테고리 구조
+    let h='<div style="font-size:11px;color:#888;margin-bottom:10px;">메뉴를 드래그해서 중카테고리 간 이동 · 중카테고리별로 허용 옵션 설정</div>';
+    MAIN_CATS.forEach(cat=>{
+      const subs=(catSubMap&&catSubMap[cat])||[];
+      const catMenus=[...menuDB,...dessertDB].filter(m=>(m.cat||guessCat(m.name))===cat);
+      // 중카테고리에 배정된 메뉴
+      const assignedMenus=subs.flatMap(s=>s.menus||[]);
+      // 미배정 메뉴
+      const unassigned=catMenus.filter(m=>!assignedMenus.includes(m.name));
+      h+=`<div style="margin-bottom:16px;border:0.5px solid #e0dfd8;border-radius:8px;overflow:hidden;">
+        <div style="background:#F5F4F0;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:13px;font-weight:500;">${cat}</span>
+          <button class="abtn" style="font-size:11px;padding:2px 8px;" onclick="addSubCat('${esc(cat)}')">+ 중카테고리 추가</button>
+        </div>`;
+      // 미배정 메뉴 드롭존
+      if(unassigned.length>0){
+        h+=`<div style="padding:8px 12px;background:#FFFBE6;border-bottom:0.5px solid #e0dfd8;">
+          <div style="font-size:11px;color:#aaa;margin-bottom:4px;">미배정 메뉴 (드래그해서 중카테고리로 이동)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px;">`;
+        unassigned.forEach(m=>{
+          h+=`<span draggable="true" 
+            ondragstart="dragSubStart('${esc(m.name)}','${esc(cat)}',null,event)"
+            style="font-size:11px;padding:2px 8px;border:0.5px solid #e0dfd8;border-radius:10px;background:#fff;cursor:grab;">${esc(m.name)}</span>`;
+        });
+        h+=`</div></div>`;
+      }
+      // 중카테고리들
+      subs.forEach((sub,si)=>{
+        const selOpts=catOptMap[cat+'>>'+sub.name]||catOptMap[cat]||[];
+        h+=`<div style="border-top:0.5px solid #e0dfd8;">
+          <div style="padding:6px 12px;background:#fff;display:flex;align-items:center;gap:8px;"
+            ondragover="event.preventDefault()"
+            ondrop="dropOnSub('${esc(cat)}',${si},event)">
+            <span style="font-size:12px;font-weight:500;min-width:100px;">📁
+              <input value="${esc(sub.name)}" 
+                style="border:none;font-size:12px;font-weight:500;width:120px;outline:none;"
+                onchange="catSubMap['${esc(cat)}'][${si}].name=this.value;sv();">
+            </span>
+            <button class="bdel" onclick="delSubCat('${esc(cat)}',${si})" title="중카테고리 삭제">✕</button>
+          </div>
+          <!-- 배정된 메뉴 -->
+          <div style="padding:4px 12px 8px 28px;display:flex;flex-wrap:wrap;gap:4px;"
+            ondragover="event.preventDefault()"
+            ondrop="dropOnSub('${esc(cat)}',${si},event)">`;
+        (sub.menus||[]).forEach(mName=>{
+          h+=`<span draggable="true"
+            ondragstart="dragSubStart('${esc(mName)}','${esc(cat)}',${si},event)"
+            style="font-size:11px;padding:2px 8px;border:0.5px solid #E8D84A;border-radius:10px;background:#FFFBE6;cursor:grab;">${esc(mName)} <span onclick="removeFromSub('${esc(cat)}',${si},'${esc(mName)}')" style="color:#aaa;cursor:pointer;margin-left:2px;">✕</span></span>`;
+        });
+        h+=`</div>
+          <!-- 허용 옵션 -->
+          <div style="padding:4px 12px 8px 28px;border-top:0.5px dashed #f0efe8;">
+            <div style="font-size:10px;color:#aaa;margin-bottom:4px;">허용 옵션:</div>
+            <div style="display:flex;flex-wrap:wrap;gap:3px;">`;
+        optionDB.forEach(opt=>{
+          const on=selOpts.includes(opt.name);
+          h+=`<span class="catopt-tag${on?' on':''}" style="font-size:10px;" 
+            onclick="toggleSubOpt('${esc(cat)}','${esc(sub.name)}','${esc(opt.name)}')">${esc(opt.name)}</span>`;
+        });
+        h+=`</div></div></div>`;
+      });
+      // 대카테고리 기본 옵션 (중카테고리 없을 때)
+      if(subs.length===0){
+        const selOpts=catOptMap[cat]||[];
+        h+=`<div style="padding:8px 12px;border-top:0.5px solid #e0dfd8;">
+          <div style="font-size:11px;color:#aaa;margin-bottom:6px;">대카테고리 기본 옵션 (중카테고리 없을 때 적용):</div>
+          <div style="display:flex;flex-wrap:wrap;gap:3px;">`;
+        optionDB.forEach(opt=>{
+          const on=selOpts.includes(opt.name);
+          h+=`<span class="catopt-tag${on?' on':''}" style="font-size:10px;"
+            onclick="toggleCatOpt('${esc(cat)}','${esc(opt.name)}')">${esc(opt.name)}</span>`;
+        });
+        h+=`</div></div>`;
+      }
+      h+=`</div>`;
+    });
+    document.getElementById('optMgmtBody').innerHTML=h;
+  }
+}
+
+// 중카테고리 추가/삭제
+function addSubCat(cat){
+  if(!catSubMap[cat])catSubMap[cat]=[];
+  catSubMap[cat].push({name:'새 중카테고리',menus:[]});
+  sv();renderOptMgmt();
+}
+function delSubCat(cat,si){
+  if(!confirm('중카테고리를 삭제할까요? 배정된 메뉴는 미배정으로 돌아갑니다.'))return;
+  catSubMap[cat].splice(si,1);
+  sv();renderOptMgmt();
+}
+function removeFromSub(cat,si,mName){
+  const menus=catSubMap[cat][si].menus||[];
+  const idx=menus.indexOf(mName);
+  if(idx>=0)menus.splice(idx,1);
+  sv();renderOptMgmt();
+}
+
+// 드래그앤드롭 (옵션관리)
+function dragSubStart(mName,cat,subIdx,e){
+  dragSubSrc=mName;dragSubSrcCat=cat;dragSubSrcSub=subIdx;
+  e.dataTransfer.effectAllowed='move';
+}
+function dropOnSub(cat,si,e){
+  e.preventDefault();e.stopPropagation();
+  if(!dragSubSrc)return;
+  // 기존 위치에서 제거
+  if(dragSubSrcSub!==null&&catSubMap[dragSubSrcCat]&&catSubMap[dragSubSrcCat][dragSubSrcSub]){
+    const oldMenus=catSubMap[dragSubSrcCat][dragSubSrcSub].menus||[];
+    const idx=oldMenus.indexOf(dragSubSrc);
+    if(idx>=0)oldMenus.splice(idx,1);
+  }
+  // 새 위치에 추가
+  if(!catSubMap[cat][si].menus)catSubMap[cat][si].menus=[];
+  if(!catSubMap[cat][si].menus.includes(dragSubSrc)){
+    catSubMap[cat][si].menus.push(dragSubSrc);
+  }
+  dragSubSrc=null;
+  sv();renderOptMgmt();
+}
+
+// 중카테고리별 옵션 토글
+function toggleSubOpt(cat,subName,optName){
+  const key=cat+'>>'+subName;
+  if(!catOptMap[key])catOptMap[key]=[...(catOptMap[cat]||[])];
+  const idx=catOptMap[key].indexOf(optName);
+  if(idx>=0)catOptMap[key].splice(idx,1);
+  else catOptMap[key].push(optName);
+  sv();renderOptMgmt();
+}
+
+// ── 품절 관리 탭 — cat 필드 기반 ──
+function renderSoldoutMgmt(){
+  const allMenus=[...menuDB,...dessertDB];
+  let h=`<div style="display:flex;gap:6px;margin-bottom:10px;font-size:11px;align-items:center;flex-wrap:wrap;">
+    <span style="background:#eee;border-radius:4px;padding:2px 7px;color:#555;">탭: 정상 → 🚫품절 → 👻숨김 → 정상 순환</span>
+  </div>`;
+  MAIN_CATS.forEach(cat=>{
+    const items=allMenus.filter(m=>(m.cat||guessCat(m.name))===cat);
+    if(items.length===0)return;
+    // cleanName 기준 중복 제거 (HOT/ICE 같은 이름은 하나만 표시)
+    const seen=new Set();
+    const unique=[];
+    items.forEach(m=>{
+      const cn=m.name.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
+      if(!seen.has(cn)){seen.add(cn);unique.push({...m,cleanName:cn});}
+    });
+    h+=`<div class="so-cat">${cat} (${unique.length})</div><div class="soldout-grid">`;
+    unique.forEach(m=>{
+      const cn=m.cleanName;
+      const isSold=!!soldout[cn];
+      const isHidden=!!hiddenMenus[cn];
+      const cls=isHidden?'hidden':isSold?'sold':'';
+      const badge=isHidden?'<span class="so-badge hidden">👻 숨김</span>':isSold?'<span class="so-badge sold">🚫 품절</span>':'';
+      h+=`<div class="so-item${cls?' '+cls:''}" onclick="cycleSoldout('${esc(cn)}')">
+        ${esc(cn)}${badge}
+      </div>`;
+    });
+    h+='</div>';
+  });
+  document.getElementById('soldoutBody').innerHTML=h;
+}
+// 탭할 때마다 정상 → 품절 → 숨김 → 정상 순환
+function cycleSoldout(name){
+  const isSold=!!soldout[name];
+  const isHidden=!!hiddenMenus[name];
+  if(!isSold&&!isHidden){
+    // 정상 → 품절
+    soldout[name]=true;
+    _skipSoldoutRender=true;
+    db.ref('soldout').set(soldout);
+  } else if(isSold&&!isHidden){
+    // 품절 → 숨김
+    delete soldout[name];
+    hiddenMenus[name]=true;
+    _skipSoldoutRender=true;
+    _skipHiddenRender=true;
+    db.ref('soldout').set(soldout);
+    db.ref('hiddenMenus').set(hiddenMenus);
+  } else {
+    // 숨김 → 정상
+    delete soldout[name];
+    delete hiddenMenus[name];
+    _skipSoldoutRender=true;
+    _skipHiddenRender=true;
+    db.ref('soldout').set(soldout);
+    db.ref('hiddenMenus').set(hiddenMenus);
+  }
+  renderSoldoutMgmt();
+}
+function toggleHidden(name){
+  if(hiddenMenus[name])delete hiddenMenus[name];
+  else hiddenMenus[name]=true;
+  _skipHiddenRender=true;
+  db.ref('hiddenMenus').set(hiddenMenus);
+  renderSoldoutMgmt();
+}
+function openDept(i){
+  curDeptIdx=i;showScreen('ledger');
+  document.getElementById('ledgerName').textContent=depts[i].name+' 장부';
+  renderLedger(i);
+}
+
+// ── 서브 네비 렌더 ──
+function renderSubnav(){
+  const wrap=document.getElementById('snavDepts');
+  wrap.innerHTML='';
+  depts.forEach((d,i)=>{
+    const b=document.createElement('button');
+    b.className='snav-item snav-dept-btn'+(curScreen==='ledger'&&curDeptIdx===i?' active':'');
+    b.textContent=d.name;
+    b.onclick=()=>openDept(i);
+    wrap.appendChild(b);
+  });
+}
+
+// ── 홈 화면 ──
+function renderHome(){
+  const grid=document.getElementById('deptGrid');
+  grid.innerHTML='';
+  depts.forEach((d,i)=>{
+    const bal=calcDeptBal(i);
+    const cls=bal<0?'neg':bal>0?'pos':'zero';
+    const div=document.createElement('div');
+    div.className='dept-card';div.onclick=()=>openDept(i);
+    div.innerHTML=`<div class="dept-card-label">부서</div>
+      <div class="dept-card-name">${esc(d.name)}</div>
+      <div class="dept-card-label">현재잔액</div>
+      <div class="dept-card-bal ${cls}">${bal.toLocaleString()}원</div>`;
+    grid.appendChild(div);
+  });
+}
+function calcDeptBal(i){
+  let bal=0;(depts[i].rows||[]).forEach(r=>{bal+=pn(r.pay)-pn(r.order);});return bal;
+}
+
+// ── 장부 ──
+function norm(s){
+  if(!s)return'';
+  let r=s.replace(/\s/g,'').toLowerCase();
+  if(!r.includes('아메리카노')&&!r.includes('아아')&&!r.includes('뜨아')&&!r.includes('디카뜨아')&&!r.includes('디카아아')){
+    r=r.replace(/\(hot\)/g,'').replace(/\(ice\)/g,'');
+  }
+  return r;
+}
+function search(q){
+  if(!q)return[];
+  const nq=norm(q);const all=[...menuDB,...dessertDB];
+  const seen=new Map();const res=[];
+  for(const item of all){
+    const nn=norm(item.name);
+    const als=(item.alias||'').split(';').map(a=>norm(a)).filter(Boolean);
+    if(nn.includes(nq)||als.some(a=>a.includes(nq))){
+      const key=norm(item.name).replace(/\(hot\)/g,'').replace(/\(ice\)/g,'');
+      if(!seen.has(key)){seen.set(key,true);res.push(item);}
+    }
+  }
+  return res.slice(0,10);
+}
+function ensureRows(di){
+  while(depts[di].rows.length<ROWS)depts[di].rows.push({date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''});
+}
+function renderLedger(di){
+  const tb=document.getElementById('ledgerBody');
+  ensureRows(di);tb.innerHTML='';
+  depts[di].rows.forEach((row,ri)=>tb.appendChild(makeRow(di,ri)));
+  calcBal(di);
+}
+function makeRow(di,ri){
+  const row=depts[di].rows[ri];
+  const tr=document.createElement('tr');
+  // 삭제
+  const tdD=document.createElement('td');tdD.className='del-cell';
+  const db2=document.createElement('button');db2.className='del-btn';db2.textContent='×';
+  db2.onclick=()=>deleteRow(di,ri);tdD.appendChild(db2);tr.appendChild(tdD);
+  // 행번호
+  const tdN=document.createElement('td');tdN.className='rn';tdN.textContent=ri+1;tr.appendChild(tdN);
+  tr.appendChild(mkInp(di,ri,'date',row.date,'center'));
+  tr.appendChild(mkContent(di,ri,row.content));
+  tr.appendChild(mkOptTd(di,ri,row.opts||[]));
+  tr.appendChild(mkQtyTd(di,ri,row.qty));
+  tr.appendChild(mkInp(di,ri,'pay',row.pay,'right'));
+  tr.appendChild(mkOrderTd(di,ri,row.order));
+  const tdBal=document.createElement('td');tdBal.id=`bl-${di}-${ri}`;
+  tdBal.style.cssText='text-align:right;padding:5px 6px;background:#fafaf8;font-size:12px;border-right:1px solid #eeede6;';
+  tr.appendChild(tdBal);
+  tr.appendChild(mkInp(di,ri,'note',row.note,'left'));
+  const tdCA=document.createElement('td');tdCA.className='auto-cell';tdCA.id=`ca-${di}-${ri}`;tdCA.textContent=row.createdAt||'';tr.appendChild(tdCA);
+  const tdUA=document.createElement('td');tdUA.className='auto-cell';tdUA.id=`ua-${di}-${ri}`;tdUA.textContent=row.updatedAt||'';tr.appendChild(tdUA);
+  return tr;
+}
+function mkInp(di,ri,col,val,align){
+  const td=document.createElement('td');
+  const inp=document.createElement('input');
+  inp.type='text';inp.value=val||'';inp.style.textAlign=align;
+  inp.dataset.di=di;inp.dataset.ri=ri;inp.dataset.col=col;
+  inp.addEventListener('change',()=>cc(inp));
+  inp.addEventListener('keydown',e=>navKey(e,di,ri,col));
+  inp.addEventListener('paste',e=>handlePaste(e,di,ri,col));
+  td.appendChild(inp);return td;
+}
+function mkQtyTd(di,ri,val){
+  const td=document.createElement('td');
+  const inp=document.createElement('input');
+  inp.type='text';inp.value=val||'';inp.style.textAlign='center';
+  inp.dataset.di=di;inp.dataset.ri=ri;inp.dataset.col='qty';
+  inp.id=`qty-inp-${di}-${ri}`;
+  inp.addEventListener('change',()=>{
+    const di2=+inp.dataset.di,ri2=+inp.dataset.ri;
+    const qty=parseInt(inp.value)||1;
+    inp.value=qty;
+    depts[di2].rows[ri2].qty=qty;
+    // basePrice 있으면 qty 곱해서 주문금액 자동계산
+    const base=depts[di2].rows[ri2].basePrice;
+    if(base){
+      const optTotal=(depts[di2].rows[ri2].opts||[]).reduce((s,o)=>s+(o.price||0),0);
+      const newOrder=(base+optTotal)*qty;
+      depts[di2].rows[ri2].order=newOrder;
+      const oInp=document.getElementById(`or-inp-${di2}-${ri2}`);
+      if(oInp)oInp.value=newOrder.toLocaleString();
+    }
+    stampDates(di2,ri2);calcBal(di2);saveDept(di2);
+  });
+  inp.addEventListener('keydown',e=>navKey(e,di,ri,'qty'));
+  td.appendChild(inp);return td;
+}
+function mkOrderTd(di,ri,val){
+  const td=document.createElement('td');
+  const inp=document.createElement('input');
+  inp.type='text';inp.value=val||'';inp.style.textAlign='right';
+  inp.dataset.di=di;inp.dataset.ri=ri;inp.dataset.col='order';
+  inp.id=`or-inp-${di}-${ri}`;
+  inp.addEventListener('change',()=>{
+    const di2=+inp.dataset.di,ri2=+inp.dataset.ri;
+    depts[di2].rows[ri2].order=inp.value.trim();
+    depts[di2].rows[ri2].basePrice=pn(inp.value);
+    stampDates(di2,ri2);calcBal(di2);saveDept(di2);
+  });
+  inp.addEventListener('keydown',e=>navKey(e,di,ri,'order'));
+  inp.addEventListener('paste',e=>handlePaste(e,di,ri,'order'));
+  td.appendChild(inp);return td;
+}
+function mkContent(di,ri,val){
+  const td=document.createElement('td');td.style.position='relative';
+  const inp=document.createElement('input');
+  inp.type='text';inp.value=val||'';
+  inp.dataset.di=di;inp.dataset.ri=ri;inp.dataset.col='content';
+  inp.addEventListener('input',()=>ci(inp));
+  inp.addEventListener('change',()=>cc(inp));
+  inp.addEventListener('keydown',e=>{ak(e,inp);navKey(e,di,ri,'content');});
+  inp.addEventListener('paste',e=>handlePaste(e,di,ri,'content'));
+  td.appendChild(inp);return td;
+}
+function mkOptTd(di,ri,opts){
+  const td=document.createElement('td');td.className='opt-cell';td.id=`opt-td-${di}-${ri}`;
+  const btn=document.createElement('button');
+  btn.className='opt-trigger'+(opts&&opts.length>0?' has-opt':'');
+  btn.textContent=optLabel(opts);
+  btn.onclick=e=>{e.stopPropagation();openOptPop(di,ri,btn);};
+  td.appendChild(btn);return td;
+}
+function optLabel(opts){return(!opts||opts.length===0)?'+ 옵션':opts.map(o=>o.name).join(', ');}
+
+function stampDates(di,ri){
+  const row=depts[di].rows[ri];const t=todayDisplay();
+  if(!row.createdAt){row.createdAt=t;const ca=document.getElementById(`ca-${di}-${ri}`);if(ca)ca.textContent=t;}
+  row.updatedAt=t;const ua=document.getElementById(`ua-${di}-${ri}`);if(ua)ua.textContent=t;
+}
+function cc(inp){
+  const di=+inp.dataset.di,ri=+inp.dataset.ri,col=inp.dataset.col;
+  depts[di].rows[ri][col]=inp.value.trim();
+  stampDates(di,ri);if(col==='pay')calcBal(di);saveDept(di);
+}
+function deleteRow(di,ri){
+  if(!confirm((ri+1)+'행을 삭제할까요?'))return;
+  depts[di].rows.splice(ri,1);
+  ensureRows(di);
+  renderLedger(di);
+  calcBal(di);
+  saveDept(di,true);
+}
+
+// 자동완성
+function ci(inp){
+  const q=inp.value.trim();acList=search(q);acIdx=-1;
+  if(acList.length>0&&q.length>0)showAC(inp,+inp.dataset.di,+inp.dataset.ri);else hideAC();
+}
+function showAC(inp,di,ri){
+  acTarget=inp;const pop=document.getElementById('acPop');
+  const r=inp.getBoundingClientRect();
+  pop.style.left=r.left+'px';pop.style.top=(r.bottom+2)+'px';
+  pop.style.minWidth=Math.max(r.width,230)+'px';
+  pop.innerHTML=acList.map((item,i)=>`<div class="ac-item"><span>${esc(item.name)}</span><span class="ac-price">${item.price.toLocaleString()}원</span></div>`).join('');
+  pop.querySelectorAll('.ac-item').forEach((el,i)=>{el.onmousedown=()=>pa(i,di,ri);});
+  pop.style.display='block';
+}
+function hideAC(){document.getElementById('acPop').style.display='none';acList=[];acIdx=-1;acTarget=null;}
+function pa(i,di,ri){
+  const item=acList[i];
+  const inp=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="content"]`);
+  if(inp)inp.value=item.name;
+  const row=depts[di].rows[ri];
+  row.content=item.name;row.basePrice=item.price;row.order=item.price;
+  applyOrderWithOpts(di,ri);stampDates(di,ri);hideAC();calcBal(di);sv();
+  const pi=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="pay"]`);
+  if(pi)setTimeout(()=>pi.focus(),10);
+}
+function applyOrderWithOpts(di,ri){
+  const row=depts[di].rows[ri];
+  const base=row.basePrice||pn(row.order);
+  const qty=parseInt(row.qty)||1;
+  const optTotal=(row.opts||[]).reduce((s,o)=>s+(o.price||0),0);
+  const total=(base+optTotal)*qty;row.order=total;
+  const oInp=document.getElementById(`or-inp-${di}-${ri}`);if(oInp)oInp.value=total?total.toLocaleString():'';
+  const optTd=document.getElementById(`opt-td-${di}-${ri}`);
+  if(optTd){const btn=optTd.querySelector('.opt-trigger');if(btn){btn.textContent=optLabel(row.opts);btn.className='opt-trigger'+(row.opts&&row.opts.length>0?' has-opt':'');}}
+}
+function ak(e,inp){
+  const pop=document.getElementById('acPop');if(pop.style.display==='none')return;
+  const items=pop.querySelectorAll('.ac-item');
+  if(e.key==='ArrowDown'){e.preventDefault();acIdx=Math.min(acIdx+1,items.length-1);items.forEach((el,i)=>el.classList.toggle('sel',i===acIdx));}
+  else if(e.key==='ArrowUp'){e.preventDefault();acIdx=Math.max(acIdx-1,0);items.forEach((el,i)=>el.classList.toggle('sel',i===acIdx));}
+  else if(e.key==='Enter'){
+    if(acIdx>=0){e.preventDefault();pa(acIdx,+inp.dataset.di,+inp.dataset.ri);}
+    else if(acList.length===1){e.preventDefault();pa(0,+inp.dataset.di,+inp.dataset.ri);}
+  }
+  else if(e.key==='Escape')hideAC();
+}
+
+// 옵션 팝업
+function openOptPop(di,ri,btn){
+  optTarget={di,ri};const row=depts[di].rows[ri];
+  const selectedNames=(row.opts||[]).map(o=>o.name);
+  document.getElementById('optList').innerHTML=optionDB.map((opt,i)=>`
+    <div class="opt-item${selectedNames.includes(opt.name)?' checked':''}" onclick="toggleOpt(${i})">
+      <span class="opt-name">${esc(opt.name)}</span>
+      <span class="opt-item-price">+${opt.price.toLocaleString()}원</span>
+    </div>`).join('');
+  const r=btn.getBoundingClientRect();
+  document.getElementById('optPop').style.left=r.left+'px';
+  document.getElementById('optPop').style.top=(r.bottom+2)+'px';
+  document.getElementById('optPop').style.display='block';
+}
+function toggleOpt(i){
+  if(!optTarget)return;
+  const {di,ri}=optTarget;const row=depts[di].rows[ri];
+  if(!row.opts)row.opts=[];
+  const opt=optionDB[i];const idx=row.opts.findIndex(o=>o.name===opt.name);
+  if(idx>=0)row.opts.splice(idx,1);else row.opts.push({name:opt.name,price:opt.price});
+  const selectedNames=row.opts.map(o=>o.name);
+  document.getElementById('optList').querySelectorAll('.opt-item').forEach((el,j)=>el.classList.toggle('checked',selectedNames.includes(optionDB[j].name)));
+  if(!row.basePrice)row.basePrice=pn(row.order);
+  applyOrderWithOpts(di,ri);stampDates(di,ri);calcBal(di);saveDept(di);
+}
+function clearOpts(){
+  if(!optTarget)return;
+  const {di,ri}=optTarget;const row=depts[di].rows[ri];
+  row.opts=[];if(row.basePrice!==undefined)row.order=row.basePrice;
+  applyOrderWithOpts(di,ri);hideOpt();calcBal(di);saveDept(di);
+}
+function hideOpt(){document.getElementById('optPop').style.display='none';optTarget=null;}
+
+function navKey(e,di,ri,col){
+  if(e.key==='Enter'&&document.getElementById('acPop').style.display==='none'){
+    e.preventDefault();
+    const next=document.querySelector(`input[data-di="${di}"][data-ri="${ri+1}"][data-col="${col}"]`);
+    if(next)next.focus();
+  }
+}
+function handlePaste(e,di,ri,col){
+  const txt=e.clipboardData.getData('text');
+  if(!txt.includes('\n')&&!txt.includes('\t'))return;
+  e.preventDefault();
+  const rows=txt.split('\n').map(r=>r.split('\t'));
+  const colOrder=['date','content','pay','order','note'];
+  const startCol=colOrder.indexOf(col);if(startCol<0)return;
+  rows.forEach((cells,rOff)=>{
+    const tRi=ri+rOff;if(tRi>=depts[di].rows.length)return;
+    cells.forEach((val,cOff)=>{
+      const tCol=colOrder[startCol+cOff];if(!tCol)return;
+      const v=val.trim().replace(/\r/g,'');
+      depts[di].rows[tRi][tCol]=v;
+      const inp=document.querySelector(`input[data-di="${di}"][data-ri="${tRi}"][data-col="${tCol}"]`);
+      if(inp)inp.value=v;
+    });
+    stampDates(di,tRi);
+  });
+  calcBal(di);saveDept(di);
+}
+function calcBal(di){
+  const d=depts[di];let run=0,tp=0,to=0;
+  d.rows.forEach((row,ri)=>{
+    const pay=pn(row.pay),order=pn(row.order);
+    run+=pay-order;tp+=pay;to+=order;
+    const bc=document.getElementById(`bl-${di}-${ri}`);
+    if(bc){
+      const empty=pay===0&&order===0&&!row.content&&!row.date;
+      if(empty){bc.textContent='';bc.style.color='';return;}
+      bc.textContent=run.toLocaleString();
+      bc.style.color=run<0?'#A32D2D':run>0?'#3B6D11':'#2C2C2A';
+    }
+  });
+  const bal=tp-to;
+  const sp=document.getElementById('sumPay');const so=document.getElementById('sumOrder');const sb=document.getElementById('sumBal');const bg=document.getElementById('badge');
+  if(sp)sp.textContent=tp.toLocaleString()+'원';
+  if(so)so.textContent=to.toLocaleString()+'원';
+  if(sb){sb.textContent=bal.toLocaleString()+'원';sb.style.color=bal<0?'#A32D2D':bal>0?'#3B6D11':'#2C2C2A';}
+  if(bg){bg.textContent='현재잔액 '+bal.toLocaleString()+'원';bg.className='bal-badge '+(bal<0?'neg-b':bal>0?'pos-b':'zero-b');}
+}
+
+// ── 부서별 현황 요약 ──
+function dateInRange(dateStr,from,to){
+  if(!dateStr)return false;
+  const s=dateStr.replace(/\s/g,'');
+  const now=new Date();let d=null;
+  let mm=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(mm)d=new Date(+mm[1],+mm[2]-1,+mm[3]);
+  if(!d){mm=s.match(/^(\d{1,2})\/(\d{1,2})$/);if(mm)d=new Date(now.getFullYear(),+mm[1]-1,+mm[2]);}
+  if(!d){mm=s.match(/^(\d{1,2})월(\d{1,2})일?$/);if(mm)d=new Date(now.getFullYear(),+mm[1]-1,+mm[2]);}
+  if(!d)return false;
+  const ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  return ds>=from&&ds<=to;
+}
+
+function resetPeriod(){
+  document.getElementById('periodFrom').value='';
+  document.getElementById('periodTo').value='';
+  renderSummary();
+}
+
+function renderSummary(){
+  const from=document.getElementById('periodFrom').value;
+  const to=document.getElementById('periodTo').value;
+  const usePeriod=from&&to;
+  const infoEl=document.getElementById('periodInfo');
+  infoEl.textContent=usePeriod?`조회 기간: ${from} ~ ${to}`:'전체 기간';
+  const tb=document.getElementById('summaryBody');tb.innerHTML='';
+  let tOrd=0,tPay=0,tBal=0;
+  depts.forEach((d,i)=>{
+    let mOrd=0,mPay=0;const pdates=[];
+    (d.rows||[]).forEach(row=>{
+      const inRange=usePeriod?dateInRange(row.date,from,to):true;
+      if(inRange){
+        mOrd+=pn(row.order);mPay+=pn(row.pay);
+        if(pn(row.pay)>0&&row.date)pdates.push(row.date.trim());
+      }
+    });
+    const bal=mPay-mOrd;tOrd+=mOrd;tPay+=mPay;tBal+=bal;
+    const tr=document.createElement('tr');
+    const nmTd=document.createElement('td');nmTd.className='nm';nmTd.textContent=d.name;
+    nmTd.onclick=()=>openDept(i);
+    tr.innerHTML=`<td class="no">${i+1}</td>`;
+    tr.appendChild(nmTd);
+    const rest=document.createElement('td');rest.colSpan=0;
+    tr.innerHTML+=`<td>${mOrd.toLocaleString()}</td><td>${mPay.toLocaleString()}</td>
+      <td class="nt">${pdates.join(', ')||'-'}</td>
+      <td class="${bal<0?'neg':bal>0?'pos':''}">${bal.toLocaleString()}</td>
+      <td class="nt"></td>`;
+    // 부서명 클릭 다시 주입
+    tr.cells[1].className='nm';tr.cells[1].style.cursor='pointer';
+    tr.cells[1].onclick=()=>openDept(i);
+    tb.appendChild(tr);
+  });
+  const tr=document.createElement('tr');tr.className='tot';
+  tr.innerHTML=`<td class="no"></td><td class="nm" style="color:#2C2C2A;cursor:default;text-decoration:none;">합계</td>
+    <td>${tOrd.toLocaleString()}</td><td>${tPay.toLocaleString()}</td><td></td>
+    <td class="${tBal<0?'neg':tBal>0?'pos':''}">${tBal.toLocaleString()}</td><td></td>`;
+  tb.appendChild(tr);
+}
+
+// ── 엑셀 내보내기 ──
+function pn(s){const n=parseInt(String(s||'').replace(/,/g,'').replace(/[^0-9\-]/g,''));return isNaN(n)?0:n;}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function guessCat(name){
+  if(!name)return'커피';
+  if(name.includes('디카페인'))return'디카페인';
+  if(name.startsWith('콜드브루'))return'콜드브루';
+  if(name.includes('스무디')||name.includes('프라페')||name.includes('퐁크러쉬')||name.includes('쉐이크')||name.includes('슬러시'))return'스무디&프라페';
+  if(name.includes('에이드')||name.includes('주스')||name.includes('모히또')||name.includes('콜라'))return'에이드&주스';
+  if((name.includes('티')&&!name.includes('라떼'))||(name.includes('차')&&!name.includes('라떼'))||name.includes('아이스티'))return'티(Tea)';
+  const nonCoffee=['딸기라떼','왕메가초코','오레오초코라떼','아이스초코','녹차라떼','곡물라떼','고구마라떼','토피넛라떼','로얄밀크티라떼','흑당버블라떼','흑당버블밀크티라떼','흑당라떼','흑당밀크티라떼','핫초코'];
+  if(nonCoffee.some(n=>name.replace(/\(ICE\)|\(HOT\)/g,'').trim().includes(n)))return'음료(논커피라떼)';
+  return'커피';
+}
+function toCSV(headers,rows){
+  const lines=[headers.join(',')];
+  rows.forEach(r=>lines.push(r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')));
+  return '\uFEFF'+lines.join('\n');
+}
+function downloadCSV(filename,csv){
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();
+}
+function exportLedgerExcel(){
+  if(curDeptIdx===null)return;
+  const d=depts[curDeptIdx];
+  const headers=['날짜','내용','옵션','수량','결제금액','주문금액','잔액','비고','입력일','수정일'];
+  let run=0;
+  const rows=(d.rows||[]).filter(r=>r.date||r.content||r.pay||r.order).map(row=>{
+    const pay=pn(row.pay),order=pn(row.order);run+=pay-order;
+    return [row.date,row.content,(row.opts||[]).map(o=>o.name).join(', '),row.qty||'',row.pay,row.order,run,row.note,row.createdAt,row.updatedAt];
+  });
+  downloadCSV(`${d.name}_장부.csv`,toCSV(headers,rows));
+}
+function exportSummaryExcel(){
+  const from=document.getElementById('periodFrom').value;
+  const to=document.getElementById('periodTo').value;
+  const usePeriod=from&&to;
+  const headers=['NO','팀명','주문금액','결제금액','결제일','잔액'];
+  const rows=depts.map((d,i)=>{
+    let mOrd=0,mPay=0;const pdates=[];
+    (d.rows||[]).forEach(row=>{
+      const inRange=usePeriod?dateInRange(row.date,from,to):true;
+      if(inRange){mOrd+=pn(row.order);mPay+=pn(row.pay);if(pn(row.pay)>0&&row.date)pdates.push(row.date.trim());}
+    });
+    return [i+1,d.name,mOrd,mPay,pdates.join(', '),mPay-mOrd];
+  });
+  const fname=usePeriod?`부서별현황요약_${from}_${to}.csv`:'부서별현황요약_전체.csv';
+  downloadCSV(fname,toCSV(headers,rows));
+}
+
+// ── DB 관리 ──
+function openDB(){goMgmt();} // 호환성 유지
+function closeDB(){} // 호환성 유지
+function switchDBTab(t){
+  curDBTab=t;
+  document.querySelectorAll('.mtab').forEach((b,i)=>b.classList.toggle('active',['menu','option','dessert','soldout','settings'][i]===t));
+  renderDBTab();
+}
+function getDB(){return curDBTab==='menu'?menuDB:curDBTab==='option'?optionDB:dessertDB;}
+function renderDBTab(){
+  if(curDBTab==='soldout'){renderSoldoutTab();return;}
+  if(curDBTab==='settings'){renderSettingsTab();return;}
+  const dbArr=getDB();const col=curDBTab==='dessert'?'디저트명':'메뉴명';
+  let h=`<table class="dbt"><thead><tr><th>${col}</th><th>별칭</th><th style="width:70px;">금액</th><th style="width:30px;"></th></tr></thead><tbody>`;
+  dbArr.forEach((it,i)=>{
+    h+=`<tr>
+      <td><input value="${esc(it.name)}" onchange="dbc(${i},'name',this.value)"></td>
+      <td><input value="${esc(it.alias||'')}" onchange="dbc(${i},'alias',this.value)"></td>
+      <td><input value="${it.price}" onchange="dbc(${i},'price',this.value)" style="text-align:right;width:65px;"></td>
+      <td><button class="bdel" onclick="dbd(${i})">✕</button></td></tr>`;
+  });
+  h+=`</tbody></table><button class="btn-ar" onclick="dba()">+ 항목 추가</button>`;
+  document.getElementById('dbBody').innerHTML=h;
+}
+
+// ── 품절 관리 탭 ──
+function renderSoldoutTab(){
+  const cats=['커피','디카페인','콜드브루','티(Tea)','음료(논커피라떼)','에이드&주스','스무디&프라페','디저트'];
+  const allMenus=[...menuDB,...dessertDB];
+  let h='<div style="font-size:11px;color:#888;margin-bottom:8px;">메뉴를 클릭하면 품절/해제 토글됩니다</div>';
+  cats.forEach(cat=>{
+    const items=allMenus.filter(m=>m.cat===cat||(cat==='디저트'&&dessertDB.includes(m)));
+    // menuDB는 cat 필드가 없으므로 dessertDB는 별도 처리
+    const menuItems=cat==='디저트'?dessertDB:menuDB.filter(m=>{
+      // 카테고리 매핑
+      if(cat==='커피')return!m.name.startsWith('디카페인')&&!m.name.startsWith('콜드브루')&&(m.name.includes('아메리카노')||m.name.includes('라떼')||m.name.includes('모카')||m.name.includes('카푸치노')||m.name.includes('마끼아또')||m.name.includes('에스프레소')||m.name.includes('할메가')||m.name.includes('메가리카노')||m.name.includes('큐브')||m.name.includes('헛개'));
+      if(cat==='디카페인')return m.name.startsWith('디카페인');
+      if(cat==='콜드브루')return m.name.startsWith('콜드브루');
+      if(cat==='티(Tea)')return m.name.includes('티')&&!m.name.includes('라떼')||m.name.includes('차')||m.name.includes('아이스티');
+      if(cat==='음료(논커피라떼)')return['딸기라떼','핫초코','아이스초코','왕메가초코','녹차라떼','토피넛라떼','고구마라떼','곡물라떼','로얄밀크티','오레오초코라떼','흑당라떼','흑당밀크티라떼','흑당버블라떼','흑당버블밀크티라떼'].some(n=>m.name.includes(n.replace(/\s.*/,'')));
+      if(cat==='에이드&주스')return m.name.includes('에이드')||m.name.includes('주스')||m.name.includes('모히또')||m.name.includes('체리');
+      if(cat==='스무디&프라페')return m.name.includes('스무디')||m.name.includes('프라페')||m.name.includes('퐁크러쉬');
+      return false;
+    });
+    if(menuItems.length===0)return;
+    h+=`<div class="so-cat">${cat}</div><div class="soldout-grid">`;
+    menuItems.forEach(m=>{
+      const isSold=!!soldout[m.name];
+      h+=`<div class="so-item${isSold?' sold':''}" onclick="toggleSoldout('${esc(m.name)}')">${esc(m.name)}${isSold?' 🚫':''}</div>`;
+    });
+    h+='</div>';
+  });
+  document.getElementById('dbBody').innerHTML=h;
+}
+function toggleSoldout(name){
+  if(soldout[name])delete soldout[name];
+  else soldout[name]=true;
+  _skipSoldoutRender=true;
+  db.ref('soldout').set(soldout);
+  if(curScreen==='mgmt')renderSoldoutMgmt();
+  else renderSoldoutTab();
+}
+
+// ── 부서 설정 탭 ──
+const CAT_KEYS=['커피','디카페인','콜드브루','티(Tea)','음료(논커피라떼)','에이드&주스','스무디&프라페','디저트'];
+function renderSettingsTab(){
+  let h='';
+  // 1. 부서별 비밀번호
+  h+=`<div class="set-section">
+    <div class="set-title">🔐 부서별 비밀번호 (주문 완료 시 필요)</div>`;
+  depts.forEach((d,i)=>{
+    h+=`<div class="set-row">
+      <label>${esc(d.name)}</label>
+      <input type="password" maxlength="6" placeholder="숫자 4~6자리" 
+        value="${esc(d.password||'')}" 
+        oninput="depts[${i}].password=this.value" 
+        onchange="saveDept(${i},true)">
+    </div>`;
+  });
+  h+=`</div>`;
+  // 2. 카테고리별 옵션
+  h+=`<div class="set-section">
+    <div class="set-title">☕ 카테고리별 옵션 설정</div>`;
+  CAT_KEYS.forEach(cat=>{
+    const selected=catOptMap[cat]||[];
+    h+=`<div class="catopt-row">
+      <div class="catopt-label">${cat}</div>
+      <div class="catopt-opts">`;
+    optionDB.forEach(opt=>{
+      const on=selected.includes(opt.name);
+      h+=`<span class="catopt-tag${on?' on':''}" onclick="toggleCatOpt('${esc(cat)}','${esc(opt.name)}')">${esc(opt.name)}</span>`;
+    });
+    h+=`</div></div>`;
+  });
+  h+=`</div>`;
+  document.getElementById('dbBody').innerHTML=h;
+}
+function toggleCatOpt(cat,optName){
+  if(!catOptMap[cat])catOptMap[cat]=[];
+  const idx=catOptMap[cat].indexOf(optName);
+  if(idx>=0)catOptMap[cat].splice(idx,1);
+  else catOptMap[cat].push(optName);
+  sv();
+  renderSettingsTab();
+}
+function dbc(i,col,val){const dbArr=getDB();dbArr[i][col]=col==='price'?(parseInt(val)||0):val;}
+function dbd(i){getDB().splice(i,1);renderDBTab();}
+function dba(){
+  const cat=curMenuSub==='dessert'?'디저트':'커피';
+  (curMenuSub==='dessert'?dessertDB:menuDB).push({name:'',alias:'',price:0,cat:cat});
+  renderMenuDb();
+  const body=document.getElementById('menuDbBody');
+  if(body)setTimeout(()=>body.scrollTop=body.scrollHeight,50);
+}
+function saveDB(){sv();saveSoldout();}
+
+// ── 부서 추가 ──
+function openAddDept(){document.getElementById('deptModal').classList.add('open');setTimeout(()=>document.getElementById('newDept').focus(),80);}
+function closeDM(){document.getElementById('deptModal').classList.remove('open');document.getElementById('newDept').value='';}
+function addDept(){
+  const nm=document.getElementById('newDept').value.trim();if(!nm)return;
+  const newIdx=depts.length;
+  depts.push({name:nm,rows:[]});
+  saveDept(newIdx,true);
+  renderSubnav();closeDM();goHome();
+}
+
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#acPop')&&!(e.target.dataset&&e.target.dataset.col==='content'))hideAC();
+  if(!e.target.closest('#optPop')&&!e.target.classList.contains('opt-trigger'))hideOpt();
+});
+window.addEventListener('scroll',()=>{hideAC();hideOpt();},true);
+
+function initUI(){
+  renderSubnav();renderHome();showScreen('home');listenRealtime();
+  // 관리 탭 초기화
+  curMgmtTab='menu';curMenuSub='drink';curOptSub='list';
+}
+loadFromFirebase();
+</script>
+</body>
+</html>
