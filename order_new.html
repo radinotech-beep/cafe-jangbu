@@ -317,217 +317,109 @@ firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
 // ── 상태 ──
-let depts=[],optionDB=[],soldout={},catOptMap={};
+let depts=[],optionDB=[],soldout={},catOptMap=null,catSubMap=null;
+let rawMenuDB=[],rawDessertDB=[]; // Firebase 원본
+let menuDB=[]; // 주문용 변환된 메뉴 (needTemp/tempFixed 포함)
 let curDeptIdx=null,curCat=null,cart=[],orderCount=0;
-let orderType='eat'; // 'eat' or 'take'
+let orderType='eat';
 let popupItem=null,popupTemp=null,popupOpts=[],popupQty=1;
 let pwdBuffer='';
 
-// 카테고리 정의
-const CATEGORIES=[
-  {key:'커피',label:'커피',sub:{
-    '아메리카노':['아메리카노','헛개리카노','왕메가헛개리카노','메가리카노','꿀아메리카노','헤이즐넛아메리카노','바닐라아메리카노'],
-    '라떼':['카페라떼','왕메가카페라떼','바닐라라떼','헤이즐넛라떼','연유라떼','큐브라떼','라이트 바닐라 아몬드라떼'],
-    '기타':['카라멜마끼아또','카페모카','카푸치노','슈크림라떼','커피초코칩 젤라또 슈크림라떼','초코젤라또 말차라떼','할메가커피','왕할메가커피','할메가미숫커피'],
-  }},
-  {key:'디카페인',label:'디카페인',sub:{}},
-  {key:'콜드브루',label:'콜드브루',sub:{}},
-  {key:'티(Tea)',label:'티(Tea)',sub:{}},
-  {key:'음료(논커피라떼)',label:'음료',sub:{}},
-  {key:'에이드&주스',label:'에이드&주스',sub:{}},
-  {key:'스무디&프라페',label:'스무디&프라페',sub:{}},
-  {key:'디저트',label:'디저트',sub:{}},
-];
+// 장부 menuDB → 주문 태블릿용으로 변환
+// (HOT)xxx → tempFixed:'HOT', needTemp:false
+// (ICE)xxx → tempFixed:'ICE', needTemp:false
+// HOT/ICE 둘 다 있는 메뉴 → needTemp:true 통합카드 1개
+// HOT/ICE 둘 다 없는 → needTemp:false, tempFixed:null
+function convertMenuDB(raw, des){
+  const result=[];
+  const seen=new Map(); // cleanName → index in result
 
-// 메뉴 DB (이지포스 기준)
-let menuDB=[
-  // ── 커피 ──
-  // 아메리카노: HOT/ICE 별도 (가격 다름)
-  {name:'아메리카노',cat:'커피',price:1700,needTemp:false,tempFixed:'HOT'},
-  {name:'아메리카노',cat:'커피',price:2000,needTemp:false,tempFixed:'ICE'},
-  // 통합 (HOT/ICE 팝업 선택)
-  {name:'헛개리카노',cat:'커피',price:2400,needTemp:true,tempFixed:null},
-  {name:'꿀아메리카노',cat:'커피',price:2700,needTemp:true,tempFixed:null},
-  {name:'헤이즐넛아메리카노',cat:'커피',price:2700,needTemp:true,tempFixed:null},
-  {name:'바닐라아메리카노',cat:'커피',price:2700,needTemp:true,tempFixed:null},
-  {name:'카페라떼',cat:'커피',price:2900,needTemp:true,tempFixed:null},
-  {name:'바닐라라떼',cat:'커피',price:3400,needTemp:true,tempFixed:null},
-  {name:'헤이즐넛라떼',cat:'커피',price:3400,needTemp:true,tempFixed:null},
-  {name:'연유라떼',cat:'커피',price:3900,needTemp:true,tempFixed:null},
-  {name:'카라멜마끼아또',cat:'커피',price:3700,needTemp:true,tempFixed:null},
-  {name:'카페모카',cat:'커피',price:3900,needTemp:true,tempFixed:null},
-  {name:'카푸치노',cat:'커피',price:2900,needTemp:true,tempFixed:null},
-  // ICE only 커피
-  {name:'메가리카노',cat:'커피',price:3300,needTemp:false,tempFixed:'ICE'},
-  {name:'왕메가헛개리카노',cat:'커피',price:3400,needTemp:false,tempFixed:'ICE'},
-  {name:'왕메가카페라떼',cat:'커피',price:4400,needTemp:false,tempFixed:'ICE'},
-  {name:'큐브라떼',cat:'커피',price:4200,needTemp:false,tempFixed:'ICE'},
-  {name:'라이트 바닐라 아몬드라떼',cat:'커피',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'할메가커피',cat:'커피',price:2100,needTemp:false,tempFixed:'ICE'},
-  {name:'왕할메가커피',cat:'커피',price:3200,needTemp:false,tempFixed:'ICE'},
-  {name:'할메가미숫커피',cat:'커피',price:2900,needTemp:false,tempFixed:'ICE'},
-  {name:'슈크림라떼',cat:'커피',price:3700,needTemp:false,tempFixed:'ICE'},
-  {name:'커피초코칩 젤라또 슈크림라떼',cat:'커피',price:4400,needTemp:false,tempFixed:'ICE'},
-  {name:'초코젤라또 말차라떼',cat:'커피',price:4400,needTemp:false,tempFixed:'ICE'},
-  // ── 디카페인 ──
-  {name:'디카페인 아메리카노',cat:'디카페인',price:2500,needTemp:true,tempFixed:null,hotPrice:2500,icePrice:3000},
-  {name:'디카페인 꿀아메리카노',cat:'디카페인',price:3700,needTemp:true,tempFixed:null},
-  {name:'디카페인 헤이즐넛아메리카노',cat:'디카페인',price:3700,needTemp:true,tempFixed:null},
-  {name:'디카페인 바닐라아메리카노',cat:'디카페인',price:3700,needTemp:true,tempFixed:null},
-  {name:'디카페인 카페라떼',cat:'디카페인',price:3900,needTemp:true,tempFixed:null},
-  {name:'디카페인 바닐라라떼',cat:'디카페인',price:4400,needTemp:true,tempFixed:null},
-  {name:'디카페인 연유라떼',cat:'디카페인',price:4900,needTemp:true,tempFixed:null},
-  {name:'디카페인 카라멜마끼아또',cat:'디카페인',price:4700,needTemp:true,tempFixed:null},
-  {name:'디카페인 카페모카',cat:'디카페인',price:4900,needTemp:true,tempFixed:null},
-  {name:'디카페인 카푸치노',cat:'디카페인',price:3900,needTemp:true,tempFixed:null},
-  {name:'디카페인 헤이즐넛라떼',cat:'디카페인',price:4400,needTemp:true,tempFixed:null},
-  {name:'디카페인_헛개리카노',cat:'디카페인',price:3400,needTemp:true,tempFixed:null},
-  {name:'디카페인 메가리카노',cat:'디카페인',price:4500,needTemp:false,tempFixed:'ICE'},
-  {name:'디카페인_왕메가헛개리카노',cat:'디카페인',price:4900,needTemp:false,tempFixed:'ICE'},
-  {name:'디카페인_왕메가카페라떼',cat:'디카페인',price:5900,needTemp:false,tempFixed:'ICE'},
-  {name:'디카페인_라이트바닐라아몬드라떼',cat:'디카페인',price:4900,needTemp:false,tempFixed:'ICE'},
-  // ── 콜드브루 ──
-  {name:'콜드브루오리지널',cat:'콜드브루',price:3500,needTemp:true,tempFixed:null},
-  {name:'콜드브루라떼',cat:'콜드브루',price:4000,needTemp:true,tempFixed:null},
-  {name:'콜드브루디카페인',cat:'콜드브루',price:3500,needTemp:true,tempFixed:null},
-  {name:'콜드브루디카페인라떼',cat:'콜드브루',price:4000,needTemp:true,tempFixed:null},
-  // ── 티(Tea) ──
-  {name:'제로 레몬말차_아이스티',cat:'티(Tea)',price:2400,needTemp:false,tempFixed:'ICE'},
-  {name:'망고풀 자스민 티플레저',cat:'티(Tea)',price:3700,needTemp:false,tempFixed:'ICE'},
-  {name:'유자생강차',cat:'티(Tea)',price:3300,needTemp:true,tempFixed:null},
-  {name:'왕메가사과유자차',cat:'티(Tea)',price:4400,needTemp:false,tempFixed:'ICE'},
-  {name:'상큼 리치티',cat:'티(Tea)',price:3900,needTemp:true,tempFixed:null},
-  {name:'복숭아아이스티',cat:'티(Tea)',price:3000,needTemp:false,tempFixed:'ICE'},
-  {name:'제로 복숭아 아이스티',cat:'티(Tea)',price:3000,needTemp:false,tempFixed:'ICE'},
-  {name:'왕메가아이스티',cat:'티(Tea)',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'허니자몽블랙티',cat:'티(Tea)',price:3700,needTemp:true,tempFixed:null},
-  {name:'사과유자차',cat:'티(Tea)',price:3500,needTemp:true,tempFixed:null},
-  {name:'유자차',cat:'티(Tea)',price:3300,needTemp:true,tempFixed:null},
-  {name:'레몬차',cat:'티(Tea)',price:3300,needTemp:true,tempFixed:null},
-  {name:'자몽차',cat:'티(Tea)',price:3300,needTemp:true,tempFixed:null},
-  {name:'녹차',cat:'티(Tea)',price:2500,needTemp:true,tempFixed:null},
-  {name:'페퍼민트',cat:'티(Tea)',price:2500,needTemp:true,tempFixed:null},
-  {name:'캐모마일',cat:'티(Tea)',price:2500,needTemp:true,tempFixed:null},
-  {name:'얼그레이',cat:'티(Tea)',price:2500,needTemp:true,tempFixed:null},
-  // ── 음료(논커피라떼) ──
-  {name:'딸기라떼',cat:'음료(논커피라떼)',price:3700,needTemp:true,tempFixed:null},
-  {name:'왕메가초코',cat:'음료(논커피라떼)',price:4400,needTemp:false,tempFixed:'ICE'},
-  {name:'오레오초코라떼',cat:'음료(논커피라떼)',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'아이스초코',cat:'음료(논커피라떼)',price:3500,needTemp:false,tempFixed:'ICE'},
-  {name:'핫초코',cat:'음료(논커피라떼)',price:3500,needTemp:false,tempFixed:'HOT'},
-  {name:'녹차라떼',cat:'음료(논커피라떼)',price:3500,needTemp:true,tempFixed:null},
-  {name:'곡물라떼',cat:'음료(논커피라떼)',price:3300,needTemp:true,tempFixed:null},
-  {name:'고구마라떼',cat:'음료(논커피라떼)',price:3500,needTemp:true,tempFixed:null},
-  {name:'토피넛라떼',cat:'음료(논커피라떼)',price:3800,needTemp:true,tempFixed:null},
-  {name:'로얄밀크티라떼',cat:'음료(논커피라떼)',price:3700,needTemp:true,tempFixed:null},
-  {name:'흑당버블라떼',cat:'음료(논커피라떼)',price:3700,needTemp:false,tempFixed:'ICE'},
-  {name:'흑당버블밀크티라떼',cat:'음료(논커피라떼)',price:3800,needTemp:false,tempFixed:'ICE'},
-  {name:'흑당라떼(펄X)',cat:'음료(논커피라떼)',price:3300,needTemp:false,tempFixed:'ICE'},
-  {name:'흑당밀크티라떼(펄X)',cat:'음료(논커피라떼)',price:3500,needTemp:false,tempFixed:'ICE'},
-  // ── 에이드&주스 ──
-  {name:'꿀수박주스',cat:'에이드&주스',price:4000,needTemp:false,tempFixed:'ICE'},
-  {name:'저당 꿀배_XO야쿠르트',cat:'에이드&주스',price:3700,needTemp:false,tempFixed:'ICE'},
-  {name:'M망고 G구아바_C캐럿 주스',cat:'에이드&주스',price:4000,needTemp:false,tempFixed:'ICE'},
-  {name:'골드키위주스',cat:'에이드&주스',price:4000,needTemp:false,tempFixed:'ICE'},
-  {name:'제로 부스트 에이드',cat:'에이드&주스',price:3000,needTemp:false,tempFixed:'ICE'},
-  {name:'블루베리플럼주스',cat:'에이드&주스',price:4000,needTemp:false,tempFixed:'ICE'},
-  {name:'딸기주스',cat:'에이드&주스',price:4000,needTemp:false,tempFixed:'ICE'},
-  {name:'딸기바나나주스',cat:'에이드&주스',price:4000,needTemp:false,tempFixed:'ICE'},
-  {name:'사인머스캣그린주스',cat:'에이드&주스',price:4000,needTemp:false,tempFixed:'ICE'},
-  {name:'레드오렌지자몽주스',cat:'에이드&주스',price:4000,needTemp:false,tempFixed:'ICE'},
-  {name:'메가에이드',cat:'에이드&주스',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'레몬에이드',cat:'에이드&주스',price:3500,needTemp:false,tempFixed:'ICE'},
-  {name:'블루레몬에이드',cat:'에이드&주스',price:3500,needTemp:false,tempFixed:'ICE'},
-  {name:'자몽에이드',cat:'에이드&주스',price:3500,needTemp:false,tempFixed:'ICE'},
-  {name:'청포도에이드',cat:'에이드&주스',price:3500,needTemp:false,tempFixed:'ICE'},
-  {name:'체리콜라',cat:'에이드&주스',price:3300,needTemp:false,tempFixed:'ICE'},
-  {name:'라임모히또',cat:'에이드&주스',price:3800,needTemp:false,tempFixed:'ICE'},
-  // ── 스무디&프라페 ──
-  {name:'수박소르베 밀키 스무디',cat:'스무디&프라페',price:4400,needTemp:false,tempFixed:'ICE'},
-  {name:'수박 리치코코 슬러시',cat:'스무디&프라페',price:4000,needTemp:false,tempFixed:'ICE'},
-  {name:'파인망고코코 스무디',cat:'스무디&프라페',price:4400,needTemp:false,tempFixed:'ICE'},
-  {name:'자몽 톡톡 스무디',cat:'스무디&프라페',price:4000,needTemp:false,tempFixed:'ICE'},
-  {name:'애플머스캣_요거트 스무디',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'그린키위 훅훅 딸기스무디',cat:'스무디&프라페',price:4000,needTemp:false,tempFixed:'ICE'},
-  {name:'밀크쉐이크',cat:'스무디&프라페',price:2900,needTemp:false,tempFixed:'ICE'},
-  {name:'귤톡톡_젤리 스무디',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'블루베리요거트스무디',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'코코넛커피 스무디',cat:'스무디&프라페',price:4800,needTemp:false,tempFixed:'ICE'},
-  {name:'골드망고스무디',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'플레인퐁크러쉬',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'초코허니퐁크러쉬',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'슈크림허니퐁크러쉬',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'딸기퐁크러쉬',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'바나나퐁크러쉬',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'쿠키프라페',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'딸기쿠키프라페',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'민트프라페',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'커피프라페',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'스트로베리치즈홀릭',cat:'스무디&프라페',price:4500,needTemp:false,tempFixed:'ICE'},
-  {name:'리얼초코프라페',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'녹차프라페',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'플레인요거트스무디',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'딸기요거트스무디',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  {name:'망고요거트스무디',cat:'스무디&프라페',price:3900,needTemp:false,tempFixed:'ICE'},
-  // ── 디저트 ──
-  {name:'팥빙 젤라또 파르페',cat:'디저트',price:4400,needTemp:false,tempFixed:null},
-  {name:'말차 젤라또 팥빙 파르페',cat:'디저트',price:4400,needTemp:false,tempFixed:null},
-  {name:'엠지씨네 통쏘시지 김밥빔',cat:'디저트',price:4400,needTemp:false,tempFixed:null},
-  {name:'버터가 쫀득해떡',cat:'디저트',price:1400,needTemp:false,tempFixed:null},
-  {name:'버터가 쫀득해떡(6개입)',cat:'디저트',price:8000,needTemp:false,tempFixed:null},
-  {name:'내 맘대로 다봄 젤라또 (딸기&요거트)',cat:'디저트',price:3900,needTemp:false,tempFixed:null},
-  {name:'내 맘대로 다봄 젤라또 (초코&말차)',cat:'디저트',price:3900,needTemp:false,tempFixed:null},
-  {name:'에그머니 머핀졀 브런치빵',cat:'디저트',price:3800,needTemp:false,tempFixed:null},
-  {name:'엠지씨네 양념 컵치킨',cat:'디저트',price:4400,needTemp:false,tempFixed:null},
-  {name:'딸기 크림치즈 쫀득빵',cat:'디저트',price:3200,needTemp:false,tempFixed:null},
-  {name:'닭치즈 불고기 베이크',cat:'디저트',price:3900,needTemp:false,tempFixed:null},
-  {name:'엠지씨네 라면땅',cat:'디저트',price:1900,needTemp:false,tempFixed:null},
-  {name:'요거젤라또 씨리얼_초코베리믹스',cat:'디저트',price:3900,needTemp:false,tempFixed:null},
-  {name:'요거젤라또 초코베리믹스',cat:'디저트',price:3900,needTemp:false,tempFixed:null},
-  {name:'멕시칸 미트젤리 핫도그',cat:'디저트',price:3800,needTemp:false,tempFixed:null},
-  {name:'치즈 품은 감자빵',cat:'디저트',price:3900,needTemp:false,tempFixed:null},
-  {name:'엠지씨네 메가칩',cat:'디저트',price:1900,needTemp:false,tempFixed:null},
-  {name:'로얄 말스토리 스모어 쿠키',cat:'디저트',price:2900,needTemp:false,tempFixed:null},
-  {name:'메가베리 아사이볼',cat:'디저트',price:3900,needTemp:false,tempFixed:null},
-  {name:'와앙메리칸 쫀득 핫도그',cat:'디저트',price:3600,needTemp:false,tempFixed:null},
-  {name:'햄&치즈샌드위치',cat:'디저트',price:2400,needTemp:false,tempFixed:null},
-  {name:'바질 치폴레 치킨 치아바타',cat:'디저트',price:4400,needTemp:false,tempFixed:null},
-  {name:'버터버터 뜰어먹는 식빵(ICE)브런치 세트',cat:'디저트',price:5700,needTemp:false,tempFixed:null},
-  {name:'버터버터 뜰어먹는 식빵(HOT)브런치 세트',cat:'디저트',price:5400,needTemp:false,tempFixed:null},
-  {name:'버터버터 뜰어먹는 식빵과 딸기잼 세트',cat:'디저트',price:3700,needTemp:false,tempFixed:null},
-  {name:'감자빵',cat:'디저트',price:3500,needTemp:false,tempFixed:null},
-  {name:'딸기요거트 마카롱',cat:'디저트',price:2100,needTemp:false,tempFixed:null},
-  {name:'메가초코 마카롱',cat:'디저트',price:2100,needTemp:false,tempFixed:null},
-  {name:'유니콘프라페 마카롱',cat:'디저트',price:2100,needTemp:false,tempFixed:null},
-  {name:'초코스모어쿠키',cat:'디저트',price:2900,needTemp:false,tempFixed:null},
-  {name:'메가쿠키(마카다미아)',cat:'디저트',price:2000,needTemp:false,tempFixed:null},
-  {name:'메가쿠키(초코칩)',cat:'디저트',price:2000,needTemp:false,tempFixed:null},
-  {name:'초코무스케익',cat:'디저트',price:3500,needTemp:false,tempFixed:null},
-  {name:'치즈케익',cat:'디저트',price:3500,needTemp:false,tempFixed:null},
-  {name:'티라미수케익',cat:'디저트',price:3500,needTemp:false,tempFixed:null},
-  {name:'버터버터 뜰어먹는 식빵',cat:'디저트',price:2900,needTemp:false,tempFixed:null},
-  {name:'버터버터소금빵',cat:'디저트',price:3200,needTemp:false,tempFixed:null},
-  {name:'버터버터소금빵(쥬에그젤)',cat:'디저트',price:3800,needTemp:false,tempFixed:null},
-  {name:'아이스 딸기라떼 와잉 슈',cat:'디저트',price:2400,needTemp:false,tempFixed:null},
-  {name:'초코젤라또크로플',cat:'디저트',price:3500,needTemp:false,tempFixed:null},
-  {name:'크로크무슈',cat:'디저트',price:3800,needTemp:false,tempFixed:null},
-  {name:'플레인크로플',cat:'디저트',price:2500,needTemp:false,tempFixed:null},
-  {name:'핫 치킨&딥치즈_치아바타',cat:'디저트',price:4400,needTemp:false,tempFixed:null},
-  {name:'허니브레드',cat:'디저트',price:4500,needTemp:false,tempFixed:null},
-]
+  const allRaw=[...(raw||[]),...(des||[])];
+  allRaw.forEach(m=>{
+    if(!m||!m.name)return;
+    const name=m.name;
+    const isHOT=name.startsWith('(HOT)');
+    const isICE=name.startsWith('(ICE)');
+    const cleanName=name.replace(/^\(HOT\)|\(ICE\)/,'').trim();
+    const cat=m.cat||'커피';
 
-const defaultOpt=[
-  {name:'샷추가',price:600},{name:'2샷추가',price:1200},
-  {name:'디카페인샷추가',price:1000},{name:'디카페인2샷추가',price:2000},
-  {name:'아몬드밀크변경',price:500},{name:'오트밀크변경',price:500},
-  {name:'바닐라시럽추가',price:500},{name:'카라멜시럽추가',price:500},
-  {name:'헤이즐넛시럽추가',price:500},{name:'라이트바닐라시럽추가',price:800},
-  {name:'시럽추가BIG',price:700},{name:'연유추가',price:700},
-  {name:'꿀추가',price:700},{name:'휘핑추가',price:500},
-  {name:'젤라또추가',price:700},{name:'펄추가',price:700},
-  {name:'꿀추가BIG',price:1000},{name:'스테비아추가',price:600},
-  {name:'스테비아추가BIG',price:1000},
-];
+    if(isHOT){
+      // HOT 전용 — ICE 버전 있는지 나중에 체크
+      const key=cat+'::'+cleanName;
+      if(seen.has(key)){
+        // 이미 ICE가 있음 → 통합으로 전환
+        const idx=seen.get(key);
+        result[idx].needTemp=true;
+        result[idx].tempFixed=null;
+        result[idx].hotPrice=m.price;
+        result[idx].price=m.price; // HOT 가격 기본
+      } else {
+        const item={
+          name:cleanName,
+          originalName:name,
+          cat:cat,
+          price:m.price,
+          alias:m.alias||'',
+          needTemp:false,
+          tempFixed:'HOT',
+          hotPrice:m.price,
+          icePrice:null
+        };
+        seen.set(key,result.length);
+        result.push(item);
+      }
+    } else if(isICE){
+      const key=cat+'::'+cleanName;
+      if(seen.has(key)){
+        // 이미 HOT이 있음 → 통합으로 전환
+        const idx=seen.get(key);
+        result[idx].needTemp=true;
+        result[idx].tempFixed=null;
+        result[idx].icePrice=m.price;
+        // HOT/ICE 가격이 다를 때 처리
+        if(result[idx].hotPrice&&result[idx].hotPrice!==m.price){
+          result[idx].hotPrice=result[idx].hotPrice;
+          result[idx].icePrice=m.price;
+        }
+      } else {
+        const item={
+          name:cleanName,
+          originalName:name,
+          cat:cat,
+          price:m.price,
+          alias:m.alias||'',
+          needTemp:false,
+          tempFixed:'ICE',
+          hotPrice:null,
+          icePrice:m.price
+        };
+        seen.set(key,result.length);
+        result.push(item);
+      }
+    } else {
+      // HOT/ICE 접두어 없음 → 그대로
+      const item={
+        name:cleanName,
+        originalName:name,
+        cat:cat,
+        price:m.price,
+        alias:m.alias||'',
+        needTemp:false,
+        tempFixed:null,
+        hotPrice:null,
+        icePrice:null
+      };
+      result.push(item);
+    }
+  });
+  return result;
+}
+
+// 카테고리 순서 정의 (Firebase menuDB의 cat 기준)
+const CAT_ORDER=['커피','디카페인','콜드브루','티(Tea)','음료(논커피라떼)','에이드&주스','스무디&프라페','디저트'];
+const CAT_LABELS={'커피':'커피','디카페인':'디카페인','콜드브루':'콜드브루','티(Tea)':'티(Tea)','음료(논커피라떼)':'음료','에이드&주스':'에이드&주스','스무디&프라페':'스무디','디저트':'디저트'};
+
+// menuDB는 Firebase에서 로드 (위 convertMenuDB 참조)
 
 // ── Firebase 로드 ──
 function loadData(){
@@ -556,10 +448,18 @@ function loadData(){
     initUI();
   });
 
-  // 품절/catOptMap/depts 실시간
+  // 실시간 리스너
   db.ref('soldout').on('value',snap=>{
     soldout=snap.val()||{};
     if(curCat)renderMenuArea(curCat);
+  });
+  db.ref('jangbu/menuDB').on('value',snap=>{
+    const v=snap.val();
+    if(v&&v.length>0){rawMenuDB=v;menuDB=convertMenuDB(rawMenuDB,rawDessertDB);if(curCat)renderMenuArea(curCat);}
+  });
+  db.ref('jangbu/dessertDB').on('value',snap=>{
+    const v=snap.val();
+    if(v&&v.length>0){rawDessertDB=v;menuDB=convertMenuDB(rawMenuDB,rawDessertDB);if(curCat)renderMenuArea(curCat);}
   });
   db.ref('jangbu/catOptMap').on('value',snap=>{catOptMap=snap.val()||null;});
   db.ref('jangbu/catSubMap').on('value',snap=>{catSubMap=snap.val()||null;});
@@ -577,6 +477,8 @@ function loadData(){
 
 // ── UI 초기화 ──
 function initUI(){
+  // menuDB 로드 후 카테고리바 렌더
+  renderCatBar();
   renderIntroScreen();
 }
 
@@ -615,20 +517,22 @@ function goIntro(){
 function selectType(type){
   orderType=type;
   document.getElementById('waitScreen').classList.remove('active');
-  // 주문 화면으로
   renderCatBar();
-  selectCat(CATEGORIES[0].key);
+  const firstCat=CAT_ORDER.find(cat=>menuDB.some(m=>m.cat===cat));
+  if(firstCat)selectCat(firstCat);
 }
 
 // ── 카테고리 탭 ──
 function renderCatBar(){
   const bar=document.getElementById('catBar');
   bar.innerHTML='';
-  CATEGORIES.forEach(c=>{
+  // menuDB에 실제 존재하는 카테고리만 표시
+  const existCats=CAT_ORDER.filter(cat=>menuDB.some(m=>m.cat===cat));
+  existCats.forEach(cat=>{
     const btn=document.createElement('button');
-    btn.className='cat-btn'+(curCat===c.key?' active':'');
-    btn.textContent=c.label;
-    btn.onclick=()=>selectCat(c.key);
+    btn.className='cat-btn'+(curCat===cat?' active':'');
+    btn.textContent=CAT_LABELS[cat]||cat;
+    btn.onclick=()=>selectCat(cat);
     bar.appendChild(btn);
   });
 }
@@ -653,7 +557,6 @@ function getTemp(item){
 function renderMenuArea(catKey){
   const area=document.getElementById('menuArea');
   area.innerHTML='';
-  const cat=CATEGORIES.find(c=>c.key===catKey);
   const items=menuDB.filter(m=>m.cat===catKey);
 
   if(cat&&Object.keys(cat.sub).length>0){
@@ -691,7 +594,8 @@ function renderMenuArea(catKey){
 
 function makeMenuCard(item){
   const div=document.createElement('div');
-  const isSold=soldout[item.name];
+  // 품절 체크 — 변환된 cleanName(=item.name)으로 직접 체크
+  const isSold=!!(soldout[item.name]||soldout[item.originalName]);
   const cartQty=cart.filter(c=>c.name===item.name&&(item.needTemp||c.temp===item.tempFixed)).reduce((s,c)=>s+c.qty,0);
   div.className='menu-card'+(cartQty>0?' in-cart':'')+(isSold?' soldout':'');
 
@@ -840,6 +744,7 @@ function addToCart(){
     id:Date.now(),
     name:popupItem.name,
     displayName:popupItem.name,
+      originalName:popupItem.originalName||popupItem.name,
     temp,opts,qty:popupQty,unitPrice,
     cat:popupItem.cat
   });
@@ -940,7 +845,9 @@ function doSubmitOrder(){
     while(rows.length<80)rows.push({date:'',content:'',opts:[],order:'',pay:'',note:'',createdAt:'',updatedAt:''});
 
     cartSnapshot.forEach(item=>{
-      const content=item.displayName+(item.temp?' ('+item.temp+')':'')+(item.opts.length>0?' +'+item.opts.map(o=>o.name).join('+'):'')+(item.qty>1?' x'+item.qty:'');
+      // 장부 기록명은 originalName 사용 (장부 menuDB와 일치)
+      const ledgerName=item.originalName||item.displayName;
+      const content=ledgerName+(item.opts.length>0?' +'+item.opts.map(o=>o.name).join('+'):'')+(item.qty>1?' x'+item.qty:'');
       const newRow={date:dateStr,content,opts:item.opts,order:item.unitPrice*item.qty,pay:'',note:'',createdAt:dateStr,updatedAt:dateStr,basePrice:item.unitPrice*item.qty};
       const emptyIdx=rows.findIndex(r=>!r.content&&!r.date&&!r.pay&&!r.order);
       if(emptyIdx>=0)rows[emptyIdx]=newRow;
