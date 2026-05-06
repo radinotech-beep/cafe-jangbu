@@ -210,14 +210,29 @@ function itemAmount(item){
 function sourceOrderKey(order){
   return String(order.id)+'_'+String(order.createdAt||'');
 }
+function normDeptName(name){
+  return String(name||'').replace(/\s+/g,'').replace(/[·ㆍ\-.]/g,'').trim();
+}
 function findDeptKey(deptsData,order){
   if(!deptsData)return null;
   const keys=Object.keys(deptsData);
   const idxKey=String(order.deptIdx);
-  const deptName=String(order.deptName||'').trim();
-  if(deptsData[idxKey]&&(!deptName||String(deptsData[idxKey].name||'').trim()===deptName))return idxKey;
-  const byName=keys.find(k=>String((deptsData[k]||{}).name||'').trim()===deptName);
+  const deptName=normDeptName(order.deptName);
+  const orderId=String(order.id);
+  if(deptsData[idxKey]&&(!deptName||normDeptName(deptsData[idxKey].name)===deptName))return idxKey;
+  const byName=keys.find(k=>normDeptName((deptsData[k]||{}).name)===deptName);
   if(byName!==undefined)return byName;
+  const byLooseName=keys.find(k=>{
+    const n=normDeptName((deptsData[k]||{}).name);
+    return deptName&&n&&(n.includes(deptName)||deptName.includes(n));
+  });
+  if(byLooseName!==undefined)return byLooseName;
+  const byOrderRow=keys.find(k=>{
+    const rows=(deptsData[k]&&deptsData[k].rows)||[];
+    const arr=Array.isArray(rows)?rows:Object.values(rows);
+    return arr.some(row=>row&&String(row.orderId||'')===orderId);
+  });
+  if(byOrderRow!==undefined)return byOrderRow;
   return deptsData[idxKey]?idxKey:null;
 }
 function markCancelledInLedger(order){
@@ -232,7 +247,7 @@ function markCancelledInLedger(order){
     if(!Array.isArray(rows))rows=Object.values(rows);
     const dateStr=orderDateStr(order);
     const alreadyCancelled=rows.some(row=>row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr)));
-    if(alreadyCancelled)return false;
+    if(alreadyCancelled)return true;
 
     const cancelRows=orderItems(order).map((item,idx)=>{
       const ledgerName=cleanMenuName(item.originalName||item.displayName||item.name||'메뉴');
@@ -241,8 +256,12 @@ function markCancelledInLedger(order){
       const optText=opts.map(o=>typeof o==='string'?o:o.name).filter(Boolean).join('+');
       const content=ledgerName+(optText?' +'+optText:'')+((pn(item.qty)||1)>1?' x'+(pn(item.qty)||1):'');
       return {date:dateStr,content,opts,order:-Math.abs(amount),pay:'',note:'주문취소',createdAt:dateStr,updatedAt:dateStr,basePrice:-Math.abs(amount),orderId:orderId+'-cancel-'+idx,sourceOrderId:orderId,sourceOrderKey:sourceKey,cancelRow:true};
-    });
-    if(cancelRows.length===0)return false;
+    }).filter(row=>pn(row.order)!==0);
+    if(cancelRows.length===0){
+      const total=pn(order.totalPrice)||pn(order.total)||0;
+      if(!total)return false;
+      cancelRows.push({date:dateStr,content:'주문취소 #'+String(order.id).padStart(3,'0'),opts:[],order:-Math.abs(total),pay:'',note:'주문취소',createdAt:dateStr,updatedAt:dateStr,basePrice:-Math.abs(total),orderId:orderId+'-cancel-total',sourceOrderId:orderId,sourceOrderKey:sourceKey,cancelRow:true});
+    }
 
     let insertAt=rows.findIndex(row=>row&&String(row.orderId||'')===orderId&&(!row.date||row.date===dateStr));
     if(insertAt<0){
@@ -492,43 +511,55 @@ function renderOrders(){
 
     const headDiv=document.createElement('div');
     headDiv.className=headCls;
-    headDiv.innerHTML=`
-      <div>
-        <div class="order-no">#${String(order.id).padStart(3,'0')}</div>
-        <div class="order-dept">${esc(order.deptName)}</div>
-        ${typeBadge}
-      </div>
-      <div class="head-right">
-        ${urg?'<span class="urgent-badge">⚠ 5분초과</span>':''}
-        ${isCancelled?'<span style="font-size:9px;background:#999;color:#fff;padding:2px 6px;border-radius:3px;font-weight:500;">취소됨</span>':''}
-        <span class="order-time">${timeStr}</span>
-      </div>`;
+    if(showDone){
+      headDiv.innerHTML=`
+        <div>
+          <div class="order-no">#${String(order.id).padStart(3,'0')}</div>
+          <div class="order-dept">${esc(order.deptName)}</div>
+        </div>
+        <div class="head-right">
+          ${isCancelled?'<span style="font-size:9px;background:#999;color:#fff;padding:2px 6px;border-radius:3px;font-weight:500;">취소됨</span>':''}
+        </div>`;
+    }else{
+      headDiv.innerHTML=`
+        <div>
+          <div class="order-no">#${String(order.id).padStart(3,'0')}</div>
+          <div class="order-dept">${esc(order.deptName)}</div>
+          ${typeBadge}
+        </div>
+        <div class="head-right">
+          ${urg?'<span class="urgent-badge">⚠ 5분초과</span>':''}
+          ${isCancelled?'<span style="font-size:9px;background:#999;color:#fff;padding:2px 6px;border-radius:3px;font-weight:500;">취소됨</span>':''}
+          <span class="order-time">${timeStr}</span>
+        </div>`;
+    }
     card.appendChild(headDiv);
 
     // ── 바디 ──
-    const body=document.createElement('div');
-    body.className='card-body';
-    (order.items||[]).forEach((item,idx)=>{
-      const mega=isMega(item.name);
-      const optStr=(item.opts||[]).map(o=>o.name).join(', ');
-      const madeKey=order.id+'_'+idx;
-      const isMade=!!madeItems[madeKey];
-      const div=document.createElement('div');
-      div.className='menu-item'+(isMade?' made':'');
-      // 완료/취소 아닌 경우만 터치 가능
-      if(!isDone&&!isCancelled){
-        div.onclick=()=>toggleMade(order.id,idx);
-        div.title='터치하면 제조완료 표시';
-      }
-      div.innerHTML=`
-        <div class="menu-row">
-          <span class="menu-name">${esc(item.displayName||item.name)}${mega?'<span class="tag tag-mega">MEGA</span>':''}${tempTag(item.temp)}</span>
-          <span class="menu-qty">${isMade?'✓':''}x${item.qty}</span>
-        </div>
-        ${optStr?`<div class="opt-row"><span class="opt-arrow">▶</span><span class="opt-text">${esc(optStr)}</span></div>`:''}`;
-      body.appendChild(div);
-    });
-    card.appendChild(body);
+    if(!showDone){
+      const body=document.createElement('div');
+      body.className='card-body';
+      (order.items||[]).forEach((item,idx)=>{
+        const mega=isMega(item.name);
+        const optStr=(item.opts||[]).map(o=>o.name).join(', ');
+        const madeKey=order.id+'_'+idx;
+        const isMade=!!madeItems[madeKey];
+        const div=document.createElement('div');
+        div.className='menu-item'+(isMade?' made':'');
+        if(!isDone&&!isCancelled){
+          div.onclick=()=>toggleMade(order.id,idx);
+          div.title='터치하면 제조완료 표시';
+        }
+        div.innerHTML=`
+          <div class="menu-row">
+            <span class="menu-name">${esc(item.displayName||item.name)}${mega?'<span class="tag tag-mega">MEGA</span>':''}${tempTag(item.temp)}</span>
+            <span class="menu-qty">${isMade?'✓':''}x${item.qty}</span>
+          </div>
+          ${optStr?`<div class="opt-row"><span class="opt-arrow">▶</span><span class="opt-text">${esc(optStr)}</span></div>`:''}`;
+        body.appendChild(div);
+      });
+      card.appendChild(body);
+    }
 
     // ── 푸터 ──
     const foot=document.createElement('div');
@@ -560,30 +591,10 @@ function renderOrders(){
     } else {
       card.style.cursor='pointer';
       card.onclick=()=>openDetail(order);
-      const status=document.createElement('button');
-      status.className='done-btn completed';
-      status.textContent=isCancelled?'✕ 취소됨':'✓ 완료됨';
-      status.onclick=(e)=>{e.stopPropagation();openDetail(order);};
-      foot.appendChild(status);
-
-      const actions=document.createElement('div');
-      actions.className='history-actions';
-      const detailBtn=document.createElement('button');
-      detailBtn.className='history-btn detail';
-      detailBtn.textContent='상세';
-      detailBtn.onclick=(e)=>{e.stopPropagation();openDetail(order);};
-      actions.appendChild(detailBtn);
-
-      const actionBtn=document.createElement('button');
-      actionBtn.className='history-btn '+(isCancelled?'restore':'cancel');
-      actionBtn.textContent=isCancelled?'취소복구':'완료취소';
-      actionBtn.onclick=(e)=>{
-        e.stopPropagation();
-        if(isCancelled)restoreOrder(order.id);
-        else cancelCompletedOrder(order.id);
-      };
-      actions.appendChild(actionBtn);
-      foot.appendChild(actions);
+      const hint=document.createElement('div');
+      hint.className='elapsed';
+      hint.textContent='클릭해서 상세 보기';
+      foot.appendChild(hint);
     }
     card.appendChild(foot);
     grid.appendChild(card);
@@ -625,7 +636,7 @@ function openDetail(order){
     +'<div class="detail-label">상태</div><div>'+(isCancelled?'취소됨':'완료됨')+'</div>'
     +'<div class="detail-label">구분</div><div>'+(isTake?'Take-out':'부서 주문')+'</div>'
     +'<div class="detail-label">시간</div><div>'+timeStr+'</div>'
-    +'<div class="detail-label">금액</div><div>'+fmt(order.total||0)+'</div>'
+    +'<div class="detail-label">금액</div><div>'+fmt(order.totalPrice||order.total||0)+'</div>'
     +'</div>';
 
   html+='<div class="detail-items">';
