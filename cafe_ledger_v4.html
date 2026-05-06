@@ -387,6 +387,40 @@ let soldout={};  // {메뉴명: true}
 let hiddenMenus={};  // {메뉴명: true} — 주문창에서 아예 안 보임
 // catOptMap: { "대카>중카": [옵션명] }
 // catSubMap: { "대카": [{name:"중카명", menus:[메뉴명]}] }
+function makeDeptId(){
+  return 'dept_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+}
+function cleanDeptForSave(dept){
+  const copy={...dept};
+  delete copy._key;
+  return copy;
+}
+function deptKey(i){
+  const d=depts[i];
+  return d&&d._key!==undefined?String(d._key):String(i);
+}
+function nextDeptKey(data){
+  const keys=data?Object.keys(data).map(k=>parseInt(k,10)).filter(n=>!isNaN(n)):[];
+  return String(keys.length?Math.max(...keys)+1:0);
+}
+function normalizeDeptData(data,persistMissingIds){
+  if(!data)return[];
+  const keys=Array.isArray(data)
+    ? Object.keys(data).filter(k=>data[k])
+    : Object.keys(data).filter(k=>data[k]).sort((a,b)=>{
+        const na=parseInt(a,10),nb=parseInt(b,10);
+        if(!isNaN(na)&&!isNaN(nb))return na-nb;
+        return String(a).localeCompare(String(b));
+      });
+  return keys.map(k=>{
+    const dept={...data[k],_key:String(k)};
+    if(!dept.id){
+      dept.id=makeDeptId();
+      if(persistMissingIds)db.ref('jangbu/depts/'+k+'/id').set(dept.id);
+    }
+    return dept;
+  });
+}
 const defaultCatOpts={
   '커피':['샷추가','2샷추가','디카페인샷추가','디카페인2샷추가','아몬드밀크변경','오트밀크변경','바닐라시럽추가','카라멜시럽추가','헤이즐넛시럽추가','라이트바닐라시럽추가','시럽추가BIG','연유추가','꿀추가','휘핑추가','젤라또추가','펄추가','꿀추가BIG','스테비아추가','스테비아추가BIG'],
   '디카페인':['샷추가','2샷추가','디카페인샷추가','디카페인2샷추가','아몬드밀크변경','오트밀크변경','바닐라시럽추가','카라멜시럽추가','헤이즐넛시럽추가','라이트바닐라시럽추가','시럽추가BIG','연유추가','꿀추가','휘핑추가','젤라또추가','펄추가','꿀추가BIG','스테비아추가','스테비아추가BIG'],
@@ -687,7 +721,7 @@ function saveDept(di,immediate){
   setSyncStatus('ing');
   const delay=immediate?0:1500;
   deptSaveTimers[di]=setTimeout(()=>{
-    db.ref('jangbu/depts/'+di).set(depts[di])
+    db.ref('jangbu/depts/'+deptKey(di)).set(cleanDeptForSave(depts[di]))
       .then(()=>{setSyncStatus('ok');setTimeout(()=>savingDepts.delete(di),800);})
       .catch(()=>{setSyncStatus('err');savingDepts.delete(di);});
   },delay);
@@ -696,12 +730,7 @@ function loadFromFirebase(){
   db.ref('jangbu').once('value').then(snap=>{
     const data=snap.val();
     if(data){
-      const rawDepts=data.depts;
-      if(rawDepts&&typeof rawDepts==='object'&&!Array.isArray(rawDepts)){
-        depts=Object.keys(rawDepts).map(Number).sort((a,b)=>a-b).map(k=>rawDepts[k]).filter(Boolean);
-      } else {
-        depts=rawDepts||[];
-      }
+      depts=normalizeDeptData(data.depts,true);
       // menuDB — null이거나 빈 배열이면 defaultMenu 사용
       const rawMenu=(data.menuDB&&data.menuDB.length>0)?data.menuDB:[...defaultMenu];
       menuDB=rawMenu.map(m=>m&&m.name?(m.cat?m:{...m,cat:guessCat(m.name)}):null).filter(Boolean);
@@ -726,9 +755,8 @@ function listenRealtime(){
   db.ref('jangbu/depts').on('value',snap=>{
     const data=snap.val();
     if(!data){depts=[];renderSubnav();return;}
-    // 키 정렬 후 완전 교체 (중복/구멍 방지)
-    const newDepts=Array.isArray(data)?data:
-      Object.keys(data).map(Number).sort((a,b)=>a-b).map(k=>data[k]).filter(Boolean);
+    // Firebase 실제 키를 _key로 보존한다. 부서 추가/삭제 후에도 장부 경로가 꼬이지 않게 한다.
+    const newDepts=normalizeDeptData(data,true);
     // 저장 중인 부서만 로컬 버전 유지, 나머지 교체
     newDepts.forEach((d,i)=>{if(!savingDepts.has(i))depts[i]=d;});
     if(savingDepts.size===0)depts=newDepts;
@@ -898,9 +926,9 @@ function renderDeptMgmt(){
 }
 function delDept(i){
   if(!confirm(depts[i].name+' 부서를 삭제할까요? 장부 데이터도 모두 삭제됩니다.'))return;
+  const key=deptKey(i);
   depts.splice(i,1);
-  // 전체 재저장으로 구멍 방지
-  db.ref('jangbu/depts').set(depts);
+  db.ref('jangbu/depts/'+key).remove();
   if(curScreen==='ledger'){curDeptIdx=null;showScreen('home');}
   renderSubnav();renderHome();renderDeptMgmt();
 }
@@ -1634,9 +1662,11 @@ function addDept(){
   const nm=document.getElementById('newDept').value.trim();if(!nm)return;
   const emptyRows=[];
   for(let i=0;i<80;i++)emptyRows.push({date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''});
-  depts.push({name:nm,rows:emptyRows,password:''});
-  // 전체 재저장으로 구멍 없이 순서 보장
-  db.ref('jangbu/depts').set(depts);
+  db.ref('jangbu/depts').once('value').then(snap=>{
+    const key=nextDeptKey(snap.val()||{});
+    const dept={id:makeDeptId(),name:nm,rows:emptyRows,password:''};
+    return db.ref('jangbu/depts/'+key).set(dept);
+  });
   renderSubnav();closeDM();goHome();
 }
 

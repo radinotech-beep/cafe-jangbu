@@ -216,6 +216,11 @@ function normDeptName(name){
 function findDeptKey(deptsData,order){
   if(!deptsData)return null;
   const keys=Object.keys(deptsData);
+  if(order.deptId){
+    const byId=keys.find(k=>String((deptsData[k]||{}).id||'')===String(order.deptId));
+    if(byId!==undefined)return byId;
+  }
+  if(order.deptKey!==undefined&&deptsData[String(order.deptKey)])return String(order.deptKey);
   const idxKey=String(order.deptIdx);
   const deptName=normDeptName(order.deptName);
   const orderId=String(order.id);
@@ -235,55 +240,55 @@ function findDeptKey(deptsData,order){
   if(byOrderRow!==undefined)return byOrderRow;
   return deptsData[idxKey]?idxKey:null;
 }
-function markCancelledInLedger(order){
+function emptyRow(){
+  return {date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''};
+}
+function makeCancelRows(order,dateStr){
   const orderId=String(order.id);
   const sourceKey=sourceOrderKey(order);
-  return db.ref('jangbu/depts').once('value').then(snap=>{
-    const deptsData=snap.val()||{};
-    const deptKey=findDeptKey(deptsData,order);
-    if(deptKey===null)return false;
-    const dept=deptsData[deptKey]||{};
-    let rows=dept.rows||[];
+  const rows=orderItems(order).map((item,idx)=>{
+    const ledgerName=cleanMenuName(item.originalName||item.displayName||item.name||'메뉴');
+    const amount=itemAmount(item);
+    const opts=item.opts||item.options||[];
+    const optText=opts.map(o=>typeof o==='string'?o:o.name).filter(Boolean).join('+');
+    const content=ledgerName+(optText?' +'+optText:'')+((pn(item.qty)||1)>1?' x'+(pn(item.qty)||1):'');
+    return {date:dateStr,content,opts,order:-Math.abs(amount),pay:'',note:'주문취소',createdAt:dateStr,updatedAt:dateStr,basePrice:-Math.abs(amount),orderId:orderId+'-cancel-'+idx,sourceOrderId:orderId,sourceOrderKey:sourceKey,deptId:order.deptId||'',cancelRow:true};
+  }).filter(row=>pn(row.order)!==0);
+  if(rows.length===0){
+    const total=pn(order.totalPrice)||pn(order.total)||0;
+    if(total)rows.push({date:dateStr,content:'주문취소 #'+String(order.id).padStart(3,'0'),opts:[],order:-Math.abs(total),pay:'',note:'주문취소',createdAt:dateStr,updatedAt:dateStr,basePrice:-Math.abs(total),orderId:orderId+'-cancel-total',sourceOrderId:orderId,sourceOrderKey:sourceKey,deptId:order.deptId||'',cancelRow:true});
+  }
+  return rows;
+}
+function writeCancelRows(deptKey,order){
+  const orderId=String(order.id);
+  const sourceKey=sourceOrderKey(order);
+  const dateStr=orderDateStr(order);
+  const cancelRows=makeCancelRows(order,dateStr);
+  if(cancelRows.length===0)return Promise.resolve({ok:false,reason:'주문 금액이 0원으로 저장되어 있음'});
+  return db.ref('jangbu/depts/'+deptKey+'/rows').once('value').then(snap=>{
+    let rows=snap.val()||[];
     if(!Array.isArray(rows))rows=Object.values(rows);
-    const dateStr=orderDateStr(order);
+    while(rows.length<80)rows.push(emptyRow());
     const alreadyCancelled=rows.some(row=>row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr)));
-    if(alreadyCancelled)return true;
-
-    const cancelRows=orderItems(order).map((item,idx)=>{
-      const ledgerName=cleanMenuName(item.originalName||item.displayName||item.name||'메뉴');
-      const amount=itemAmount(item);
-      const opts=item.opts||item.options||[];
-      const optText=opts.map(o=>typeof o==='string'?o:o.name).filter(Boolean).join('+');
-      const content=ledgerName+(optText?' +'+optText:'')+((pn(item.qty)||1)>1?' x'+(pn(item.qty)||1):'');
-      return {date:dateStr,content,opts,order:-Math.abs(amount),pay:'',note:'주문취소',createdAt:dateStr,updatedAt:dateStr,basePrice:-Math.abs(amount),orderId:orderId+'-cancel-'+idx,sourceOrderId:orderId,sourceOrderKey:sourceKey,cancelRow:true};
-    }).filter(row=>pn(row.order)!==0);
-    if(cancelRows.length===0){
-      const total=pn(order.totalPrice)||pn(order.total)||0;
-      if(!total)return false;
-      cancelRows.push({date:dateStr,content:'주문취소 #'+String(order.id).padStart(3,'0'),opts:[],order:-Math.abs(total),pay:'',note:'주문취소',createdAt:dateStr,updatedAt:dateStr,basePrice:-Math.abs(total),orderId:orderId+'-cancel-total',sourceOrderId:orderId,sourceOrderKey:sourceKey,cancelRow:true});
-    }
-
+    if(alreadyCancelled)return {ok:true,reason:'이미 취소 줄 있음'};
     let insertAt=rows.findIndex(row=>row&&String(row.orderId||'')===orderId&&(!row.date||row.date===dateStr));
-    if(insertAt<0){
-      const firstItem=orderItems(order)[0]||{};
-      const firstName=cleanMenuName(firstItem.originalName||firstItem.displayName||firstItem.name||'');
-      const firstAmount=itemAmount(firstItem);
-      insertAt=rows.findIndex(row=>{
-        if(!row||row.date!==dateStr||!row.content)return false;
-        const nameMatched=!firstName||cleanMenuName(row.content).includes(firstName)||firstName.includes(cleanMenuName(row.content));
-        const amountMatched=!firstAmount||pn(row.order)===firstAmount||pn(row.basePrice)===firstAmount;
-        return nameMatched&&amountMatched;
-      });
-    }
     if(insertAt>=0)rows.splice(insertAt+1,0,...cancelRows);
     else{
       const emptyIdx=rows.findIndex(r=>!r.content&&!r.date&&!r.pay&&!r.order);
       if(emptyIdx>=0)rows.splice(emptyIdx,0,...cancelRows);
       else rows.push(...cancelRows);
     }
-
-    return db.ref('jangbu/depts/'+deptKey+'/rows').set(rows).then(()=>true);
-  }).catch(err=>console.error('장부 취소 반영 실패:',err));
+    return db.ref('jangbu/depts/'+deptKey+'/rows').set(rows).then(()=>({ok:true,reason:'취소 줄 추가 완료'}));
+  });
+}
+function markCancelledInLedger(order){
+  return db.ref('jangbu/depts').once('value').then(snap=>{
+    const deptsData=snap.val()||{};
+    const deptKey=findDeptKey(deptsData,order);
+    if(deptKey===null)return {ok:false,reason:'장부에 해당 부서가 없음: '+(order.deptName||'부서명 없음')};
+    return writeCancelRows(deptKey,order);
+  }).catch(err=>({ok:false,reason:err&&err.message?err.message:String(err)}));
 }
 
 function restoreInLedger(order){
@@ -390,8 +395,8 @@ function cancelOrder(id){
   if(!confirm('주문을 취소할까요? 장부 금액도 함께 복구됩니다.'))return;
   const order=Object.values(orders).find(o=>String(o.id)===String(id));
   const finish=()=>db.ref('orders/'+id+'/status').set('cancelled');
-  if(order)markCancelledInLedger(order).then(ok=>{
-    if(!ok)alert('장부에 취소 줄을 추가하지 못했습니다. 부서명/주문금액을 확인해주세요.');
+  if(order)markCancelledInLedger(order).then(result=>{
+    if(!result||!result.ok)alert('장부 취소 반영 실패: '+(result&&result.reason?result.reason:'원인 확인 불가'));
   }).finally(finish);
   else finish();
 }
@@ -402,8 +407,8 @@ function cancelCompletedOrder(id){
     document.getElementById('detailOverlay').style.display='none';
     return db.ref('orders/'+id+'/status').set('cancelled');
   };
-  if(order)markCancelledInLedger(order).then(ok=>{
-    if(!ok)alert('장부에 취소 줄을 추가하지 못했습니다. 부서명/주문금액을 확인해주세요.');
+  if(order)markCancelledInLedger(order).then(result=>{
+    if(!result||!result.ok)alert('장부 취소 반영 실패: '+(result&&result.reason?result.reason:'원인 확인 불가'));
   }).finally(finish);
   else finish();
 }
