@@ -4,19 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>카페 장부</title>
-<link rel="manifest" href="manifest-ledger.json">
-<meta name="theme-color" content="#2C2C2A">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="카페장부">
-<link rel="apple-touch-icon" href="icon-ledger-192.png">
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/cafe-jangbu/service-worker.js');
-    });
-  }
-</script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
@@ -402,8 +389,6 @@ let curScreen='home';
 let savingDepts=new Set();
 let soldout={};  // {메뉴명: true}
 let hiddenMenus={};  // {메뉴명: true} — 주문창에서 아예 안 보임
-let _skipSoldoutRender=false;
-let _skipHiddenRender=false;
 // catOptMap: { "대카>중카": [옵션명] }
 // catSubMap: { "대카": [{name:"중카명", menus:[메뉴명]}] }
 const defaultCatOpts={
@@ -694,23 +679,6 @@ function saveSoldout(){
 function saveHidden(){
   db.ref('hiddenMenus').set(hiddenMenus);
 }
-// Firebase에 쌓인 (HOT)xxx / (ICE)xxx 형태 키를 cleanName으로 정규화
-function normalizeSoldoutKeys(){
-  let changed=false;
-  [soldout,hiddenMenus].forEach((obj,i)=>{
-    const ref=i===0?'soldout':'hiddenMenus';
-    Object.keys(obj).forEach(k=>{
-      const clean=k.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
-      if(clean!==k){
-        if(!obj[clean])obj[clean]=obj[k]; // cleanName 없으면 이관
-        delete obj[k];
-        changed=true;
-      }
-    });
-    if(changed)db.ref(ref).set(obj);
-  });
-  if(changed)console.log('soldout/hiddenMenus 키 정규화 완료');
-}
 function saveDeptSettings(){
   // 각 부서의 비밀번호를 해당 부서 경로에 저장
   depts.forEach((d,i)=>{
@@ -723,9 +691,7 @@ function saveDept(di,immediate){
   setSyncStatus('ing');
   const delay=immediate?0:1500;
   deptSaveTimers[di]=setTimeout(()=>{
-    const dept=depts[di];
-    const path=dept.id?'jangbu/deptMap/'+dept.id:'jangbu/depts/'+di;
-    db.ref(path).set(dept)
+    db.ref('jangbu/depts/'+di).set(depts[di])
       .then(()=>{setSyncStatus('ok');setTimeout(()=>savingDepts.delete(di),800);})
       .catch(()=>{setSyncStatus('err');savingDepts.delete(di);});
   },delay);
@@ -734,29 +700,12 @@ function loadFromFirebase(){
   db.ref('jangbu').once('value').then(snap=>{
     const data=snap.val();
     if(data){
-      // deptMap(새방식) + depts(구방식) 둘 다 로드해서 합치기
-      const rawDeptMap=data.deptMap||{};
       const rawDepts=data.depts;
-      let oldDepts=[];
       if(rawDepts&&typeof rawDepts==='object'&&!Array.isArray(rawDepts)){
-        oldDepts=Object.keys(rawDepts).map(Number).sort((a,b)=>a-b).map(k=>rawDepts[k]).filter(Boolean);
-      } else if(Array.isArray(rawDepts)){
-        oldDepts=rawDepts||[];
+        depts=Object.keys(rawDepts).map(Number).sort((a,b)=>a-b).map(k=>rawDepts[k]).filter(Boolean);
+      } else {
+        depts=rawDepts||[];
       }
-      // 구방식 부서에 고유 ID 없으면 자동 부여 후 deptMap으로 마이그레이션
-      const migratedIds=new Set(Object.keys(rawDeptMap));
-      oldDepts.forEach((d,i)=>{
-        if(!d.id){
-          d.id='dept_'+Date.now()+'_'+Math.random().toString(36).substr(2,6)+'_'+i;
-          db.ref('jangbu/deptMap/'+d.id).set(d);
-        }
-      });
-      // deptMap 부서들 (등록순 정렬)
-      const mapDepts=Object.values(rawDeptMap);
-      // 구방식 중 deptMap에 없는 것만 추가
-      const allIds=new Set(mapDepts.map(d=>d.id));
-      const extraDepts=oldDepts.filter(d=>!allIds.has(d.id));
-      depts=[...mapDepts,...extraDepts];
       // menuDB — null이거나 빈 배열이면 defaultMenu 사용
       const rawMenu=(data.menuDB&&data.menuDB.length>0)?data.menuDB:[...defaultMenu];
       menuDB=rawMenu.map(m=>m&&m.name?(m.cat?m:{...m,cat:guessCat(m.name)}):null).filter(Boolean);
@@ -770,7 +719,6 @@ function loadFromFirebase(){
       catSubMap=data.catSubMap||JSON.parse(JSON.stringify(defaultCatSubs));
     } else {
       depts=[];menuDB=[...defaultMenu];optionDB=[...defaultOpt];dessertDB=[...defaultDes];catOptMap={...defaultCatOpts};
-    setTimeout(normalizeSoldoutKeys,2000);
     }
     setSyncStatus('ok');initUI();
   }).catch(()=>{
@@ -779,36 +727,16 @@ function loadFromFirebase(){
   });
 }
 function listenRealtime(){
-  db.ref('jangbu/deptMap').on('value',snap=>{
-    const data=snap.val()||{};
-    const newDepts=Object.values(data);
-    // 저장 중인 부서는 로컬 버전 유지
-    newDepts.forEach((d,i)=>{
-      const li=depts.findIndex(ld=>ld.id===d.id);
-      if(li>=0){if(!savingDepts.has(li))depts[li]=d;}
-      else depts.push(d);
-    });
-    // 삭제된 부서 제거
-    depts=depts.filter(d=>!d.id||newDepts.some(nd=>nd.id===d.id));
+  db.ref('jangbu/depts').on('value',snap=>{
+    const data=snap.val();
+    const newDepts=data?(Array.isArray(data)?data:Object.values(data)):[];
+    newDepts.forEach((d,i)=>{if(!savingDepts.has(i))depts[i]=d;});
+    if(newDepts.length<depts.length&&savingDepts.size===0)depts=newDepts;
     renderHome();renderSubnav();
     if(curScreen==='ledger'&&curDeptIdx!==null&&curDeptIdx<depts.length){
       if(!savingDepts.has(curDeptIdx))renderLedger(curDeptIdx);
     }
     if(curScreen==='summary')renderSummary();
-  });
-  // 구방식 호환
-  db.ref('jangbu/depts').on('value',snap=>{
-    const data=snap.val();
-    if(!data)return;
-    const oldDepts=typeof data==='object'&&!Array.isArray(data)?
-      Object.keys(data).map(Number).sort((a,b)=>a-b).map(k=>data[k]).filter(Boolean):
-      (Array.isArray(data)?data:[]);
-    oldDepts.forEach(d=>{
-      if(!d.id){
-        d.id='dept_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
-        db.ref('jangbu/deptMap/'+d.id).set(d);
-      }
-    });
   });
   db.ref('jangbu/menuDB').on('value',snap=>{
     const v=snap.val();
@@ -825,13 +753,11 @@ function listenRealtime(){
   db.ref('jangbu/catSubMap').on('value',snap=>{catSubMap=snap.val()||JSON.parse(JSON.stringify(defaultCatSubs));});
   db.ref('soldout').on('value',snap=>{
     soldout=snap.val()||{};
-    if(!_skipSoldoutRender&&curScreen==='mgmt'&&curMgmtTab==='soldout')renderSoldoutMgmt();
-    _skipSoldoutRender=false;
+    if(curScreen==='mgmt'&&curMgmtTab==='soldout')renderSoldoutMgmt();
   });
   db.ref('hiddenMenus').on('value',snap=>{
     hiddenMenus=snap.val()||{};
-    if(!_skipHiddenRender&&curScreen==='mgmt'&&curMgmtTab==='soldout')renderSoldoutMgmt();
-    _skipHiddenRender=false;
+    if(curScreen==='mgmt'&&curMgmtTab==='soldout')renderSoldoutMgmt();
   });
 }
 
@@ -963,7 +889,7 @@ function renderDeptMgmt(){
           oninput="depts[${i}].password=this.value"
           onchange="saveDept(${i},true)"
           style="letter-spacing:3px;text-align:center;flex:1;">
-        <button onclick="togglePwdVis(${i})" style="background:none;border:none;cursor:pointer;font-size:14px;" title="보이기/숨기기" id="pwd-eye-${i}">👁</button>
+        <button onclick="togglePwdVis(${i})" style="background:none;border:none;cursor:pointer;font-size:14px;" title="숨기기/보이기">👁</button>
       </td>
       <td><button class="bdel" onclick="delDept(${i})">✕</button></td></tr>`;
   });
@@ -972,16 +898,11 @@ function renderDeptMgmt(){
 }
 function delDept(i){
   if(!confirm(depts[i].name+' 부서를 삭제할까요? 장부 데이터도 모두 삭제됩니다.'))return;
-  const dept=depts[i];
-  // 고유 ID 있으면 deptMap에서 삭제, 없으면 기존 경로
-  if(dept.id){
-    db.ref('jangbu/deptMap/'+dept.id).remove();
-  } else {
-    db.ref('jangbu/depts/'+i).remove();
-  }
   depts.splice(i,1);
-  renderSubnav();renderHome();renderDeptMgmt();
+  // 전체 재저장으로 구멍 방지
+  db.ref('jangbu/depts').set(depts);
   if(curScreen==='ledger'){curDeptIdx=null;showScreen('home');}
+  renderSubnav();renderHome();renderDeptMgmt();
 }
 
 // ── 옵션 관리 탭 ──
@@ -1140,67 +1061,35 @@ function toggleSubOpt(cat,subName,optName){
 // ── 품절 관리 탭 — cat 필드 기반 ──
 function renderSoldoutMgmt(){
   const allMenus=[...menuDB,...dessertDB];
-  let h=`<div style="display:flex;gap:6px;margin-bottom:10px;font-size:11px;align-items:center;flex-wrap:wrap;">
-    <span style="background:#eee;border-radius:4px;padding:2px 7px;color:#555;">탭: 정상 → 🚫품절 → 👻숨김 → 정상 순환</span>
+  let h=`<div style="display:flex;gap:8px;margin-bottom:10px;font-size:11px;align-items:center;">
+    <span style="color:#888;">좌클릭: 품절토글</span>
+    <span style="color:#888;">·</span>
+    <span style="color:#888;">우클릭: 숨김토글 (주문창에서 완전히 사라짐)</span>
   </div>`;
   MAIN_CATS.forEach(cat=>{
     const items=allMenus.filter(m=>(m.cat||guessCat(m.name))===cat);
     if(items.length===0)return;
-    // cleanName 기준 중복 제거 (HOT/ICE 같은 이름은 하나만 표시)
-    const seen=new Set();
-    const unique=[];
+    h+=`<div class="so-cat">${cat} (${items.length})</div><div class="soldout-grid">`;
     items.forEach(m=>{
-      const cn=m.name.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
-      if(!seen.has(cn)){seen.add(cn);unique.push({...m,cleanName:cn});}
-    });
-    h+=`<div class="so-cat">${cat} (${unique.length})</div><div class="soldout-grid">`;
-    unique.forEach(m=>{
-      const cn=m.cleanName;
-      const isSold=!!soldout[cn];
-      const isHidden=!!hiddenMenus[cn];
+      const cleanName=m.name.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
+      const isSold=!!(soldout[m.name]||soldout[cleanName]);
+      const isHidden=!!(hiddenMenus[m.name]||hiddenMenus[cleanName]);
       const cls=isHidden?'hidden':isSold?'sold':'';
-      const badge=isHidden?'<span class="so-badge hidden">👻 숨김</span>':isSold?'<span class="so-badge sold">🚫 품절</span>':'';
-      h+=`<div class="so-item${cls?' '+cls:''}" onclick="cycleSoldout('${esc(cn)}')">
-        ${esc(cn)}${badge}
+      const badge=isHidden?'<span class="so-badge hidden">숨김</span>':isSold?'<span class="so-badge sold">품절</span>':'';
+      h+=`<div class="so-item${cls?' '+cls:''}" 
+        onclick="toggleSoldout('${esc(cleanName)}')"
+        oncontextmenu="toggleHidden('${esc(cleanName)}');event.preventDefault();">
+        ${esc(cleanName)}${badge}
       </div>`;
     });
     h+='</div>';
   });
   document.getElementById('soldoutBody').innerHTML=h;
 }
-// 탭할 때마다 정상 → 품절 → 숨김 → 정상 순환
-function cycleSoldout(name){
-  const isSold=!!soldout[name];
-  const isHidden=!!hiddenMenus[name];
-  if(!isSold&&!isHidden){
-    // 정상 → 품절
-    soldout[name]=true;
-    _skipSoldoutRender=true;
-    db.ref('soldout').set(soldout);
-  } else if(isSold&&!isHidden){
-    // 품절 → 숨김
-    delete soldout[name];
-    hiddenMenus[name]=true;
-    _skipSoldoutRender=true;
-    _skipHiddenRender=true;
-    db.ref('soldout').set(soldout);
-    db.ref('hiddenMenus').set(hiddenMenus);
-  } else {
-    // 숨김 → 정상
-    delete soldout[name];
-    delete hiddenMenus[name];
-    _skipSoldoutRender=true;
-    _skipHiddenRender=true;
-    db.ref('soldout').set(soldout);
-    db.ref('hiddenMenus').set(hiddenMenus);
-  }
-  renderSoldoutMgmt();
-}
 function toggleHidden(name){
   if(hiddenMenus[name])delete hiddenMenus[name];
   else hiddenMenus[name]=true;
-  _skipHiddenRender=true;
-  db.ref('hiddenMenus').set(hiddenMenus);
+  saveHidden();
   renderSoldoutMgmt();
 }
 function openDept(i){
@@ -1280,13 +1169,7 @@ function makeRow(di,ri){
   // 삭제
   const tdD=document.createElement('td');tdD.className='del-cell';
   const db2=document.createElement('button');db2.className='del-btn';db2.textContent='×';
-  db2.onclick=()=>deleteRow(di,ri);tdD.appendChild(db2);
-  const insBtn=document.createElement('button');insBtn.className='del-btn';
-  insBtn.title='이 행 아래에 새 행 삽입';
-  insBtn.style.cssText='color:#3B6D11;font-size:14px;margin-left:2px;';
-  insBtn.textContent='+';
-  insBtn.onclick=()=>insertRowBelow(di,ri);tdD.appendChild(insBtn);
-  tr.appendChild(tdD);
+  db2.onclick=()=>deleteRow(di,ri);tdD.appendChild(db2);tr.appendChild(tdD);
   // 행번호
   const tdN=document.createElement('td');tdN.className='rn';tdN.textContent=ri+1;tr.appendChild(tdN);
   tr.appendChild(mkInp(di,ri,'date',row.date,'center'));
@@ -1392,19 +1275,6 @@ function deleteRow(di,ri){
   renderLedger(di);
   calcBal(di);
   saveDept(di,true);
-}
-function insertRowBelow(di,ri){
-  const today=todayDisplay();
-  const newRow={date:today,content:'',opts:[],qty:'',pay:'',order:'',note:'',createdAt:today,updatedAt:today};
-  depts[di].rows.splice(ri+1,0,newRow);
-  renderLedger(di);
-  calcBal(di);
-  saveDept(di,true);
-  // 새 행의 내용 입력칸으로 포커스
-  setTimeout(()=>{
-    const inp=document.querySelector(`input[data-di="${di}"][data-ri="${ri+1}"][data-col="content"]`);
-    if(inp)inp.focus();
-  },100);
 }
 
 // 자동완성
@@ -1702,8 +1572,8 @@ function renderSoldoutTab(){
 function toggleSoldout(name){
   if(soldout[name])delete soldout[name];
   else soldout[name]=true;
-  _skipSoldoutRender=true;
-  db.ref('soldout').set(soldout);
+  saveSoldout();
+  // 현재 활성 화면에 맞는 렌더 함수 호출
   if(curScreen==='mgmt')renderSoldoutMgmt();
   else renderSoldoutTab();
 }
@@ -1764,24 +1634,20 @@ function saveDB(){sv();saveSoldout();}
 // ── 부서 추가 ──
 function openAddDept(){document.getElementById('deptModal').classList.add('open');setTimeout(()=>document.getElementById('newDept').focus(),80);}
 function closeDM(){document.getElementById('deptModal').classList.remove('open');document.getElementById('newDept').value='';}
-function togglePwdVis(i){
-  const inp=document.getElementById('pwd-'+i);
-  if(!inp)return;
-  inp.type=inp.type==='text'?'password':'text';
-}
 function addDept(){
   const nm=document.getElementById('newDept').value.trim();if(!nm)return;
   const emptyRows=[];
   for(let i=0;i<80;i++)emptyRows.push({date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''});
-  // 고유 ID 생성
-  const deptId='dept_'+Date.now()+'_'+Math.random().toString(36).substr(2,6);
-  const newDept={id:deptId,name:nm,rows:emptyRows,password:''};
-  depts.push(newDept);
-  // Firebase에 고유 ID 경로로 저장
-  db.ref('jangbu/deptMap/'+deptId).set(newDept);
+  depts.push({name:nm,rows:emptyRows,password:''});
+  // 전체 재저장으로 구멍 없이 순서 보장
+  db.ref('jangbu/depts').set(depts);
   renderSubnav();closeDM();goHome();
 }
 
+function togglePwdVis(i){
+  const inp=document.getElementById('pwd-'+i);
+  if(inp)inp.type=inp.type==='text'?'password':'text';
+}
 document.addEventListener('click',e=>{
   if(!e.target.closest('#acPop')&&!(e.target.dataset&&e.target.dataset.col==='content'))hideAC();
   if(!e.target.closest('#optPop')&&!e.target.classList.contains('opt-trigger'))hideOpt();
