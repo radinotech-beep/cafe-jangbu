@@ -39,9 +39,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .mgmt-screen.active{display:block;}
 
 /* 서브 네비게이션 */
-.subnav{background:#fff;border-bottom:1px solid #e0dfd8;padding:0 12px;display:flex;align-items:center;gap:0;position:sticky;top:42px;z-index:99;overflow-x:auto;}
-.subnav::-webkit-scrollbar{height:3px;}
-.subnav::-webkit-scrollbar-thumb{background:#ccc;border-radius:2px;}
+.subnav{background:#fff;border-bottom:1px solid #e0dfd8;padding:4px 12px;display:flex;align-items:center;flex-wrap:wrap;gap:2px;position:sticky;top:42px;z-index:99;}
 .snav-item{padding:9px 14px;font-size:13px;color:#888780;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;background:none;border-left:none;border-right:none;border-top:none;}
 .snav-item:hover{color:#2C2C2A;}
 .snav-item.active{color:#2C2C2A;border-bottom:2px solid #2C2C2A;font-weight:500;}
@@ -229,9 +227,8 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
 <!-- 홈 화면 -->
 <div class="screen active" id="screen-home">
   <div class="home-header">
-    <span class="home-title">부서 선택</span>
+    <span class="home-title">상단 탭에서 부서를 선택하세요</span>
   </div>
-  <div class="dept-grid" id="deptGrid"></div>
 </div>
 
 <!-- 장부 화면 -->
@@ -729,10 +726,14 @@ function loadFromFirebase(){
 function listenRealtime(){
   db.ref('jangbu/depts').on('value',snap=>{
     const data=snap.val();
-    const newDepts=data?(Array.isArray(data)?data:Object.values(data)):[];
+    if(!data){depts=[];renderSubnav();return;}
+    // 키 정렬 후 완전 교체 (중복/구멍 방지)
+    const newDepts=Array.isArray(data)?data:
+      Object.keys(data).map(Number).sort((a,b)=>a-b).map(k=>data[k]).filter(Boolean);
+    // 저장 중인 부서만 로컬 버전 유지, 나머지 교체
     newDepts.forEach((d,i)=>{if(!savingDepts.has(i))depts[i]=d;});
-    if(newDepts.length<depts.length&&savingDepts.size===0)depts=newDepts;
-    renderHome();renderSubnav();
+    if(savingDepts.size===0)depts=newDepts;
+    renderSubnav();
     if(curScreen==='ledger'&&curDeptIdx!==null&&curDeptIdx<depts.length){
       if(!savingDepts.has(curDeptIdx))renderLedger(curDeptIdx);
     }
@@ -1093,8 +1094,13 @@ function toggleHidden(name){
   renderSoldoutMgmt();
 }
 function openDept(i){
-  curDeptIdx=i;showScreen('ledger');
+  curDeptIdx=i;
+  // 즉시 이전 내용 초기화
+  const tb=document.getElementById('ledgerBody');
+  if(tb)tb.innerHTML='';
+  showScreen('ledger');
   document.getElementById('ledgerName').textContent=depts[i].name+' 장부';
+  renderSubnav();
   renderLedger(i);
 }
 
@@ -1114,18 +1120,8 @@ function renderSubnav(){
 // ── 홈 화면 ──
 function renderHome(){
   const grid=document.getElementById('deptGrid');
+  if(!grid)return; // 홈 카드 제거됨
   grid.innerHTML='';
-  depts.forEach((d,i)=>{
-    const bal=calcDeptBal(i);
-    const cls=bal<0?'neg':bal>0?'pos':'zero';
-    const div=document.createElement('div');
-    div.className='dept-card';div.onclick=()=>openDept(i);
-    div.innerHTML=`<div class="dept-card-label">부서</div>
-      <div class="dept-card-name">${esc(d.name)}</div>
-      <div class="dept-card-label">현재잔액</div>
-      <div class="dept-card-bal ${cls}">${bal.toLocaleString()}원</div>`;
-    grid.appendChild(div);
-  });
 }
 function calcDeptBal(i){
   let bal=0;(depts[i].rows||[]).forEach(r=>{bal+=pn(r.pay)-pn(r.order);});return bal;
