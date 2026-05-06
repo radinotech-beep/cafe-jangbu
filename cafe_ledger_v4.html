@@ -23,6 +23,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 
 /* 관리 탭 네비 */
 .mgmt-nav{display:flex;border-bottom:2px solid #e0dfd8;background:#fff;overflow-x:auto;flex-shrink:0;}
+#screen-mgmt{display:flex;flex-direction:column;overflow:hidden;}
 .mgmt-nav::-webkit-scrollbar{display:none;}
 .mgmt-tab{padding:11px 20px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-2px;font-family:inherit;color:#888780;transition:all 0.15s;}
 .mgmt-tab:hover{background:#f5f4f0;}
@@ -34,7 +35,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .mgmt-tab.t-opt.active{color:#B8520A;border-bottom-color:#E8750A;background:#FFF5EE;}
 .mgmt-tab.t-soldout{border-bottom-color:transparent;}
 .mgmt-tab.t-soldout.active{color:#A32D2D;border-bottom-color:#E24B4A;background:#FFF0F0;}
-.mgmt-screen{display:none;padding:16px;}
+.mgmt-screen{display:none;padding:16px;overflow-y:auto;flex:1;}
 .mgmt-screen.active{display:block;}
 
 /* 서브 네비게이션 */
@@ -697,12 +698,15 @@ function loadFromFirebase(){
       } else {
         depts=rawDepts||[];
       }
-      // cat 필드 없는 구버전 데이터 보완
-      const rawMenu=data.menuDB||[...defaultMenu];
-      menuDB=rawMenu.map(m=>m.cat?m:{...m,cat:guessCat(m.name)});
-      optionDB=data.optionDB||[...defaultOpt];
-      const rawDes=data.dessertDB||[...defaultDes];
-      dessertDB=rawDes.map(m=>m.cat?m:{...m,cat:'디저트'});
+      // menuDB — null이거나 빈 배열이면 defaultMenu 사용
+      const rawMenu=(data.menuDB&&data.menuDB.length>0)?data.menuDB:[...defaultMenu];
+      menuDB=rawMenu.map(m=>m&&m.name?(m.cat?m:{...m,cat:guessCat(m.name)}):null).filter(Boolean);
+      if(menuDB.length===0)menuDB=[...defaultMenu];
+      optionDB=(data.optionDB&&data.optionDB.length>0)?data.optionDB:[...defaultOpt];
+      // dessertDB — null이거나 빈 배열이면 defaultDes 사용
+      const rawDes=(data.dessertDB&&data.dessertDB.length>0)?data.dessertDB:[...defaultDes];
+      dessertDB=rawDes.map(m=>m&&m.name?(m.cat?m:{...m,cat:'디저트'}):null).filter(Boolean);
+      if(dessertDB.length===0)dessertDB=[...defaultDes];
       catOptMap=data.catOptMap||{...defaultCatOpts};
       catSubMap=data.catSubMap||JSON.parse(JSON.stringify(defaultCatSubs));
     } else {
@@ -726,11 +730,19 @@ function listenRealtime(){
     }
     if(curScreen==='summary')renderSummary();
   });
-  db.ref('jangbu/menuDB').on('value',snap=>{if(snap.val())menuDB=snap.val();});
+  db.ref('jangbu/menuDB').on('value',snap=>{
+    const v=snap.val();
+    if(v&&v.length>0)menuDB=v.map(m=>m.cat?m:{...m,cat:guessCat(m.name)});
+    else menuDB=[...defaultMenu]; // null이면 기본값
+  });
   db.ref('jangbu/optionDB').on('value',snap=>{if(snap.val())optionDB=snap.val();});
-  db.ref('jangbu/dessertDB').on('value',snap=>{if(snap.val())dessertDB=snap.val();});
+  db.ref('jangbu/dessertDB').on('value',snap=>{
+    const v=snap.val();
+    if(v&&v.length>0)dessertDB=v.map(m=>m.cat?m:{...m,cat:'디저트'});
+    else dessertDB=[...defaultDes];
+  });
   db.ref('jangbu/catOptMap').on('value',snap=>{if(snap.val())catOptMap=snap.val();});
-  db.ref('jangbu/catSubMap').on('value',snap=>{if(snap.val())catSubMap=snap.val();});
+  db.ref('jangbu/catSubMap').on('value',snap=>{catSubMap=snap.val()||JSON.parse(JSON.stringify(defaultCatSubs));});
   db.ref('soldout').on('value',snap=>{soldout=snap.val()||{};});
 }
 
@@ -899,7 +911,7 @@ function renderOptMgmt(){
     // 대카테고리 > 중카테고리 구조
     let h='<div style="font-size:11px;color:#888;margin-bottom:10px;">메뉴를 드래그해서 중카테고리 간 이동 · 중카테고리별로 허용 옵션 설정</div>';
     MAIN_CATS.forEach(cat=>{
-      const subs=catSubMap[cat]||[];
+      const subs=(catSubMap&&catSubMap[cat])||[];
       const catMenus=[...menuDB,...dessertDB].filter(m=>(m.cat||guessCat(m.name))===cat);
       // 중카테고리에 배정된 메뉴
       const assignedMenus=subs.flatMap(s=>s.menus||[]);
@@ -1573,7 +1585,13 @@ function toggleCatOpt(cat,optName){
 }
 function dbc(i,col,val){const dbArr=getDB();dbArr[i][col]=col==='price'?(parseInt(val)||0):val;}
 function dbd(i){getDB().splice(i,1);renderDBTab();}
-function dba(){(curMenuSub==='drink'?menuDB:dessertDB).push({name:'',alias:'',price:0});renderMenuDb();document.getElementById('menuDbBody').scrollTop=99999;}
+function dba(){
+  const cat=curMenuSub==='dessert'?'디저트':'커피';
+  (curMenuSub==='dessert'?dessertDB:menuDB).push({name:'',alias:'',price:0,cat:cat});
+  renderMenuDb();
+  const body=document.getElementById('menuDbBody');
+  if(body)setTimeout(()=>body.scrollTop=body.scrollHeight,50);
+}
 function saveDB(){sv();saveSoldout();}
 
 // ── 부서 추가 ──
