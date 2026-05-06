@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MEGA MGC COFFEE · KDS</title>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest-kds.json">
 <meta name="theme-color" content="#F5C800">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="KDS">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-kds-192.png">
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -110,6 +110,30 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 
 /* 날짜 구분선 */
 .date-divider{grid-column:1/-1;text-align:center;font-size:12px;font-weight:500;color:#888;padding:8px 0;border-top:1px dashed #E8D84A;margin-top:4px;}
+
+/* 페이지네이션 */
+.pagination{display:flex;align-items:center;gap:8px;margin-left:12px;}
+.page-btn{background:none;border:1px solid #111;border-radius:8px;font-size:12px;padding:3px 10px;cursor:pointer;color:#111;font-family:inherit;font-weight:500;}
+.page-btn:disabled{opacity:0.3;cursor:default;}
+.page-info{font-size:12px;color:#333;font-weight:500;}
+
+/* 상세 팝업 */
+.detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;}
+.detail-modal{background:#fff;border-radius:14px;width:92%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.2);}
+.detail-head{background:#F5C800;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.detail-title{font-size:15px;font-weight:700;color:#111;}
+.detail-close{background:none;border:none;font-size:22px;cursor:pointer;color:#111;line-height:1;padding:0 4px;}
+.detail-body{padding:16px;overflow-y:auto;flex:1;}
+.detail-meta{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.detail-meta-row{display:flex;justify-content:space-between;align-items:center;}
+.detail-meta-label{font-size:12px;color:#888;}
+.detail-meta-val{font-size:13px;font-weight:500;color:#2C2C2A;}
+.detail-hr{border:none;border-top:1.5px dashed #E8D84A;margin:10px 0;}
+.detail-items-title{font-size:11px;color:#888;margin-bottom:8px;font-weight:500;}
+.detail-item{padding:8px 0;border-bottom:1px solid #f5f5f5;}
+.detail-item:last-child{border-bottom:none;}
+.detail-item-name{font-size:13px;font-weight:500;color:#2C2C2A;display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
+.detail-item-opt{font-size:11px;color:#888;margin-top:3px;padding-left:4px;}
 </style>
 </head>
 <body>
@@ -136,6 +160,22 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
   <div class="stat"><span class="stat-label">완료</span><span class="stat-val green" id="statDone">0건</span></div>
   <div class="stat"><span class="stat-label">5분초과</span><span class="stat-val red" id="statUrgent">0건</span></div>
   <button class="show-done-btn" onclick="toggleDone()" id="showDoneBtn">완료/취소 내역 보기</button>
+  <div class="pagination" id="paginationBar" style="display:none;">
+    <button class="page-btn" id="pagePrev" onclick="changePage(-1)">◀</button>
+    <span class="page-info" id="pageInfo">1 / 1</span>
+    <button class="page-btn" id="pageNext" onclick="changePage(1)">▶</button>
+  </div>
+</div>
+
+<!-- 상세 팝업 -->
+<div class="detail-overlay" id="detailOverlay" style="display:none;" onclick="closeDetail(event)">
+  <div class="detail-modal" id="detailModal">
+    <div class="detail-head">
+      <span class="detail-title" id="detailTitle"></span>
+      <button class="detail-close" onclick="document.getElementById('detailOverlay').style.display='none'">✕</button>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+  </div>
 </div>
 
 <script>
@@ -316,18 +356,13 @@ function fmtDateFull(ts){
   return `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
+const PAGE_SIZE=8; // 페이지당 표시 개수
+let currentPage=1;
+
 // 렌더
 function renderOrders(){
   const grid=document.getElementById('orderGrid');
   grid.innerHTML='';
-
-  const allList=Object.values(orders)
-    .filter(o=>showDone?(o.status==='done'||o.status==='cancelled'):o.status==='pending')
-    .sort((a,b)=>a.createdAt-b.createdAt);
-
-  // 대기 중인 것도 항상 위에 표시
-  const pendingList=Object.values(orders).filter(o=>o.status==='pending').sort((a,b)=>a.createdAt-b.createdAt);
-  const list=showDone?allList:pendingList;
 
   const pending=Object.values(orders).filter(o=>o.status==='pending');
   const done=Object.values(orders).filter(o=>o.status==='done');
@@ -339,7 +374,27 @@ function renderOrders(){
   document.getElementById('statDone').textContent=done.length+'건';
   document.getElementById('statUrgent').textContent=urgent.length+'건';
 
-  if(list.length===0){
+  const fullList=Object.values(orders)
+    .filter(o=>showDone?(o.status==='done'||o.status==='cancelled'):o.status==='pending')
+    .sort((a,b)=>showDone?b.createdAt-a.createdAt:a.createdAt-b.createdAt);
+
+  // 페이지네이션
+  const totalPages=Math.max(1,Math.ceil(fullList.length/PAGE_SIZE));
+  if(currentPage>totalPages)currentPage=totalPages;
+  const pagBar=document.getElementById('paginationBar');
+  if(fullList.length>PAGE_SIZE){
+    pagBar.style.display='flex';
+    document.getElementById('pageInfo').textContent=currentPage+' / '+totalPages;
+    document.getElementById('pagePrev').disabled=currentPage<=1;
+    document.getElementById('pageNext').disabled=currentPage>=totalPages;
+  } else {
+    pagBar.style.display='none';
+  }
+
+  const start=(currentPage-1)*PAGE_SIZE;
+  const list=fullList.slice(start,start+PAGE_SIZE);
+
+  if(fullList.length===0){
     grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1;">
       <div class="empty-icon">☕</div>
       <div class="empty-text">${showDone?'완료/취소 내역이 없어요':'주문을 기다리는 중...'}</div>
@@ -392,9 +447,10 @@ function renderOrders(){
       </div>`;
     card.appendChild(headDiv);
 
-    // ── 바디 ──
+    // ── 바디 (스크롤 가능) ──
     const body=document.createElement('div');
     body.className='card-body';
+    body.style.cssText='max-height:180px;overflow-y:auto;';
     (order.items||[]).forEach((item,idx)=>{
       const mega=isMega(item.name);
       const optStr=(item.opts||[]).map(o=>o.name).join(', ');
@@ -402,7 +458,6 @@ function renderOrders(){
       const isMade=!!madeItems[madeKey];
       const div=document.createElement('div');
       div.className='menu-item'+(isMade?' made':'');
-      // 완료/취소 아닌 경우만 터치 가능
       if(!isDone&&!isCancelled){
         div.onclick=()=>toggleMade(order.id,idx);
         div.title='터치하면 제조완료 표시';
@@ -445,14 +500,66 @@ function renderOrders(){
 
       foot.appendChild(btnRow);
     } else {
+      // 완료/취소 카드 — 클릭하면 상세 팝업
       const btn=document.createElement('button');
       btn.className='done-btn completed';
       btn.textContent=isCancelled?'✕ 취소됨':'✓ 완료됨';
       foot.appendChild(btn);
+      // 카드 전체 클릭 → 상세 팝업
+      card.style.cursor='pointer';
+      card.onclick=()=>openDetail(order);
     }
     card.appendChild(foot);
     grid.appendChild(card);
   });
+}
+
+function changePage(dir){
+  currentPage+=dir;
+  renderOrders();
+  document.getElementById('orderGrid').scrollTop=0;
+}
+
+// 상세 팝업
+function openDetail(order){
+  const isTake=order.orderType==='take';
+  const isCancelled=order.status==='cancelled';
+  const time=new Date(order.createdAt);
+  const timeStr=`${time.getMonth()+1}/${time.getDate()} ${String(time.getHours()).padStart(2,'0')}:${String(time.getMinutes()).padStart(2,'0')}`;
+
+  document.getElementById('detailTitle').textContent=
+    `#${String(order.id).padStart(3,'0')} ${esc(order.deptName)}`;
+
+  let html=`<div class="detail-meta">
+    <div class="detail-meta-row"><span class="detail-meta-label">주문시간</span><span class="detail-meta-val">${timeStr}</span></div>
+    <div class="detail-meta-row"><span class="detail-meta-label">유형</span><span class="detail-meta-val">${isTake?'🛍️ 포장':'🍽️ 매장'}</span></div>
+    <div class="detail-meta-row"><span class="detail-meta-label">상태</span><span class="detail-meta-val">${isCancelled?'❌ 취소됨':'✅ 완료됨'}</span></div>
+  </div>
+  <hr class="detail-hr">
+  <div class="detail-items-title">주문 내역 (${(order.items||[]).length}종)</div>`;
+
+  (order.items||[]).forEach(item=>{
+    const mega=isMega(item.name);
+    const optStr=(item.opts||[]).map(o=>o.name).join(' · ');
+    html+=`<div class="detail-item">
+      <div class="detail-item-name">
+        ${esc(item.displayName||item.name)}
+        ${mega?'<span class="tag tag-mega">MEGA</span>':''}
+        ${tempTag(item.temp)}
+        <span style="margin-left:auto;font-size:13px;font-weight:700;">×${item.qty}</span>
+      </div>
+      ${optStr?`<div class="detail-item-opt">▶ ${esc(optStr)}</div>`:''}
+    </div>`;
+  });
+
+  document.getElementById('detailBody').innerHTML=html;
+  document.getElementById('detailOverlay').style.display='flex';
+}
+
+function closeDetail(e){
+  if(e.target===document.getElementById('detailOverlay')){
+    document.getElementById('detailOverlay').style.display='none';
+  }
 }
 
 // 경과시간 1초마다 갱신
@@ -473,6 +580,7 @@ setInterval(()=>{
 
 function toggleDone(){
   showDone=!showDone;
+  currentPage=1;
   document.getElementById('showDoneBtn').textContent=showDone?'완료/취소 내역 숨기기':'완료/취소 내역 보기';
   renderOrders();
 }

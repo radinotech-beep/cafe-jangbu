@@ -4,12 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>카페 장부</title>
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest-ledger.json">
 <meta name="theme-color" content="#2C2C2A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="카페장부">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-ledger-192.png">
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -1098,7 +1098,7 @@ function renderSoldoutMgmt(){
 function toggleHidden(name){
   if(hiddenMenus[name])delete hiddenMenus[name];
   else hiddenMenus[name]=true;
-  saveHidden();
+  db.ref('hiddenMenus').set(hiddenMenus);
   renderSoldoutMgmt();
 }
 function openDept(i){
@@ -1581,8 +1581,8 @@ function renderSoldoutTab(){
 function toggleSoldout(name){
   if(soldout[name])delete soldout[name];
   else soldout[name]=true;
-  saveSoldout();
-  // 현재 활성 화면에 맞는 렌더 함수 호출
+  db.ref('soldout').set(soldout);
+  // 즉시 시각적 반영
   if(curScreen==='mgmt')renderSoldoutMgmt();
   else renderSoldoutTab();
 }

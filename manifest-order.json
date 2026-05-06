@@ -1,0 +1,15 @@
+{
+  "name": "메가커피 인천역점 · 주문",
+  "short_name": "장부주문",
+  "description": "메가MGC커피 인천역점 장부결제 주문 태블릿",
+  "start_url": "/cafe-jangbu/order_new.html",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#FFFBE6",
+  "theme_color": "#F5C800",
+  "lang": "ko",
+  "icons": [
+    {"src": "icon-order-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon-order-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}
