@@ -28,7 +28,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .order-card{background:#fff;border:2px solid #E8D84A;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
 .order-card.urgent{border-color:#E24B4A;animation:pulse 1.5s infinite;}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(226,75,74,0.3);}50%{box-shadow:0 0 0 6px rgba(226,75,74,0);}}
-.order-card.done{opacity:0.4;border-color:#ddd;}
+.order-card.done{opacity:0.82;border-color:#ddd;}
 
 .card-head{background:#FFF9D6;padding:8px 10px;border-bottom:1.5px solid #E8D84A;display:flex;justify-content:space-between;align-items:flex-start;}
 .card-head.urgent{background:#FCEBEB;border-bottom-color:#E24B4A;}
@@ -84,8 +84,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 /* 취소 버튼 */
 .cancel-btn{width:100%;padding:6px;background:#fff;color:#E24B4A;border:1.5px solid #E24B4A;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;margin-top:5px;}
 .cancel-btn:active{background:#FCEBEB;}
-.order-card.cancelled{opacity:0.35;border-color:#ccc;}
+.order-card.cancelled{opacity:0.82;border-color:#ccc;}
 .card-head.cancelled{background:#f5f5f5;border-bottom-color:#ccc;}
+.history-actions{display:flex;gap:5px;margin-top:4px;}
+.history-btn{flex:1;padding:7px 4px;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;}
+.history-btn.detail{background:#fff;border:1px solid #111;color:#111;}
+.history-btn.cancel{background:#E24B4A;color:#fff;}
+.history-btn.restore{background:#3B6D11;color:#fff;}
 
 /* 세부 음료 제조완료 터치 */
 .menu-item{padding:5px 0;border-bottom:1px solid #FFF0CC;cursor:pointer;border-radius:4px;transition:background 0.15s;}
@@ -193,43 +198,89 @@ function orderDateStr(order){
   const d=new Date(order.createdAt||Date.now());
   return (d.getMonth()+1)+'/'+d.getDate();
 }
+function orderItems(order){
+  const items=order&&order.items?order.items:[];
+  return Array.isArray(items)?items:Object.values(items);
+}
+function itemAmount(item){
+  const qty=pn(item.qty)||1;
+  const unit=pn(item.unitPrice)||pn(item.price)||pn(item.amount)||0;
+  return unit*qty;
+}
+function sourceOrderKey(order){
+  return String(order.id)+'_'+String(order.createdAt||'');
+}
+function findDeptKey(deptsData,order){
+  if(!deptsData)return null;
+  const keys=Object.keys(deptsData);
+  const idxKey=String(order.deptIdx);
+  const deptName=String(order.deptName||'').trim();
+  if(deptsData[idxKey]&&(!deptName||String(deptsData[idxKey].name||'').trim()===deptName))return idxKey;
+  const byName=keys.find(k=>String((deptsData[k]||{}).name||'').trim()===deptName);
+  if(byName!==undefined)return byName;
+  return deptsData[idxKey]?idxKey:null;
+}
 function markCancelledInLedger(order){
-  const di=order.deptIdx;
-  if(di===undefined||di===null)return Promise.resolve(false);
   const orderId=String(order.id);
-  return db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
-    let rows=snap.val()||[];
+  const sourceKey=sourceOrderKey(order);
+  return db.ref('jangbu/depts').once('value').then(snap=>{
+    const deptsData=snap.val()||{};
+    const deptKey=findDeptKey(deptsData,order);
+    if(deptKey===null)return false;
+    const dept=deptsData[deptKey]||{};
+    let rows=dept.rows||[];
     if(!Array.isArray(rows))rows=Object.values(rows);
     const dateStr=orderDateStr(order);
-    const alreadyCancelled=rows.some(row=>row&&row.cancelRow&&String(row.sourceOrderId||'')===orderId);
+    const alreadyCancelled=rows.some(row=>row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr)));
     if(alreadyCancelled)return false;
 
-    (order.items||[]).forEach((item,idx)=>{
+    const cancelRows=orderItems(order).map((item,idx)=>{
       const ledgerName=cleanMenuName(item.originalName||item.displayName||item.name||'메뉴');
-      const amount=(pn(item.unitPrice)||0)*(pn(item.qty)||1);
+      const amount=itemAmount(item);
       const opts=item.opts||item.options||[];
       const optText=opts.map(o=>typeof o==='string'?o:o.name).filter(Boolean).join('+');
       const content=ledgerName+(optText?' +'+optText:'')+((pn(item.qty)||1)>1?' x'+(pn(item.qty)||1):'');
-      const cancelRow={date:dateStr,content,opts,order:-Math.abs(amount),pay:'',note:'주문취소',createdAt:dateStr,updatedAt:dateStr,basePrice:-Math.abs(amount),orderId:orderId+'-cancel-'+idx,sourceOrderId:orderId,cancelRow:true};
-      const emptyIdx=rows.findIndex(r=>!r.content&&!r.date&&!r.pay&&!r.order);
-      if(emptyIdx>=0)rows[emptyIdx]=cancelRow;
-      else rows.push(cancelRow);
+      return {date:dateStr,content,opts,order:-Math.abs(amount),pay:'',note:'주문취소',createdAt:dateStr,updatedAt:dateStr,basePrice:-Math.abs(amount),orderId:orderId+'-cancel-'+idx,sourceOrderId:orderId,sourceOrderKey:sourceKey,cancelRow:true};
     });
+    if(cancelRows.length===0)return false;
 
-    return db.ref('jangbu/depts/'+di+'/rows').set(rows).then(()=>true);
+    let insertAt=rows.findIndex(row=>row&&String(row.orderId||'')===orderId&&(!row.date||row.date===dateStr));
+    if(insertAt<0){
+      const firstItem=orderItems(order)[0]||{};
+      const firstName=cleanMenuName(firstItem.originalName||firstItem.displayName||firstItem.name||'');
+      const firstAmount=itemAmount(firstItem);
+      insertAt=rows.findIndex(row=>{
+        if(!row||row.date!==dateStr||!row.content)return false;
+        const nameMatched=!firstName||cleanMenuName(row.content).includes(firstName)||firstName.includes(cleanMenuName(row.content));
+        const amountMatched=!firstAmount||pn(row.order)===firstAmount||pn(row.basePrice)===firstAmount;
+        return nameMatched&&amountMatched;
+      });
+    }
+    if(insertAt>=0)rows.splice(insertAt+1,0,...cancelRows);
+    else{
+      const emptyIdx=rows.findIndex(r=>!r.content&&!r.date&&!r.pay&&!r.order);
+      if(emptyIdx>=0)rows.splice(emptyIdx,0,...cancelRows);
+      else rows.push(...cancelRows);
+    }
+
+    return db.ref('jangbu/depts/'+deptKey+'/rows').set(rows).then(()=>true);
   }).catch(err=>console.error('장부 취소 반영 실패:',err));
 }
 
 function restoreInLedger(order){
-  const di=order.deptIdx;
-  if(di===undefined||di===null)return Promise.resolve(false);
   const orderId=String(order.id);
-  return db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
-    let rows=snap.val()||[];
+  const sourceKey=sourceOrderKey(order);
+  return db.ref('jangbu/depts').once('value').then(snap=>{
+    const deptsData=snap.val()||{};
+    const deptKey=findDeptKey(deptsData,order);
+    if(deptKey===null)return false;
+    const dept=deptsData[deptKey]||{};
+    let rows=dept.rows||[];
     if(!Array.isArray(rows))rows=Object.values(rows);
     const before=rows.length;
-    rows=rows.filter(row=>!(row&&row.cancelRow&&String(row.sourceOrderId||'')===orderId));
-    if(rows.length!==before)return db.ref('jangbu/depts/'+di+'/rows').set(rows).then(()=>true);
+    const dateStr=orderDateStr(order);
+    rows=rows.filter(row=>!(row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr))));
+    if(rows.length!==before)return db.ref('jangbu/depts/'+deptKey+'/rows').set(rows).then(()=>true);
     return false;
   }).catch(err=>console.error('장부 취소복구 반영 실패:',err));
 }
@@ -320,7 +371,9 @@ function cancelOrder(id){
   if(!confirm('주문을 취소할까요? 장부 금액도 함께 복구됩니다.'))return;
   const order=Object.values(orders).find(o=>String(o.id)===String(id));
   const finish=()=>db.ref('orders/'+id+'/status').set('cancelled');
-  if(order)markCancelledInLedger(order).finally(finish);
+  if(order)markCancelledInLedger(order).then(ok=>{
+    if(!ok)alert('장부에 취소 줄을 추가하지 못했습니다. 부서명/주문금액을 확인해주세요.');
+  }).finally(finish);
   else finish();
 }
 function cancelCompletedOrder(id){
@@ -330,7 +383,9 @@ function cancelCompletedOrder(id){
     document.getElementById('detailOverlay').style.display='none';
     return db.ref('orders/'+id+'/status').set('cancelled');
   };
-  if(order)markCancelledInLedger(order).finally(finish);
+  if(order)markCancelledInLedger(order).then(ok=>{
+    if(!ok)alert('장부에 취소 줄을 추가하지 못했습니다. 부서명/주문금액을 확인해주세요.');
+  }).finally(finish);
   else finish();
 }
 function restoreOrder(id){
@@ -340,7 +395,9 @@ function restoreOrder(id){
     document.getElementById('detailOverlay').style.display='none';
     return db.ref('orders/'+id+'/status').set('pending');
   };
-  if(order)restoreInLedger(order).finally(finish);
+  if(order)restoreInLedger(order).then(ok=>{
+    if(!ok)alert('삭제할 취소 줄을 찾지 못했습니다.');
+  }).finally(finish);
   else finish();
 }
 // 세부 음료 제조완료 토글
@@ -503,10 +560,30 @@ function renderOrders(){
     } else {
       card.style.cursor='pointer';
       card.onclick=()=>openDetail(order);
-      const btn=document.createElement('button');
-      btn.className='done-btn completed';
-      btn.textContent=isCancelled?'✕ 취소됨':'✓ 완료됨';
-      foot.appendChild(btn);
+      const status=document.createElement('button');
+      status.className='done-btn completed';
+      status.textContent=isCancelled?'✕ 취소됨':'✓ 완료됨';
+      status.onclick=(e)=>{e.stopPropagation();openDetail(order);};
+      foot.appendChild(status);
+
+      const actions=document.createElement('div');
+      actions.className='history-actions';
+      const detailBtn=document.createElement('button');
+      detailBtn.className='history-btn detail';
+      detailBtn.textContent='상세';
+      detailBtn.onclick=(e)=>{e.stopPropagation();openDetail(order);};
+      actions.appendChild(detailBtn);
+
+      const actionBtn=document.createElement('button');
+      actionBtn.className='history-btn '+(isCancelled?'restore':'cancel');
+      actionBtn.textContent=isCancelled?'취소복구':'완료취소';
+      actionBtn.onclick=(e)=>{
+        e.stopPropagation();
+        if(isCancelled)restoreOrder(order.id);
+        else cancelCompletedOrder(order.id);
+      };
+      actions.appendChild(actionBtn);
+      foot.appendChild(actions);
     }
     card.appendChild(foot);
     grid.appendChild(card);
