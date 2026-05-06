@@ -1418,6 +1418,17 @@ function renderSummary(){
 // ── 엑셀 내보내기 ──
 function pn(s){const n=parseInt(String(s||'').replace(/,/g,'').replace(/[^0-9\-]/g,''));return isNaN(n)?0:n;}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+function guessCat(name){
+  if(!name)return'커피';
+  if(name.includes('디카페인'))return'디카페인';
+  if(name.startsWith('콜드브루'))return'콜드브루';
+  if(name.includes('스무디')||name.includes('프라페')||name.includes('퐁크러쉬')||name.includes('쉐이크')||name.includes('슬러시'))return'스무디&프라페';
+  if(name.includes('에이드')||name.includes('주스')||name.includes('모히또')||name.includes('콜라'))return'에이드&주스';
+  if((name.includes('티')&&!name.includes('라떼'))||(name.includes('차')&&!name.includes('라떼'))||name.includes('아이스티'))return'티(Tea)';
+  const nonCoffee=['딸기라떼','왕메가초코','오레오초코라떼','아이스초코','녹차라떼','곡물라떼','고구마라떼','토피넛라떼','로얄밀크티라떼','흑당버블라떼','흑당버블밀크티라떼','흑당라떼','흑당밀크티라떼','핫초코'];
+  if(nonCoffee.some(n=>name.replace(/\(ICE\)|\(HOT\)/g,'').trim().includes(n)))return'음료(논커피라떼)';
+  return'커피';
+}
 function toCSV(headers,rows){
   const lines=[headers.join(',')];
   rows.forEach(r=>lines.push(r.map(c=>`"${String(c||'').replace(/"/g,'""')}"`).join(',')));
