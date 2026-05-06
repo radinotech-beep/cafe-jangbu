@@ -4,7 +4,7 @@
   "description": "메가MGC커피 인천역점 주방 디스플레이 시스템",
   "start_url": "/cafe-jangbu/kds.html",
   "display": "standalone",
-  "orientation": "landscape",
+  "orientation": "any",
   "background_color": "#FFFBE6",
   "theme_color": "#F5C800",
   "lang": "ko",
