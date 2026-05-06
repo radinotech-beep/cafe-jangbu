@@ -30,11 +30,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(226,75,74,0.3);}50%{box-shadow:0 0 0 6px rgba(226,75,74,0);}}
 .order-card.done{opacity:0.82;border-color:#ddd;}
 
-.card-head{background:#FFF9D6;padding:8px 10px;border-bottom:1.5px solid #E8D84A;display:flex;justify-content:space-between;align-items:flex-start;}
+.card-head{background:#FFF9D6;padding:9px 10px;border-bottom:1.5px solid #E8D84A;display:flex;justify-content:space-between;align-items:flex-start;}
 .card-head.urgent{background:#FCEBEB;border-bottom-color:#E24B4A;}
 .card-head.done{background:#f5f5f5;border-bottom-color:#ddd;}
-.order-no{font-size:10px;color:#888;margin-bottom:2px;}
-.order-dept{font-size:13px;font-weight:500;color:#2C2C2A;}
+.order-no{font-size:11px;color:#777;margin-bottom:3px;font-weight:800;}
+.order-dept{font-size:22px;font-weight:900;color:#111;line-height:1.15;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .head-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
 .order-time{font-size:10px;color:#888;}
 .urgent-badge{font-size:9px;background:#E24B4A;color:#fff;padding:2px 6px;border-radius:3px;font-weight:500;}
@@ -77,9 +77,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .show-done-btn{margin-left:auto;font-size:11px;padding:4px 10px;background:none;border:1px solid #111;border-radius:10px;cursor:pointer;color:#111;font-family:inherit;}
 
 /* 매장/포장 배지 */
-.type-badge{font-size:13px;font-weight:700;padding:3px 10px;border-radius:6px;display:inline-block;margin-top:4px;}
-.type-eat{background:#EAF3DE;color:#2D6A0A;border:1px solid #B8DFA0;}
-.type-take{background:#E6F1FB;color:#0A4FA0;border:1px solid #A0C8F0;}
+.type-badge{font-size:13px;font-weight:900;padding:4px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:5px;margin-top:7px;}
+.type-eat{background:#FCE8E6;color:#A32D2D;border:2px solid #E24B4A;}
+.type-take{background:#E5F0FF;color:#064F9E;border:2px solid #6BA7E8;}
 
 /* 취소 버튼 */
 .cancel-btn{width:100%;padding:6px;background:#fff;color:#E24B4A;border:1.5px solid #E24B4A;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;margin-top:5px;}
@@ -217,6 +217,9 @@ function orderItems(order){
 function pn(s){
   const n=parseInt(String(s||'').replace(/,/g,'').replace(/[^0-9\-]/g,''));
   return isNaN(n)?0:n;
+}
+function fmt(n){
+  return pn(n).toLocaleString()+'원';
 }
 function itemAmount(item){
   const qty=pn(item.qty)||1;
@@ -736,7 +739,7 @@ function closeDetailOverlay(e){
   }
 }
 
-function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+function esc(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;');}
 
 listenOrders();
 </script>
