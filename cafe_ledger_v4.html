@@ -47,6 +47,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .snav-item.summary-btn.active{border-bottom:2px solid #185FA5;color:#185FA5;}
 .snav-sep{width:1px;height:20px;background:#e0dfd8;margin:0 4px;flex-shrink:0;}
 .snav-dept-wrap{display:flex;flex-wrap:wrap;gap:0;flex:1;}
+.mobile-dept-btn{display:none;}
+.mobile-dept-sheet{display:none;}
 
 /* 화면 */
 .screen{display:none;}
@@ -75,6 +77,32 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .abtn:hover{background:#f5f4f0;}
 .abtn.primary{background:#2C2C2A;color:#F1EFE8;border-color:#2C2C2A;}
 .abtn.primary:hover{background:#444441;}
+
+@media(max-width:640px){
+  body{font-size:13px;}
+  .topbar{height:48px;padding:0 14px;}
+  .topbar-title{font-size:17px;font-weight:700;}
+  .subnav{top:48px;display:grid;grid-template-columns:64px 1fr 86px 72px;align-items:stretch;padding:0;gap:0;overflow:visible;}
+  .subnav>.snav-item{padding:13px 6px;font-size:14px;text-align:center;border-bottom-width:3px;}
+  .subnav>.snav-sep,.snav-dept-wrap{display:none;}
+  .mobile-dept-btn{display:flex;align-items:center;justify-content:center;gap:5px;border:0;border-bottom:3px solid transparent;background:#fff;color:#777;font-size:14px;font-weight:800;font-family:inherit;min-width:0;padding:0 6px;}
+  .mobile-dept-btn.active{color:#111;border-bottom-color:#111;}
+  .mobile-dept-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+  .ledger-topbar{padding:10px 12px;}
+  .ledger-name{font-size:17px;font-weight:800;}
+  .mgmt-nav{overflow-x:auto;}
+  .mgmt-tab{padding:12px 16px;font-size:14px;}
+  .tbl-wrap{overflow-x:auto;}
+  table{min-width:860px;}
+  .mobile-dept-sheet.open{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:1000;}
+  .mobile-dept-panel{width:100%;max-height:76vh;background:#fff;border-radius:18px 18px 0 0;overflow:hidden;box-shadow:0 -10px 30px rgba(0,0,0,.18);}
+  .mobile-dept-head{height:54px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:1px solid #eee;}
+  .mobile-dept-title{font-size:18px;font-weight:900;}
+  .mobile-dept-close{width:34px;height:34px;border:0;border-radius:50%;background:#f1f1f1;font-size:20px;}
+  .mobile-dept-list{max-height:calc(76vh - 54px);overflow:auto;padding:6px 0;}
+  .mobile-dept-item{width:100%;border:0;background:#fff;text-align:left;padding:14px 18px;font-size:16px;font-weight:800;border-bottom:1px solid #f0f0f0;font-family:inherit;}
+  .mobile-dept-item.active{background:#FFF7C8;}
+}
 
 /* 테이블 - 셀 구분선 추가 */
 .tbl-wrap{overflow-x:auto;background:#fff;}
@@ -216,11 +244,22 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
 <div class="subnav" id="subnav">
   <button class="snav-item active" id="snav-home" onclick="goHome()">🏠 홈</button>
   <div class="snav-sep"></div>
+  <button class="mobile-dept-btn" id="mobileDeptBtn" onclick="openMobileDeptSheet()"><span class="mobile-dept-name">부서 선택</span><span>⌄</span></button>
   <div class="snav-dept-wrap" id="snavDepts"></div>
   <div class="snav-sep"></div>
   <button class="snav-item summary-btn" id="snav-summary" onclick="goSummary()">📊 현황 요약</button>
   <div class="snav-sep"></div>
   <button class="snav-item" id="snav-mgmt" onclick="goMgmt()" style="color:#B8520A;">⚙️ 관리</button>
+</div>
+
+<div class="mobile-dept-sheet" id="mobileDeptSheet" onclick="closeMobileDeptSheet(event)">
+  <div class="mobile-dept-panel">
+    <div class="mobile-dept-head">
+      <div class="mobile-dept-title">부서 선택</div>
+      <button class="mobile-dept-close" onclick="closeMobileDeptSheet()">×</button>
+    </div>
+    <div class="mobile-dept-list" id="mobileDeptList"></div>
+  </div>
 </div>
 
 <!-- 홈 화면 -->
@@ -383,6 +422,7 @@ let acTarget=null,acIdx=-1,acList=[];
 let optTarget=null,saveTimer=null,deptSaveTimers={};
 let curScreen='home';
 let savingDepts=new Set();
+let addingDept=false;
 let soldout={};  // {메뉴명: true}
 let hiddenMenus={};  // {메뉴명: true} — 주문창에서 아예 안 보임
 // catOptMap: { "대카>중카": [옵션명] }
@@ -831,6 +871,14 @@ function showScreen(id){
 
 function goHome(){showScreen('home');renderHome();}
 function goSummary(){showScreen('summary');renderSummary();}
+function openMobileDeptSheet(){
+  renderMobileDeptList();
+  document.getElementById('mobileDeptSheet').classList.add('open');
+}
+function closeMobileDeptSheet(e){
+  const sheet=document.getElementById('mobileDeptSheet');
+  if(!e||e.target===sheet||e.target.classList.contains('mobile-dept-close'))sheet.classList.remove('open');
+}
 
 let curMgmtTab='menu',curMenuSub='drink',curOptSub='list';
 
@@ -1184,6 +1232,25 @@ function renderSubnav(){
     b.textContent=d.name;
     b.onclick=()=>openDept(i);
     wrap.appendChild(b);
+  });
+  renderMobileDeptList();
+  const mb=document.getElementById('mobileDeptBtn');
+  if(mb){
+    const name=curDeptIdx!==null&&depts[curDeptIdx]?depts[curDeptIdx].name:'부서 선택';
+    mb.querySelector('.mobile-dept-name').textContent=name;
+    mb.classList.toggle('active',curScreen==='ledger');
+  }
+}
+function renderMobileDeptList(){
+  const list=document.getElementById('mobileDeptList');
+  if(!list)return;
+  list.innerHTML='';
+  depts.forEach((d,i)=>{
+    const b=document.createElement('button');
+    b.className='mobile-dept-item'+(curScreen==='ledger'&&curDeptIdx===i?' active':'');
+    b.textContent=d.name;
+    b.onclick=()=>{closeMobileDeptSheet();openDept(i);};
+    list.appendChild(b);
   });
 }
 
@@ -1732,7 +1799,9 @@ function saveDB(){sv();saveSoldout();}
 function openAddDept(){document.getElementById('deptModal').classList.add('open');setTimeout(()=>document.getElementById('newDept').focus(),80);}
 function closeDM(){document.getElementById('deptModal').classList.remove('open');document.getElementById('newDept').value='';}
 function addDept(){
+  if(addingDept)return;
   const nm=document.getElementById('newDept').value.trim();if(!nm)return;
+  addingDept=true;
   const emptyRows=[];
   for(let i=0;i<80;i++)emptyRows.push({date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''});
   Promise.all([
@@ -1746,10 +1815,11 @@ function addDept(){
     const key=nextDeptKey(existing);
     const dept={id:makeDeptId(),name:nm,rows:emptyRows,password:''};
     return db.ref('jangbu/depts/'+key).set(dept).then(()=>{
-      depts.push({...dept,_key:key});
+      const merged={...existing,[key]:dept};
+      depts=normalizeDeptData(merged,false);
       renderSubnav();renderHome();renderDeptMgmt();closeDM();goHome();
     });
-  });
+  }).finally(()=>{addingDept=false;});
 }
 
 function togglePwdVis(i){
