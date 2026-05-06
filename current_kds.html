@@ -91,6 +91,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .history-btn.detail{background:#fff;border:1px solid #111;color:#111;}
 .history-btn.cancel{background:#E24B4A;color:#fff;}
 .history-btn.restore{background:#3B6D11;color:#fff;}
+.order-grid.history-mode{grid-template-columns:repeat(6,minmax(120px,1fr));gap:8px;padding:12px;align-content:start;}
+.history-card{height:74px;background:#fff;border:1px solid #dedbd0;border-radius:8px;padding:9px 10px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+.history-card:hover{border-color:#111;}
+.history-card.cancelled{background:#fffafa;border-color:#ead0d0;}
+.history-main{min-width:0;}
+.history-no{font-size:11px;color:#999;margin-bottom:3px;}
+.history-dept{font-size:14px;font-weight:800;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.history-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:#777;}
+.history-status{border-radius:999px;padding:2px 7px;font-size:10px;font-weight:800;white-space:nowrap;}
+.history-status.done{background:#eaf4df;color:#2f6d13;}
+.history-status.cancelled{background:#f4e7e7;color:#a13030;}
+@media(max-width:900px){.order-grid.history-mode{grid-template-columns:repeat(3,minmax(100px,1fr));}}
 
 /* 세부 음료 제조완료 터치 */
 .menu-item{padding:5px 0;border-bottom:1px solid #FFF0CC;cursor:pointer;border-radius:4px;transition:background 0.15s;}
@@ -485,6 +497,7 @@ function fmtDateFull(ts){
 function renderOrders(){
   const grid=document.getElementById('orderGrid');
   grid.innerHTML='';
+  grid.classList.toggle('history-mode',showDone);
 
   const allList=Object.values(orders)
     .filter(o=>showDone?(o.status==='done'||o.status==='cancelled'):o.status==='pending')
@@ -530,6 +543,8 @@ function renderOrders(){
         divider.textContent='📅 '+fmtDateFull(order.createdAt);
         grid.appendChild(divider);
       }
+      renderHistoryCard(grid,order);
+      return;
     }
 
     const card=document.createElement('div');
@@ -634,11 +649,31 @@ function renderOrders(){
   });
 }
 
+function renderHistoryCard(grid,order){
+  const isCancelled=order.status==='cancelled';
+  const time=new Date(order.createdAt||Date.now());
+  const timeStr=String(time.getHours()).padStart(2,'0')+':'+String(time.getMinutes()).padStart(2,'0');
+  const card=document.createElement('div');
+  card.className='history-card'+(isCancelled?' cancelled':' done');
+  card.onclick=()=>openDetail(order);
+  card.innerHTML=`
+    <div class="history-main">
+      <div class="history-no">#${String(order.id).padStart(3,'0')}</div>
+      <div class="history-dept">${esc(order.deptName||'')}</div>
+    </div>
+    <div class="history-meta">
+      <span class="history-status ${isCancelled?'cancelled':'done'}">${isCancelled?'취소됨':'완료됨'}</span>
+      <span>${timeStr}</span>
+    </div>`;
+  grid.appendChild(card);
+}
+
 // 경과시간 1초마다 갱신
 setInterval(()=>{
+  if(showDone)return;
   document.querySelectorAll('.elapsed').forEach(el=>{
     const card=el.closest('.order-card');
-    if(!card||card.classList.contains('done'))return;
+    if(!card||card.classList.contains('done')||card.classList.contains('cancelled'))return;
     const id=card.querySelector('.order-no')?.textContent?.replace('#','');
     if(!id)return;
     const order=Object.values(orders).find(o=>String(o.id).padStart(3,'0')===id);
@@ -676,7 +711,7 @@ function openDetail(order){
   (order.items||[]).forEach(item=>{
     const name=esc(item.displayName||item.name||'메뉴');
     const qty=pn(item.qty)||1;
-    const opts=(item.options||[]).map(esc).join(', ');
+    const opts=(item.opts||item.options||[]).map(o=>esc(typeof o==='string'?o:o.name)).filter(Boolean).join(', ');
     const amount=(pn(item.unitPrice)||0)*qty;
     html+='<div class="detail-item">'
       +'<div class="detail-item-name">'+name+' × '+qty+'</div>'
