@@ -436,9 +436,12 @@ function loadData(){
       else optionDB=[...defaultOpt];
       catOptMap=data.catOptMap||null;
       catSubMap=data.catSubMap||null;
-      // soldout은 루트 경로에 별도 저장되므로 아래 별도 로드
+      // Firebase menuDB → 주문용 변환
+      rawMenuDB=data.menuDB||[];
+      rawDessertDB=data.dessertDB||[];
+      menuDB=convertMenuDB(rawMenuDB,rawDessertDB);
     } else {
-      depts=[];optionDB=[...defaultOpt];
+      depts=[];optionDB=[...defaultOpt];menuDB=[];
     }
     document.getElementById('syncDot').className='sync-dot';
     initUI();
@@ -558,38 +561,14 @@ function renderMenuArea(catKey){
   const area=document.getElementById('menuArea');
   area.innerHTML='';
   const items=menuDB.filter(m=>m.cat===catKey);
-
-  if(cat&&Object.keys(cat.sub).length>0){
-    // 서브카테고리 있는 경우
-    Object.entries(cat.sub).forEach(([subName,subMenus])=>{
-      const subItems=items.filter(m=>subMenus.includes(m.name));
-      if(subItems.length===0)return;
-      const lbl=document.createElement('div');
-      lbl.className='subcat-label';lbl.textContent=subName;
-      area.appendChild(lbl);
-      const grid=document.createElement('div');
-      grid.className='menu-grid';
-      subItems.forEach(item=>grid.appendChild(makeMenuCard(item)));
-      area.appendChild(grid);
-    });
-    // 서브에 없는 나머지
-    const subAll=Object.values(cat.sub).flat();
-    const rest=items.filter(m=>!subAll.includes(m.name));
-    if(rest.length>0){
-      const lbl=document.createElement('div');
-      lbl.className='subcat-label';lbl.textContent='기타';
-      area.appendChild(lbl);
-      const grid=document.createElement('div');
-      grid.className='menu-grid';
-      rest.forEach(item=>grid.appendChild(makeMenuCard(item)));
-      area.appendChild(grid);
-    }
-  } else {
-    const grid=document.createElement('div');
-    grid.className='menu-grid';
-    items.forEach(item=>grid.appendChild(makeMenuCard(item)));
-    area.appendChild(grid);
+  if(items.length===0){
+    area.innerHTML='<div style="text-align:center;padding:40px;color:#aaa;font-size:13px;">메뉴를 불러오는 중...</div>';
+    return;
   }
+  const grid=document.createElement('div');
+  grid.className='menu-grid';
+  items.forEach(item=>grid.appendChild(makeMenuCard(item)));
+  area.appendChild(grid);
 }
 
 function makeMenuCard(item){
