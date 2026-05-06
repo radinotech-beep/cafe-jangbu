@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>MEGA MGC COFFEE · 주문</title>
+<title>메가커피 인천역점</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
@@ -120,12 +120,21 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 /* 주문완료 토스트 */
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2C2C2A;color:#F5C800;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:500;z-index:999;display:none;}
 .toast.show{display:block;}
+/* 주문완료 팝업 */
+.complete-popup-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:600;align-items:center;justify-content:center;}
+.complete-popup-bg.open{display:flex;}
+.complete-popup{background:#fff;border-radius:20px;width:320px;padding:36px 24px;text-align:center;border:2px solid #F5C800;}
+.complete-icon{font-size:56px;margin-bottom:12px;}
+.complete-title{font-size:22px;font-weight:700;color:#2C2C2A;margin-bottom:8px;}
+.complete-sub{font-size:13px;color:#888;margin-bottom:24px;}
+.complete-btn{width:100%;padding:14px;background:#F5C800;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;color:#111;}
+.complete-btn:active{background:#E0B800;}
 
 /* 도입/대기 화면 */
-.intro-screen,.wait-screen{display:none;position:fixed;inset:0;background:#FFFBE6;z-index:100;flex-direction:column;align-items:center;justify-content:center;}
+.intro-screen,.wait-screen{display:none;position:fixed;inset:0;background:#F5C800;z-index:100;flex-direction:column;align-items:center;justify-content:center;}
 .intro-screen.active,.wait-screen.active{display:flex;}
-.intro-logo{font-size:28px;font-weight:700;color:#111;letter-spacing:-0.5px;margin-bottom:6px;}
-.intro-sub{font-size:13px;color:#888;margin-bottom:40px;}
+.intro-logo{font-size:38px;font-weight:900;color:#111;letter-spacing:-1px;margin-bottom:8px;text-align:center;}
+.intro-sub{font-size:17px;color:#333;font-weight:600;margin-bottom:44px;text-align:center;}
 .intro-dept-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:90%;max-width:480px;max-height:60vh;overflow-y:auto;}
 .intro-dept-btn{background:#fff;border:2px solid #E8D84A;border-radius:12px;padding:16px 10px;font-size:14px;font-weight:500;cursor:pointer;text-align:center;color:#2C2C2A;font-family:inherit;}
 .intro-dept-btn:active{background:#F5C800;border-color:#F5C800;}
@@ -162,14 +171,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 
 <!-- 도입화면: 부서 선택 -->
 <div class="intro-screen active" id="introScreen">
-  <div class="intro-logo">MEGA MGC COFFEE</div>
+  <div class="intro-logo">메가커피 인천역점</div>
   <div class="intro-sub">부서를 선택해 주세요</div>
   <div class="intro-dept-grid" id="introDeptGrid"></div>
 </div>
 
 <!-- 대기화면: 먹고가기 / 포장하기 -->
 <div class="wait-screen" id="waitScreen">
-  <div class="wait-logo">MEGA MGC COFFEE</div>
+  <div class="wait-logo" style="font-size:22px;font-weight:900;">메가커피 인천역점</div>
   <div class="wait-dept" id="waitDeptName">부서명</div>
   <div class="wait-choices">
     <button class="wait-btn eat" onclick="selectType('eat')">
@@ -209,8 +218,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   </div>
 </div>
 
+<!-- 주문완료 팝업 -->
+<div class="complete-popup-bg" id="completePopup">
+  <div class="complete-popup">
+    <div class="complete-icon">✅</div>
+    <div class="complete-title">주문이 완료되었습니다!</div>
+    <div class="complete-sub" id="completeSubText">주방으로 전달되었습니다</div>
+    <button class="complete-btn" onclick="closeCompletePopup()">확인</button>
+  </div>
+</div>
+
 <div class="topbar">
-  <span class="top-logo">MEGA MGC COFFEE</span>
+  <span class="top-logo">메가커피 인천역점</span>
   <div class="top-right">
     <span class="sync-dot" id="syncDot"></span>
     <button class="dept-btn" id="deptBtn" onclick="openDeptModal()">부서 선택 ▾</button>
@@ -524,6 +543,7 @@ function loadData(){
       if(data.optionDB)optionDB=data.optionDB;
       else optionDB=[...defaultOpt];
       catOptMap=data.catOptMap||null;
+      catSubMap=data.catSubMap||null;
       // soldout은 루트 경로에 별도 저장되므로 아래 별도 로드
     } else {
       depts=[];optionDB=[...defaultOpt];
@@ -542,6 +562,7 @@ function loadData(){
     if(curCat)renderMenuArea(curCat);
   });
   db.ref('jangbu/catOptMap').on('value',snap=>{catOptMap=snap.val()||null;});
+  db.ref('jangbu/catSubMap').on('value',snap=>{catSubMap=snap.val()||null;});
   db.ref('jangbu/depts').on('value',snap=>{
     const data=snap.val();
     if(!data)return;
@@ -741,17 +762,26 @@ function openPopup(item){
     popupTemp=item.tempFixed;
   }
 
-  // 옵션 — 카테고리별 허용 옵션만 표시 (catOptMap 없으면 전체 표시)
+  // 옵션 — 중카테고리 > 대카테고리 순으로 허용 옵션 찾기
   const grid=document.getElementById('optGrid');
   grid.innerHTML='';
   const optSecLabel=document.querySelector('.sec-label:last-of-type');
-  // 디저트는 옵션 없음
   if(item.cat==='디저트'){
     if(optSecLabel)optSecLabel.style.display='none';
   } else {
     if(optSecLabel)optSecLabel.style.display='';
-    const allowedOpts=catOptMap&&catOptMap[item.cat];
-    // catOptMap 미로드 또는 설정 없으면 전체 옵션 표시
+    // 중카테고리 찾기
+    let allowedOpts=null;
+    if(catSubMap&&catSubMap[item.cat]){
+      const subs=catSubMap[item.cat];
+      const matchSub=subs.find(s=>(s.menus||[]).includes(item.name));
+      if(matchSub){
+        const subKey=item.cat+'>>'+matchSub.name;
+        allowedOpts=catOptMap&&catOptMap[subKey];
+      }
+    }
+    // 중카테고리 없으면 대카테고리 옵션
+    if(!allowedOpts&&catOptMap)allowedOpts=catOptMap[item.cat];
     const useFilter=allowedOpts&&allowedOpts.length>0;
     optionDB.forEach((opt,i)=>{
       if(useFilter&&!allowedOpts.includes(opt.name))return;
@@ -923,14 +953,10 @@ function doSubmitOrder(){
     console.error('장부 기록 실패:', err);
   });
 
-  showToast(`#${orderCount} 주문 완료! KDS로 전송됐어요`);
+  const completedNo=orderCount;
+  const completedDept=dept.name;
   clearCart();
-  // 주문 완료 후 도입화면으로
-  setTimeout(()=>{
-    curDeptIdx=null;
-    document.getElementById('deptBtn').textContent='부서 선택 ▾';
-    goIntro();
-  },2000);
+  showCompletePopup(completedNo,completedDept);
 }
 
 // ── 비밀번호 모달 ──
@@ -1013,3 +1039,12 @@ loadData();
 </script>
 </body>
 </html>
+<script>
+// 오디오
+var _audioCtx2=null;
+function getAudioCtx(){if(!_audioCtx2)_audioCtx2=new(window.AudioContext||window.webkitAudioContext)();if(_audioCtx2.state==='suspended')_audioCtx2.resume();return _audioCtx2;}
+document.addEventListener('click',function(){if(_audioCtx2&&_audioCtx2.state==='suspended')_audioCtx2.resume();});
+function playComplete(){try{var ctx=getAudioCtx();var notes=[{freq:440,start:0,dur:0.08,type:'triangle'},{freq:554,start:0.12,dur:0.08,type:'triangle'},{freq:659,start:0.24,dur:0.4,type:'sine'}];notes.forEach(function(n){var osc=ctx.createOscillator();var gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);osc.type=n.type;osc.frequency.setValueAtTime(n.freq,ctx.currentTime+n.start);gain.gain.setValueAtTime(0,ctx.currentTime+n.start);gain.gain.linearRampToValueAtTime(0.3,ctx.currentTime+n.start+0.01);gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+n.start+n.dur);osc.start(ctx.currentTime+n.start);osc.stop(ctx.currentTime+n.start+n.dur+0.05);});}catch(e){}}
+function showCompletePopup(orderNo,deptName){document.getElementById('completeSubText').textContent='#'+String(orderNo).padStart(3,'0')+' · '+deptName+' · 주방으로 전달됐어요';document.getElementById('completePopup').classList.add('open');playComplete();}
+function closeCompletePopup(){document.getElementById('completePopup').classList.remove('open');curDeptIdx=null;document.getElementById('deptBtn').textContent='부서 선택 ▾';goIntro();}
+</script>
