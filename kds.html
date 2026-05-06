@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -161,32 +161,53 @@ cleanOldOrders();
 setInterval(cleanOldOrders,60*60*1000);
 
 // ── 장부 연동 — 주문취소 시 비고에 기록 ──
+function cleanMenuName(name){
+  return String(name||'').replace(/^\((HOT|ICE)\)/,'').replace(/\s+(HOT|ICE)$/,'').trim();
+}
+function markLedgerRowCancelled(row,dateStr){
+  const currentOrder=pn(row.order);
+  return {...row,order:0,cancelledAmount:currentOrder||row.basePrice||0,note:'주문취소',updatedAt:dateStr};
+}
 function markCancelledInLedger(order){
   const di=order.deptIdx;
   if(di===undefined||di===null)return;
+  const orderId=String(order.id);
   db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
     let rows=snap.val()||[];
     if(!Array.isArray(rows))rows=Object.values(rows);
-    // 해당 주문의 아이템 content와 매칭되는 행 찾아서 비고에 "주문취소" 기록
     const today=new Date();
-    const dateStr=(today.getMonth()+1)+'/'+(today.getDate());
+    const dateStr=(today.getMonth()+1)+'/'+today.getDate();
     let updated=false;
+
+    // 새 주문은 장부 행에 orderId가 들어가므로 가장 정확하게 매칭된다.
+    rows=rows.map(row=>{
+      if(row&&String(row.orderId||'')===orderId&&row.note!=='주문취소'){
+        updated=true;
+        return markLedgerRowCancelled(row,dateStr);
+      }
+      return row;
+    });
+
+    // 예전 주문처럼 orderId가 없는 행은 날짜, 메뉴명, 금액으로 한 번 더 찾는다.
     (order.items||[]).forEach(item=>{
-      const ledgerName=item.originalName||item.displayName||item.name;
-      // 오늘 날짜의 해당 메뉴 행 찾기
+      const names=[item.originalName,item.displayName,item.name].map(cleanMenuName).filter(Boolean);
+      const amount=(pn(item.unitPrice)||0)*(pn(item.qty)||1);
       for(let i=0;i<rows.length;i++){
         const row=rows[i];
-        if(row&&row.date===dateStr&&row.content&&row.content.includes(ledgerName.replace(/^\(HOT\)|\(ICE\)/,'').trim())&&row.note!=='주문취소'){
-          rows[i]={...rows[i],note:'주문취소',updatedAt:dateStr};
+        if(!row||row.note==='주문취소'||row.date!==dateStr||!row.content)continue;
+        const rowName=cleanMenuName(row.content);
+        const nameMatched=names.some(n=>rowName.includes(n)||n.includes(rowName));
+        const amountMatched=!amount||pn(row.order)===amount;
+        if(nameMatched&&amountMatched){
+          rows[i]=markLedgerRowCancelled(row,dateStr);
           updated=true;
           break;
         }
       }
     });
-    if(updated){
-      db.ref('jangbu/depts/'+di+'/rows').set(rows);
-    }
-  });
+
+    if(updated)db.ref('jangbu/depts/'+di+'/rows').set(rows);
+  }).catch(err=>console.error('장부 취소 반영 실패:',err));
 }
 
 function getAudioCtx(){
@@ -249,6 +270,9 @@ function listenOrders(){
       }
     });
     if(hasNew)playAlert();
+    Object.values(newOrders).forEach(o=>{
+      if(o.status==='cancelled')markCancelledInLedger(o);
+    });
 
     orders=newOrders;
     renderOrders();
@@ -470,3 +494,4 @@ listenOrders();
 </script>
 </body>
 </html>
+

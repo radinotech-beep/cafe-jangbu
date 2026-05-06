@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -318,6 +318,9 @@ const db=firebase.database();
 
 // ── 상태 ──
 let depts=[],optionDB=[],soldout={},hiddenMenus={},catOptMap=null,catSubMap=null;
+function stockName(s){return String(s||'').replace(/^\\((HOT|ICE)\\)/,'').replace(/\\s+(HOT|ICE)$/,'').trim();}
+function stockKeys(item){const base=stockName(item&&item.name!==undefined?item.name:item);const orig=stockName(item&&item.originalName?item.originalName:'');return [item&&item.name,item&&item.originalName,base,orig,'(HOT)'+base,'(ICE)'+base,base+' HOT',base+' ICE'].filter(Boolean);}
+function isStockedOut(item){return stockKeys(item).some(k=>soldout[k]);}
 let rawMenuDB=[],rawDessertDB=[]; // Firebase 원본
 let menuDB=[]; // 주문용 변환된 메뉴 (needTemp/tempFixed 포함)
 let curDeptIdx=null,curCat=null,cart=[],orderCount=0;
@@ -562,7 +565,7 @@ function renderMenuArea(catKey){
 function makeMenuCard(item){
   const div=document.createElement('div');
   // 품절 체크 — 변환된 cleanName(=item.name)으로 직접 체크
-  const isSold=!!(soldout[item.name]||soldout[item.originalName]);
+  const isSold=isStockedOut(item);
   const cartQty=cart.filter(c=>c.name===item.name&&(item.needTemp||c.temp===item.tempFixed)).reduce((s,c)=>s+c.qty,0);
   div.className='menu-card'+(cartQty>0?' in-cart':'')+(isSold?' soldout':'');
 
@@ -779,9 +782,11 @@ function doSubmitOrder(){
     id:orderCount,
     deptName:dept.name,
     deptIdx:di,
+    orderType,
     items:cart.map(c=>({
       name:c.name,
       displayName:c.displayName,
+      originalName:c.originalName||c.displayName||c.name,
       temp:c.temp||null,
       opts:c.opts,
       qty:c.qty,
@@ -815,7 +820,8 @@ function doSubmitOrder(){
       // 장부 기록명은 originalName 사용 (장부 menuDB와 일치)
       const ledgerName=item.originalName||item.displayName;
       const content=ledgerName+(item.opts.length>0?' +'+item.opts.map(o=>o.name).join('+'):'')+(item.qty>1?' x'+item.qty:'');
-      const newRow={date:dateStr,content,opts:item.opts,order:item.unitPrice*item.qty,pay:'',note:'',createdAt:dateStr,updatedAt:dateStr,basePrice:item.unitPrice*item.qty};
+      const amount=item.unitPrice*item.qty;
+      const newRow={date:dateStr,content,opts:item.opts,order:amount,pay:'',note:'',createdAt:dateStr,updatedAt:dateStr,basePrice:amount,orderId:String(order.id)};
       const emptyIdx=rows.findIndex(r=>!r.content&&!r.date&&!r.pay&&!r.order);
       if(emptyIdx>=0)rows[emptyIdx]=newRow;
       else rows.push(newRow);
@@ -922,3 +928,4 @@ function playComplete(){try{var ctx=getAudioCtx();var notes=[{freq:440,start:0,d
 function showCompletePopup(orderNo,deptName){document.getElementById('completeSubText').textContent='#'+String(orderNo).padStart(3,'0')+' · '+deptName+' · 주방으로 전달됐어요';document.getElementById('completePopup').classList.add('open');playComplete();}
 function closeCompletePopup(){document.getElementById('completePopup').classList.remove('open');curDeptIdx=null;document.getElementById('deptBtn').textContent='부서 선택 ▾';goIntro();}
 </script>
+
