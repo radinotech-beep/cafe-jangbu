@@ -523,8 +523,8 @@ function loadData(){
       }
       if(data.optionDB)optionDB=data.optionDB;
       else optionDB=[...defaultOpt];
-      if(data.soldout)soldout=data.soldout;
       catOptMap=data.catOptMap||null;
+      // soldout은 루트 경로에 별도 저장되므로 아래 별도 로드
     } else {
       depts=[];optionDB=[...defaultOpt];
     }

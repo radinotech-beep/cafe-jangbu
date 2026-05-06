@@ -1203,7 +1203,9 @@ function toggleSoldout(name){
   if(soldout[name])delete soldout[name];
   else soldout[name]=true;
   saveSoldout();
-  renderSoldoutTab();
+  // 현재 활성 화면에 맞는 렌더 함수 호출
+  if(curScreen==='mgmt')renderSoldoutMgmt();
+  else renderSoldoutTab();
 }
 
 // ── 부서 설정 탭 ──
