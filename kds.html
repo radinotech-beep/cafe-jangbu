@@ -75,6 +75,28 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 
 /* 완료 내역 토글 */
 .show-done-btn{margin-left:auto;font-size:11px;padding:4px 10px;background:none;border:1px solid #111;border-radius:10px;cursor:pointer;color:#111;font-family:inherit;}
+
+/* 매장/포장 배지 */
+.type-badge{font-size:13px;font-weight:700;padding:3px 10px;border-radius:6px;display:inline-block;margin-top:4px;}
+.type-eat{background:#EAF3DE;color:#2D6A0A;border:1px solid #B8DFA0;}
+.type-take{background:#E6F1FB;color:#0A4FA0;border:1px solid #A0C8F0;}
+
+/* 취소 버튼 */
+.cancel-btn{width:100%;padding:6px;background:#fff;color:#E24B4A;border:1.5px solid #E24B4A;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;margin-top:5px;}
+.cancel-btn:active{background:#FCEBEB;}
+.order-card.cancelled{opacity:0.35;border-color:#ccc;}
+.card-head.cancelled{background:#f5f5f5;border-bottom-color:#ccc;}
+
+/* 세부 음료 제조완료 터치 */
+.menu-item{padding:5px 0;border-bottom:1px solid #FFF0CC;cursor:pointer;border-radius:4px;transition:background 0.15s;}
+.menu-item:last-child{border-bottom:none;}
+.menu-item.made{background:#F0F0F0;}
+.menu-item.made .menu-name{text-decoration:line-through;color:#aaa;}
+.menu-item.made .menu-qty{color:#aaa;}
+.menu-item.made .opt-text{color:#ccc;}
+
+/* 날짜 구분선 */
+.date-divider{grid-column:1/-1;text-align:center;font-size:12px;font-weight:500;color:#888;padding:8px 0;border-top:1px dashed #E8D84A;margin-top:4px;}
 </style>
 </head>
 <body>
@@ -100,7 +122,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
   <div class="stat"><span class="stat-label">대기</span><span class="stat-val" id="statPending">0건</span></div>
   <div class="stat"><span class="stat-label">완료</span><span class="stat-val green" id="statDone">0건</span></div>
   <div class="stat"><span class="stat-label">5분초과</span><span class="stat-val red" id="statUrgent">0건</span></div>
-  <button class="show-done-btn" onclick="toggleDone()">완료 내역 보기</button>
+  <button class="show-done-btn" onclick="toggleDone()" id="showDoneBtn">완료/취소 내역 보기</button>
 </div>
 
 <script>
@@ -119,7 +141,53 @@ const db=firebase.database();
 let orders={};
 let showDone=false;
 let audioCtx=null;
-let knownOrderIds=new Set(); // 이미 알림 울린 주문 ID
+let knownOrderIds=new Set();
+let madeItems={}; // {orderId_itemIdx: true} 제조완료 로컬 상태
+
+// ── 하루 지난 주문 자동 삭제 ──
+function cleanOldOrders(){
+  const cutoff=Date.now()-24*60*60*1000; // 24시간 전
+  db.ref('orders').once('value').then(snap=>{
+    const all=snap.val()||{};
+    Object.entries(all).forEach(([key,order])=>{
+      if(order.createdAt<cutoff){
+        db.ref('orders/'+key).remove();
+      }
+    });
+  });
+}
+// 앱 시작 시 + 매 시간마다 정리
+cleanOldOrders();
+setInterval(cleanOldOrders,60*60*1000);
+
+// ── 장부 연동 — 주문취소 시 비고에 기록 ──
+function markCancelledInLedger(order){
+  const di=order.deptIdx;
+  if(di===undefined||di===null)return;
+  db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
+    let rows=snap.val()||[];
+    if(!Array.isArray(rows))rows=Object.values(rows);
+    // 해당 주문의 아이템 content와 매칭되는 행 찾아서 비고에 "주문취소" 기록
+    const today=new Date();
+    const dateStr=(today.getMonth()+1)+'/'+(today.getDate());
+    let updated=false;
+    (order.items||[]).forEach(item=>{
+      const ledgerName=item.originalName||item.displayName||item.name;
+      // 오늘 날짜의 해당 메뉴 행 찾기
+      for(let i=0;i<rows.length;i++){
+        const row=rows[i];
+        if(row&&row.date===dateStr&&row.content&&row.content.includes(ledgerName.replace(/^\(HOT\)|\(ICE\)/,'').trim())&&row.note!=='주문취소'){
+          rows[i]={...rows[i],note:'주문취소',updatedAt:dateStr};
+          updated=true;
+          break;
+        }
+      }
+    });
+    if(updated){
+      db.ref('jangbu/depts/'+di+'/rows').set(rows);
+    }
+  });
+}
 
 function getAudioCtx(){
   if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
@@ -129,8 +197,8 @@ function getAudioCtx(){
 function playAlert(){
   try{
     const ctx=getAudioCtx();
-    // 딩동 — 두 음
-    const notes=[{freq:880,start:0,dur:0.15},{freq:660,start:0.2,dur:0.25}];
+    // 카페 벨 딩~동~딩
+    const notes=[{freq:1046,start:0,dur:0.2},{freq:784,start:0.25,dur:0.2},{freq:1046,start:0.5,dur:0.35}];
     notes.forEach(n=>{
       const osc=ctx.createOscillator();
       const gain=ctx.createGain();
@@ -199,6 +267,21 @@ document.addEventListener('click',()=>{
 function completeOrder(id){
   db.ref('orders/'+id+'/status').set('done');
 }
+// 주문 취소 처리
+function cancelOrder(id){
+  if(!confirm('주문을 취소할까요? 장부 비고에 취소 이력이 기록됩니다.'))return;
+  const order=Object.values(orders).find(o=>String(o.id)===String(id));
+  db.ref('orders/'+id+'/status').set('cancelled');
+  if(order)markCancelledInLedger(order);
+}
+// 세부 음료 제조완료 토글
+function toggleMade(orderId,itemIdx){
+  const key=orderId+'_'+itemIdx;
+  if(madeItems[key])delete madeItems[key];
+  else madeItems[key]=true;
+  // 해당 카드만 업데이트
+  renderOrders();
+}
 
 // 태그 HTML
 function tempTag(temp){
@@ -209,17 +292,33 @@ function tempTag(temp){
 }
 function isMega(name){return /메가|왕/.test(name);}
 
+// 날짜 포맷
+function fmtDate(ts){
+  const d=new Date(ts);
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+function fmtDateFull(ts){
+  const d=new Date(ts);
+  const days=['일','월','화','수','목','금','토'];
+  return `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+}
+
 // 렌더
 function renderOrders(){
   const grid=document.getElementById('orderGrid');
   grid.innerHTML='';
 
-  const list=Object.values(orders)
-    .filter(o=>showDone||o.status==='pending')
+  const allList=Object.values(orders)
+    .filter(o=>showDone?(o.status==='done'||o.status==='cancelled'):o.status==='pending')
     .sort((a,b)=>a.createdAt-b.createdAt);
+
+  // 대기 중인 것도 항상 위에 표시
+  const pendingList=Object.values(orders).filter(o=>o.status==='pending').sort((a,b)=>a.createdAt-b.createdAt);
+  const list=showDone?allList:pendingList;
 
   const pending=Object.values(orders).filter(o=>o.status==='pending');
   const done=Object.values(orders).filter(o=>o.status==='done');
+  const cancelled=Object.values(orders).filter(o=>o.status==='cancelled');
   const urgent=pending.filter(o=>isUrgent(o.createdAt));
 
   document.getElementById('topCount').textContent='대기 '+pending.length+'건';
@@ -230,67 +329,115 @@ function renderOrders(){
   if(list.length===0){
     grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1;">
       <div class="empty-icon">☕</div>
-      <div class="empty-text">주문을 기다리는 중...</div>
+      <div class="empty-text">${showDone?'완료/취소 내역이 없어요':'주문을 기다리는 중...'}</div>
     </div>`;
     return;
   }
 
+  // 날짜별 그룹핑 (완료내역 볼 때)
+  let lastDate='';
+
   list.forEach(order=>{
     const isDone=order.status==='done';
-    const urg=!isDone&&isUrgent(order.createdAt);
-    const card=document.createElement('div');
-    card.className='order-card'+(urg?' urgent':isDone?' done':'');
+    const isCancelled=order.status==='cancelled';
+    const urg=!isDone&&!isCancelled&&isUrgent(order.createdAt);
 
-    // 헤더
-    const headCls='card-head'+(urg?' urgent':isDone?' done':'');
+    // 날짜 구분선 (완료내역 볼 때)
+    if(showDone){
+      const dateStr=fmtDate(order.createdAt);
+      if(dateStr!==lastDate){
+        lastDate=dateStr;
+        const divider=document.createElement('div');
+        divider.className='date-divider';
+        divider.textContent='📅 '+fmtDateFull(order.createdAt);
+        grid.appendChild(divider);
+      }
+    }
+
+    const card=document.createElement('div');
+    card.className='order-card'+(urg?' urgent':isDone?' done':isCancelled?' cancelled':'');
+
+    // ── 헤더 ──
+    const headCls='card-head'+(urg?' urgent':isDone?' done':isCancelled?' cancelled':'');
     const time=new Date(order.createdAt);
     const timeStr=String(time.getHours()).padStart(2,'0')+':'+String(time.getMinutes()).padStart(2,'0');
-    card.innerHTML=`
-      <div class="${headCls}">
-        <div>
-          <div class="order-no">#${String(order.id).padStart(3,'0')}</div>
-          <div class="order-dept">${esc(order.deptName)}</div>
-        </div>
-        <div class="head-right">
-          ${urg?'<span class="urgent-badge">⚠ 5분초과</span>':''}
-          <span class="order-time">${timeStr}</span>
-          <span style="font-size:10px;padding:1px 5px;border-radius:3px;background:${order.orderType==='take'?'#E6F1FB':'#EAF3DE'};color:${order.orderType==='take'?'#185FA5':'#3B6D11'};font-weight:500;">${order.orderType==='take'?'포장':'매장'}</span>
-        </div>
-      </div>`;
+    const isTake=order.orderType==='take';
+    const typeBadge=`<span class="type-badge ${isTake?'type-take':'type-eat'}">${isTake?'🛍️ 포장':'🍽️ 매장'}</span>`;
 
-    // 바디
+    const headDiv=document.createElement('div');
+    headDiv.className=headCls;
+    headDiv.innerHTML=`
+      <div>
+        <div class="order-no">#${String(order.id).padStart(3,'0')}</div>
+        <div class="order-dept">${esc(order.deptName)}</div>
+        ${typeBadge}
+      </div>
+      <div class="head-right">
+        ${urg?'<span class="urgent-badge">⚠ 5분초과</span>':''}
+        ${isCancelled?'<span style="font-size:9px;background:#999;color:#fff;padding:2px 6px;border-radius:3px;font-weight:500;">취소됨</span>':''}
+        <span class="order-time">${timeStr}</span>
+      </div>`;
+    card.appendChild(headDiv);
+
+    // ── 바디 ──
     const body=document.createElement('div');
     body.className='card-body';
-    (order.items||[]).forEach(item=>{
+    (order.items||[]).forEach((item,idx)=>{
       const mega=isMega(item.name);
       const optStr=(item.opts||[]).map(o=>o.name).join(', ');
+      const madeKey=order.id+'_'+idx;
+      const isMade=!!madeItems[madeKey];
       const div=document.createElement('div');
-      div.className='menu-item';
+      div.className='menu-item'+(isMade?' made':'');
+      // 완료/취소 아닌 경우만 터치 가능
+      if(!isDone&&!isCancelled){
+        div.onclick=()=>toggleMade(order.id,idx);
+        div.title='터치하면 제조완료 표시';
+      }
       div.innerHTML=`
         <div class="menu-row">
           <span class="menu-name">${esc(item.displayName||item.name)}${mega?'<span class="tag tag-mega">MEGA</span>':''}${tempTag(item.temp)}</span>
-          <span class="menu-qty">x${item.qty}</span>
+          <span class="menu-qty">${isMade?'✓':''}x${item.qty}</span>
         </div>
         ${optStr?`<div class="opt-row"><span class="opt-arrow">▶</span><span class="opt-text">${esc(optStr)}</span></div>`:''}`;
       body.appendChild(div);
     });
     card.appendChild(body);
 
-    // 푸터
-    const foot=document.createElement('div');foot.className='card-foot';
-    if(!isDone){
+    // ── 푸터 ──
+    const foot=document.createElement('div');
+    foot.className='card-foot';
+    if(!isDone&&!isCancelled){
       const elapsed=document.createElement('div');
       elapsed.className='elapsed'+(urg?' warn':'');
       elapsed.textContent=getElapsed(order.createdAt);
       foot.appendChild(elapsed);
-    }
-    const btn=document.createElement('button');
-    btn.className='done-btn'+(isDone?' completed':'');
-    btn.textContent=isDone?'✓ 완료됨':'완료';
-    if(!isDone)btn.onclick=()=>completeOrder(order.id);
-    foot.appendChild(btn);
-    card.appendChild(foot);
 
+      const btnRow=document.createElement('div');
+      btnRow.style.cssText='display:flex;gap:5px;';
+
+      const doneBtn=document.createElement('button');
+      doneBtn.className='done-btn';
+      doneBtn.style.flex='1';
+      doneBtn.textContent='✓ 완료';
+      doneBtn.onclick=()=>completeOrder(order.id);
+      btnRow.appendChild(doneBtn);
+
+      const cancelBtn=document.createElement('button');
+      cancelBtn.className='cancel-btn';
+      cancelBtn.style.cssText='flex:0.5;margin-top:0;';
+      cancelBtn.textContent='✕ 취소';
+      cancelBtn.onclick=(e)=>{e.stopPropagation();cancelOrder(order.id);};
+      btnRow.appendChild(cancelBtn);
+
+      foot.appendChild(btnRow);
+    } else {
+      const btn=document.createElement('button');
+      btn.className='done-btn completed';
+      btn.textContent=isCancelled?'✕ 취소됨':'✓ 완료됨';
+      foot.appendChild(btn);
+    }
+    card.appendChild(foot);
     grid.appendChild(card);
   });
 }
@@ -313,7 +460,7 @@ setInterval(()=>{
 
 function toggleDone(){
   showDone=!showDone;
-  document.querySelector('.show-done-btn').textContent=showDone?'완료 내역 숨기기':'완료 내역 보기';
+  document.getElementById('showDoneBtn').textContent=showDone?'완료/취소 내역 숨기기':'완료/취소 내역 보기';
   renderOrders();
 }
 
