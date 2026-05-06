@@ -838,16 +838,9 @@ function doSubmitOrder(){
   const dateStr=(today.getMonth()+1)+'/'+(today.getDate());
   const cartSnapshot=[...cart]; // 클리어 전에 복사
 
-  Promise.all([
-    db.ref('jangbu/depts/'+deptKey+'/rows').once('value'),
-    db.ref('jangbu/deletedLedgerRows/'+firebaseSafeKey(dept.id||deptKey)).once('value')
-  ]).then(snaps=>{
+  db.ref('jangbu/depts/'+deptKey+'/rows').once('value').then(snap=>{
     // Firebase 최신 rows 가져오기
-    let rows=snaps[0].val()||[];
-    const deleted=snaps[1].val()||{};
-    if(deleted['order_'+firebaseSafeKey(order.id)]||deleted['order:'+String(order.id)]){
-      return null;
-    }
+    let rows=snap.val()||[];
     // Firebase가 객체로 저장한 경우 배열 변환
     if(!Array.isArray(rows))rows=Object.values(rows);
     // 80행 보장

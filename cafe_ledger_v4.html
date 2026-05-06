@@ -1337,7 +1337,6 @@ function deleteRow(di,ri){
   if(Object.keys(deleted).length>0){
     depts[di].deletedRows={...(depts[di].deletedRows||{}),...deleted};
     db.ref('jangbu/deletedLedgerRows/'+firebaseSafeKey(deptId)).update(deleted);
-    db.ref('jangbu/depts/'+key+'/deletedRows').update(deleted);
   }
   saveDept(di,true);
 }
@@ -1452,12 +1451,24 @@ function handlePaste(e,di,ri,col){
 function calcBal(di){
   const d=depts[di];let run=0,tp=0,to=0;
   d.rows.forEach((row,ri)=>{
-    const pay=pn(row.pay),order=pn(row.order);
-    run+=pay-order;tp+=pay;to+=order;
+    const payInp=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="pay"]`);
+    const orderInp=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="order"]`);
+    const contentInp=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="content"]`);
+    const dateInp=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="date"]`);
+    const pay=pn(payInp?payInp.value:row.pay);
+    const order=pn(orderInp?orderInp.value:row.order);
+    const content=String(contentInp?contentInp.value:(row.content||'')).trim();
+    const date=String(dateInp?dateInp.value:(row.date||'')).trim();
     const bc=document.getElementById(`bl-${di}-${ri}`);
+    const empty=pay===0&&order===0&&!content&&!date;
     if(bc){
-      const empty=pay===0&&order===0&&!row.content&&!row.date;
       if(empty){bc.textContent='';bc.style.color='';return;}
+      bc.textContent=run.toLocaleString();
+      bc.style.color=run<0?'#A32D2D':run>0?'#3B6D11':'#2C2C2A';
+    }
+    if(empty)return;
+    run+=pay-order;tp+=pay;to+=order;
+    if(bc){
       bc.textContent=run.toLocaleString();
       bc.style.color=run<0?'#A32D2D':run>0?'#3B6D11':'#2C2C2A';
     }
