@@ -345,11 +345,13 @@ let pwdBuffer='';
 // HOT/ICE 둘 다 없는 → needTemp:false, tempFixed:null
 function convertMenuDB(raw,des){
   const result=[];
-  // 1패스: HOT/ICE 쌍을 먼저 수집
-  const hotMap=new Map(); // cat::cleanName → {price, m}
-  const iceMap=new Map();
   const allRaw=[...(raw||[]),...(des||[])];
 
+  // 1패스: HOT/ICE 전부 수집 (순서 무관)
+  const hotMap=new Map();
+  const iceMap=new Map();
+  const plainMap=new Map();
+
   allRaw.forEach(m=>{
     if(!m||!m.name)return;
     const name=m.name;
@@ -358,51 +360,48 @@ function convertMenuDB(raw,des){
     const cleanName=name.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
     const cat=m.cat||'커피';
     const key=cat+'::'+cleanName;
-    if(isHOT)hotMap.set(key,{price:m.price,m,cleanName,cat});
-    else if(isICE)iceMap.set(key,{price:m.price,m,cleanName,cat});
+    if(isHOT)hotMap.set(key,{price:m.price,m,cleanName,cat,originalName:name});
+    else if(isICE)iceMap.set(key,{price:m.price,m,cleanName,cat,originalName:name});
+    else plainMap.set(key,{price:m.price,m,cleanName,cat,originalName:name});
   });
 
-  // 2패스: 변환
+  // 2패스: HOT/ICE 쌍 처리 (순서 의존성 완전 제거)
   const processed=new Set();
-  allRaw.forEach(m=>{
-    if(!m||!m.name)return;
-    const name=m.name;
-    const isHOT=name.startsWith('(HOT)');
-    const isICE=name.startsWith('(ICE)');
-    const cleanName=name.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
-    const cat=m.cat||'커피';
-    const key=cat+'::'+cleanName;
 
-    if(isHOT){
-      if(processed.has(key+'_HOT'))return;
-      processed.add(key+'_HOT');
-      const iceEntry=iceMap.get(key);
-      if(iceEntry&&iceEntry.price===m.price){
-        // 가격 같음 → 통합 카드 (ICE 처리 시 생성)
-        if(!processed.has(key+'_merged')){
-          processed.add(key+'_merged');
-          result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:true,tempFixed:null,hotPrice:m.price,icePrice:iceEntry.price});
-        }
+  // HOT 기준으로 순회
+  hotMap.forEach((hotEntry,key)=>{
+    if(processed.has(key))return;
+    processed.add(key);
+    const iceEntry=iceMap.get(key);
+    if(iceEntry){
+      if(iceEntry.price===hotEntry.price){
+        // 가격 같음 → 통합 카드 (HOT/ICE 선택)
+        result.push({name:hotEntry.cleanName,originalName:hotEntry.originalName,cat:hotEntry.cat,price:hotEntry.price,alias:hotEntry.m.alias||'',needTemp:true,tempFixed:null,hotPrice:hotEntry.price,icePrice:iceEntry.price});
       } else {
-        // 가격 다르거나 ICE 없음 → HOT 별도 카드
-        result.push({name:cleanName+' HOT',originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:'HOT',hotPrice:m.price,icePrice:null});
-      }
-    } else if(isICE){
-      if(processed.has(key+'_ICE'))return;
-      processed.add(key+'_ICE');
-      const hotEntry=hotMap.get(key);
-      if(hotEntry&&hotEntry.price===m.price){
-        // 가격 같음 → 통합 카드 (HOT에서 이미 처리됨)
-        processed.add(key+'_merged');
-      } else {
-        // 가격 다르거나 HOT 없음 → ICE 별도 카드
-        result.push({name:cleanName+' ICE',originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:'ICE',hotPrice:null,icePrice:m.price});
+        // 가격 다름 → 별도 카드 2개
+        result.push({name:hotEntry.cleanName+' HOT',originalName:hotEntry.originalName,cat:hotEntry.cat,price:hotEntry.price,alias:hotEntry.m.alias||'',needTemp:false,tempFixed:'HOT',hotPrice:hotEntry.price,icePrice:null});
+        result.push({name:iceEntry.cleanName+' ICE',originalName:iceEntry.originalName,cat:iceEntry.cat,price:iceEntry.price,alias:iceEntry.m.alias||'',needTemp:false,tempFixed:'ICE',hotPrice:null,icePrice:iceEntry.price});
       }
     } else {
-      // 접두어 없음 → 그대로
-      result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:null,hotPrice:null,icePrice:null});
+      // HOT만 있음 → HOT 단독 카드
+      result.push({name:hotEntry.cleanName+' HOT',originalName:hotEntry.originalName,cat:hotEntry.cat,price:hotEntry.price,alias:hotEntry.m.alias||'',needTemp:false,tempFixed:'HOT',hotPrice:hotEntry.price,icePrice:null});
     }
   });
+
+  // ICE만 있는 것 처리 (HOT 없는 ICE)
+  iceMap.forEach((iceEntry,key)=>{
+    if(processed.has(key))return;
+    processed.add(key);
+    result.push({name:iceEntry.cleanName+' ICE',originalName:iceEntry.originalName,cat:iceEntry.cat,price:iceEntry.price,alias:iceEntry.m.alias||'',needTemp:false,tempFixed:'ICE',hotPrice:null,icePrice:iceEntry.price});
+  });
+
+  // 접두어 없는 메뉴
+  plainMap.forEach((entry,key)=>{
+    if(processed.has(key))return;
+    processed.add(key);
+    result.push({name:entry.cleanName,originalName:entry.originalName,cat:entry.cat,price:entry.price,alias:entry.m.alias||'',needTemp:false,tempFixed:null,hotPrice:null,icePrice:null});
+  });
+
   return result;
 }
 
@@ -557,10 +556,10 @@ function renderMenuArea(catKey){
   area.innerHTML='';
   const items=menuDB.filter(m=>{
     if(m.cat!==catKey)return false;
-    // 숨김 처리 — 원본명 또는 표시명으로 체크
-    const n=m.name;
-    const orig=m.originalName||n;
-    return!hiddenMenus[n]&&!hiddenMenus[orig];
+    // 숨김 처리 — cleanName 기준으로 통일 (HOT/ICE/공백 제거 후 체크)
+    const n=m.name.replace(/ HOT$| ICE$/,'').trim();
+    const orig=(m.originalName||m.name).replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
+    return!hiddenMenus[n]&&!hiddenMenus[orig]&&!hiddenMenus[m.name];
   });
   if(items.length===0){
     area.innerHTML='<div style="text-align:center;padding:40px;color:#aaa;font-size:13px;">표시할 메뉴가 없습니다</div>';
@@ -574,8 +573,10 @@ function renderMenuArea(catKey){
 
 function makeMenuCard(item){
   const div=document.createElement('div');
-  // 품절 체크 — 변환된 cleanName(=item.name)으로 직접 체크
-  const isSold=!!(soldout[item.name]||soldout[item.originalName]);
+  // 품절 체크 — cleanName 기준으로 통일 (HOT/ICE/공백 제거 후 체크)
+  const _soldKey=item.name.replace(/ HOT$| ICE$/,'').trim();
+  const _soldKeyOrig=(item.originalName||'').replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
+  const isSold=!!(soldout[_soldKey]||soldout[_soldKeyOrig]||soldout[item.name]||soldout[item.originalName]);
   const cartQty=cart.filter(c=>c.name===item.name&&(item.needTemp||c.temp===item.tempFixed)).reduce((s,c)=>s+c.qty,0);
   div.className='menu-card'+(cartQty>0?' in-cart':'')+(isSold?' soldout':'');
 

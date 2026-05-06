@@ -38,7 +38,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .page-indicator{background:#2C2C2A;color:#F5C800;text-align:center;font-size:12px;font-weight:600;padding:4px 0;flex-shrink:0;letter-spacing:1px;}
 /* 슬라이드 트랙 */
 .slide-track{display:flex;flex:1;transition:transform 0.3s ease;will-change:transform;}
-.slide-page{min-width:100%;height:100%;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr;gap:10px;padding:12px;box-sizing:border-box;}
+.slide-page{min-width:100%;height:100%;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr;gap:10px;padding:12px;box-sizing:border-box;overflow-y:auto;}
 /* 완료내역 그리드 (스크롤) */
 .order-grid{flex:1;display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:12px;overflow-y:auto;align-content:start;}
 .order-grid::-webkit-scrollbar{width:4px;}
@@ -46,6 +46,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 
 /* 주문 카드 */
 .order-card{background:#fff;border:2px solid #E8D84A;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
+.card-body{overflow-y:auto;flex:1;}
 .order-card.urgent{border-color:#E24B4A;animation:pulse 1.5s infinite;}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(226,75,74,0.3);}50%{box-shadow:0 0 0 6px rgba(226,75,74,0);}}
 .order-card.done{opacity:0.4;border-color:#ddd;}
@@ -379,7 +380,7 @@ function fmtDateFull(ts){
   return `${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
-const PAGE_SIZE=4; // 페이지당 카드 4개
+const PAGE_SIZE=4; // 항상 1×4 고정
 let currentPage=1;
 let swipeStartX=0, swipeStartY=0, isSwiping=false;
 
