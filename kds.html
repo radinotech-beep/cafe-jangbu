@@ -97,9 +97,34 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 
 /* 날짜 구분선 */
 .date-divider{grid-column:1/-1;text-align:center;font-size:12px;font-weight:500;color:#888;padding:8px 0;border-top:1px dashed #E8D84A;margin-top:4px;}
+.detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:9999;padding:18px;}
+.detail-modal{width:min(460px,100%);max-height:88vh;overflow:auto;background:#fff;border:3px solid #111;border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,.24);}
+.detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:2px solid #111;}
+.detail-title{font-size:19px;font-weight:900;color:#111;}
+.detail-close{width:34px;height:34px;border:2px solid #111;border-radius:50%;background:#fff;font-size:22px;line-height:1;cursor:pointer;}
+.detail-body{padding:16px;}
+.detail-meta{display:grid;grid-template-columns:88px 1fr;gap:8px 12px;margin-bottom:14px;font-size:14px;}
+.detail-label{font-weight:800;color:#555;}
+.detail-items{display:flex;flex-direction:column;gap:10px;margin:12px 0;}
+.detail-item{border:2px solid #eee;border-radius:10px;padding:10px 12px;}
+.detail-item-name{font-size:16px;font-weight:900;color:#111;}
+.detail-item-sub{margin-top:4px;font-size:13px;color:#666;}
+.detail-action{width:100%;height:48px;border:none;border-radius:12px;color:#fff;font-size:16px;font-weight:900;cursor:pointer;margin-top:12px;}
+.detail-action.cancel{background:#e74c3c;}
+.detail-action.restore{background:#2e7d32;}
 </style>
 </head>
 <body>
+
+<div class="detail-overlay" id="detailOverlay" onclick="closeDetailOverlay(event)">
+  <div class="detail-modal">
+    <div class="detail-head" id="detailHead">
+      <span class="detail-title" id="detailTitle"></span>
+      <button class="detail-close" onclick="document.getElementById('detailOverlay').style.display='none'">×</button>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+  </div>
+</div>
 
 <div class="topbar">
   <span class="top-logo">MEGA MGC COFFEE · KDS</span>
@@ -160,54 +185,53 @@ function cleanOldOrders(){
 cleanOldOrders();
 setInterval(cleanOldOrders,60*60*1000);
 
-// ── 장부 연동 — 주문취소 시 비고에 기록 ──
+// ── 장부 연동 — 취소/취소복구 시 금액 반영 ──
 function cleanMenuName(name){
   return String(name||'').replace(/^\((HOT|ICE)\)/,'').replace(/\s+(HOT|ICE)$/,'').trim();
 }
-function markLedgerRowCancelled(row,dateStr){
-  const currentOrder=pn(row.order);
-  return {...row,order:0,cancelledAmount:currentOrder||row.basePrice||0,note:'주문취소',updatedAt:dateStr};
+function orderDateStr(order){
+  const d=new Date(order.createdAt||Date.now());
+  return (d.getMonth()+1)+'/'+d.getDate();
 }
 function markCancelledInLedger(order){
   const di=order.deptIdx;
-  if(di===undefined||di===null)return;
+  if(di===undefined||di===null)return Promise.resolve(false);
   const orderId=String(order.id);
-  db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
+  return db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
     let rows=snap.val()||[];
     if(!Array.isArray(rows))rows=Object.values(rows);
-    const today=new Date();
-    const dateStr=(today.getMonth()+1)+'/'+today.getDate();
-    let updated=false;
+    const dateStr=orderDateStr(order);
+    const alreadyCancelled=rows.some(row=>row&&row.cancelRow&&String(row.sourceOrderId||'')===orderId);
+    if(alreadyCancelled)return false;
 
-    // 새 주문은 장부 행에 orderId가 들어가므로 가장 정확하게 매칭된다.
-    rows=rows.map(row=>{
-      if(row&&String(row.orderId||'')===orderId&&row.note!=='주문취소'){
-        updated=true;
-        return markLedgerRowCancelled(row,dateStr);
-      }
-      return row;
-    });
-
-    // 예전 주문처럼 orderId가 없는 행은 날짜, 메뉴명, 금액으로 한 번 더 찾는다.
-    (order.items||[]).forEach(item=>{
-      const names=[item.originalName,item.displayName,item.name].map(cleanMenuName).filter(Boolean);
+    (order.items||[]).forEach((item,idx)=>{
+      const ledgerName=cleanMenuName(item.originalName||item.displayName||item.name||'메뉴');
       const amount=(pn(item.unitPrice)||0)*(pn(item.qty)||1);
-      for(let i=0;i<rows.length;i++){
-        const row=rows[i];
-        if(!row||row.note==='주문취소'||row.date!==dateStr||!row.content)continue;
-        const rowName=cleanMenuName(row.content);
-        const nameMatched=names.some(n=>rowName.includes(n)||n.includes(rowName));
-        const amountMatched=!amount||pn(row.order)===amount;
-        if(nameMatched&&amountMatched){
-          rows[i]=markLedgerRowCancelled(row,dateStr);
-          updated=true;
-          break;
-        }
-      }
+      const opts=item.opts||item.options||[];
+      const optText=opts.map(o=>typeof o==='string'?o:o.name).filter(Boolean).join('+');
+      const content=ledgerName+(optText?' +'+optText:'')+((pn(item.qty)||1)>1?' x'+(pn(item.qty)||1):'');
+      const cancelRow={date:dateStr,content,opts,order:-Math.abs(amount),pay:'',note:'주문취소',createdAt:dateStr,updatedAt:dateStr,basePrice:-Math.abs(amount),orderId:orderId+'-cancel-'+idx,sourceOrderId:orderId,cancelRow:true};
+      const emptyIdx=rows.findIndex(r=>!r.content&&!r.date&&!r.pay&&!r.order);
+      if(emptyIdx>=0)rows[emptyIdx]=cancelRow;
+      else rows.push(cancelRow);
     });
 
-    if(updated)db.ref('jangbu/depts/'+di+'/rows').set(rows);
+    return db.ref('jangbu/depts/'+di+'/rows').set(rows).then(()=>true);
   }).catch(err=>console.error('장부 취소 반영 실패:',err));
+}
+
+function restoreInLedger(order){
+  const di=order.deptIdx;
+  if(di===undefined||di===null)return Promise.resolve(false);
+  const orderId=String(order.id);
+  return db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
+    let rows=snap.val()||[];
+    if(!Array.isArray(rows))rows=Object.values(rows);
+    const before=rows.length;
+    rows=rows.filter(row=>!(row&&row.cancelRow&&String(row.sourceOrderId||'')===orderId));
+    if(rows.length!==before)return db.ref('jangbu/depts/'+di+'/rows').set(rows).then(()=>true);
+    return false;
+  }).catch(err=>console.error('장부 취소복구 반영 실패:',err));
 }
 
 function getAudioCtx(){
@@ -293,10 +317,31 @@ function completeOrder(id){
 }
 // 주문 취소 처리
 function cancelOrder(id){
-  if(!confirm('주문을 취소할까요? 장부 비고에 취소 이력이 기록됩니다.'))return;
+  if(!confirm('주문을 취소할까요? 장부 금액도 함께 복구됩니다.'))return;
   const order=Object.values(orders).find(o=>String(o.id)===String(id));
-  db.ref('orders/'+id+'/status').set('cancelled');
-  if(order)markCancelledInLedger(order);
+  const finish=()=>db.ref('orders/'+id+'/status').set('cancelled');
+  if(order)markCancelledInLedger(order).finally(finish);
+  else finish();
+}
+function cancelCompletedOrder(id){
+  if(!confirm('완료된 주문을 취소 처리할까요? 장부 금액도 함께 복구됩니다.'))return;
+  const order=Object.values(orders).find(o=>String(o.id)===String(id));
+  const finish=()=>{
+    document.getElementById('detailOverlay').style.display='none';
+    return db.ref('orders/'+id+'/status').set('cancelled');
+  };
+  if(order)markCancelledInLedger(order).finally(finish);
+  else finish();
+}
+function restoreOrder(id){
+  if(!confirm('취소된 주문을 복구할까요? 장부 금액도 다시 차감됩니다.'))return;
+  const order=Object.values(orders).find(o=>String(o.id)===String(id));
+  const finish=()=>{
+    document.getElementById('detailOverlay').style.display='none';
+    return db.ref('orders/'+id+'/status').set('pending');
+  };
+  if(order)restoreInLedger(order).finally(finish);
+  else finish();
 }
 // 세부 음료 제조완료 토글
 function toggleMade(orderId,itemIdx){
@@ -456,6 +501,8 @@ function renderOrders(){
 
       foot.appendChild(btnRow);
     } else {
+      card.style.cursor='pointer';
+      card.onclick=()=>openDetail(order);
       const btn=document.createElement('button');
       btn.className='done-btn completed';
       btn.textContent=isCancelled?'✕ 취소됨':'✓ 완료됨';
@@ -486,6 +533,51 @@ function toggleDone(){
   showDone=!showDone;
   document.getElementById('showDoneBtn').textContent=showDone?'완료/취소 내역 숨기기':'완료/취소 내역 보기';
   renderOrders();
+}
+
+function openDetail(order){
+  const isTake=order.orderType==='take';
+  const isCancelled=order.status==='cancelled';
+  const d=new Date(order.createdAt||Date.now());
+  const timeStr=(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  const title='#'+String(order.id).padStart(3,'0')+' '+esc(order.deptName||'');
+  document.getElementById('detailTitle').textContent=title;
+  document.getElementById('detailHead').style.background=isCancelled?'#FCE8E8':'#E8F5E8';
+
+  let html='<div class="detail-meta">'
+    +'<div class="detail-label">상태</div><div>'+(isCancelled?'취소됨':'완료됨')+'</div>'
+    +'<div class="detail-label">구분</div><div>'+(isTake?'Take-out':'부서 주문')+'</div>'
+    +'<div class="detail-label">시간</div><div>'+timeStr+'</div>'
+    +'<div class="detail-label">금액</div><div>'+fmt(order.total||0)+'</div>'
+    +'</div>';
+
+  html+='<div class="detail-items">';
+  (order.items||[]).forEach(item=>{
+    const name=esc(item.displayName||item.name||'메뉴');
+    const qty=pn(item.qty)||1;
+    const opts=(item.options||[]).map(esc).join(', ');
+    const amount=(pn(item.unitPrice)||0)*qty;
+    html+='<div class="detail-item">'
+      +'<div class="detail-item-name">'+name+' × '+qty+'</div>'
+      +'<div class="detail-item-sub">'+(opts?opts+' · ':'')+fmt(amount)+'</div>'
+      +'</div>';
+  });
+  html+='</div>';
+
+  if(isCancelled){
+    html+='<button class="detail-action restore" onclick="restoreOrder(\''+String(order.id)+'\')">취소 복구하기</button>';
+  }else{
+    html+='<button class="detail-action cancel" onclick="cancelCompletedOrder(\''+String(order.id)+'\')">완료 주문 취소하기</button>';
+  }
+
+  document.getElementById('detailBody').innerHTML=html;
+  document.getElementById('detailOverlay').style.display='flex';
+}
+
+function closeDetailOverlay(e){
+  if(e.target===document.getElementById('detailOverlay')){
+    document.getElementById('detailOverlay').style.display='none';
+  }
 }
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');}

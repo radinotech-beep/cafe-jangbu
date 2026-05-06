@@ -1,20 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MEGA MGC COFFEE · KDS</title>
-<!-- 상세 팝업 -->
-<div class="detail-overlay" id="detailOverlay" style="display:none;" onclick="closeDetailOverlay(event)">
-  <div class="detail-modal">
-    <div class="detail-head" id="detailHead">
-      <span class="detail-title" id="detailTitle"></span>
-      <button class="detail-close" onclick="document.getElementById('detailOverlay').style.display='none'">✕</button>
-    </div>
-    <div class="detail-body" id="detailBody"></div>
-  </div>
-</div>
-
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
@@ -108,26 +97,34 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 
 /* 날짜 구분선 */
 .date-divider{grid-column:1/-1;text-align:center;font-size:12px;font-weight:500;color:#888;padding:8px 0;border-top:1px dashed #E8D84A;margin-top:4px;}
-/* 상세 팝업 */
-.detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:flex;align-items:center;justify-content:center;}
-.detail-modal{background:#fff;border-radius:14px;width:92%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.2);}
-.detail-head{background:#F5C800;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
-.detail-title{font-size:15px;font-weight:700;color:#111;}
-.detail-close{background:none;border:none;font-size:22px;cursor:pointer;color:#111;line-height:1;padding:0 4px;}
-.detail-body{padding:16px;overflow-y:auto;flex:1;}
-.detail-meta{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
-.detail-meta-row{display:flex;justify-content:space-between;align-items:center;}
-.detail-meta-label{font-size:12px;color:#888;}
-.detail-meta-val{font-size:13px;font-weight:500;color:#2C2C2A;}
-.detail-hr{border:none;border-top:1.5px dashed #E8D84A;margin:10px 0;}
-.detail-items-title{font-size:11px;color:#888;margin-bottom:8px;font-weight:500;}
-.detail-item{padding:8px 0;border-bottom:1px solid #f5f5f5;}
-.detail-item:last-child{border-bottom:none;}
-.detail-item-name{font-size:13px;font-weight:500;color:#2C2C2A;display:flex;align-items:center;gap:4px;flex-wrap:wrap;}
-.detail-item-opt{font-size:11px;color:#888;margin-top:3px;padding-left:4px;}
+.detail-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:9999;padding:18px;}
+.detail-modal{width:min(460px,100%);max-height:88vh;overflow:auto;background:#fff;border:3px solid #111;border-radius:14px;box-shadow:0 18px 40px rgba(0,0,0,.24);}
+.detail-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:2px solid #111;}
+.detail-title{font-size:19px;font-weight:900;color:#111;}
+.detail-close{width:34px;height:34px;border:2px solid #111;border-radius:50%;background:#fff;font-size:22px;line-height:1;cursor:pointer;}
+.detail-body{padding:16px;}
+.detail-meta{display:grid;grid-template-columns:88px 1fr;gap:8px 12px;margin-bottom:14px;font-size:14px;}
+.detail-label{font-weight:800;color:#555;}
+.detail-items{display:flex;flex-direction:column;gap:10px;margin:12px 0;}
+.detail-item{border:2px solid #eee;border-radius:10px;padding:10px 12px;}
+.detail-item-name{font-size:16px;font-weight:900;color:#111;}
+.detail-item-sub{margin-top:4px;font-size:13px;color:#666;}
+.detail-action{width:100%;height:48px;border:none;border-radius:12px;color:#fff;font-size:16px;font-weight:900;cursor:pointer;margin-top:12px;}
+.detail-action.cancel{background:#e74c3c;}
+.detail-action.restore{background:#2e7d32;}
 </style>
 </head>
 <body>
+
+<div class="detail-overlay" id="detailOverlay" onclick="closeDetailOverlay(event)">
+  <div class="detail-modal">
+    <div class="detail-head" id="detailHead">
+      <span class="detail-title" id="detailTitle"></span>
+      <button class="detail-close" onclick="document.getElementById('detailOverlay').style.display='none'">×</button>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+  </div>
+</div>
 
 <div class="topbar">
   <span class="top-logo">MEGA MGC COFFEE · KDS</span>
@@ -188,63 +185,53 @@ function cleanOldOrders(){
 cleanOldOrders();
 setInterval(cleanOldOrders,60*60*1000);
 
-// ── 장부 연동 — 주문취소 시 비고에 기록 ──
+// ── 장부 연동 — 취소/취소복구 시 금액 반영 ──
+function cleanMenuName(name){
+  return String(name||'').replace(/^\((HOT|ICE)\)/,'').replace(/\s+(HOT|ICE)$/,'').trim();
+}
+function orderDateStr(order){
+  const d=new Date(order.createdAt||Date.now());
+  return (d.getMonth()+1)+'/'+d.getDate();
+}
 function markCancelledInLedger(order){
   const di=order.deptIdx;
-  if(di===undefined||di===null)return;
+  if(di===undefined||di===null)return Promise.resolve(false);
   const orderId=String(order.id);
-  const today=new Date();
-  const dateStr=(today.getMonth()+1)+'/'+(today.getDate());
-  db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
+  return db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
     let rows=snap.val()||[];
     if(!Array.isArray(rows))rows=Object.values(rows);
-    let updated=false;
-    // 1순위: orderId 매칭
-    let matchedByOrderId=false;
-    for(let i=0;i<rows.length;i++){
-      if(rows[i]&&rows[i].orderId===orderId&&rows[i].note!=='주문취소'){
-        rows[i]={...rows[i],order:0,note:'주문취소',updatedAt:dateStr};
-        updated=true;
-        matchedByOrderId=true;
-      }
-    }
-    // 2순위: content+날짜 매칭
-    if(!matchedByOrderId){
-      (order.items||[]).forEach(item=>{
-        const ledgerName=(item.originalName||item.displayName||item.name||'').replace(/^\(HOT\)|\(ICE\)/,'').trim();
-        for(let i=0;i<rows.length;i++){
-          const row=rows[i];
-          if(row&&row.date===dateStr&&row.content&&row.content.replace(/^\(HOT\)|\(ICE\)/,'').includes(ledgerName)&&row.note!=='주문취소'){
-            rows[i]={...rows[i],order:0,note:'주문취소',updatedAt:dateStr};
-            updated=true;
-            break;
-          }
-        }
-      });
-    }
-    if(updated)db.ref('jangbu/depts/'+di+'/rows').set(rows);
-  });
+    const dateStr=orderDateStr(order);
+    const alreadyCancelled=rows.some(row=>row&&row.cancelRow&&String(row.sourceOrderId||'')===orderId);
+    if(alreadyCancelled)return false;
+
+    (order.items||[]).forEach((item,idx)=>{
+      const ledgerName=cleanMenuName(item.originalName||item.displayName||item.name||'메뉴');
+      const amount=(pn(item.unitPrice)||0)*(pn(item.qty)||1);
+      const opts=item.opts||item.options||[];
+      const optText=opts.map(o=>typeof o==='string'?o:o.name).filter(Boolean).join('+');
+      const content=ledgerName+(optText?' +'+optText:'')+((pn(item.qty)||1)>1?' x'+(pn(item.qty)||1):'');
+      const cancelRow={date:dateStr,content,opts,order:-Math.abs(amount),pay:'',note:'주문취소',createdAt:dateStr,updatedAt:dateStr,basePrice:-Math.abs(amount),orderId:orderId+'-cancel-'+idx,sourceOrderId:orderId,cancelRow:true};
+      const emptyIdx=rows.findIndex(r=>!r.content&&!r.date&&!r.pay&&!r.order);
+      if(emptyIdx>=0)rows[emptyIdx]=cancelRow;
+      else rows.push(cancelRow);
+    });
+
+    return db.ref('jangbu/depts/'+di+'/rows').set(rows).then(()=>true);
+  }).catch(err=>console.error('장부 취소 반영 실패:',err));
 }
-// 취소 복구 — 장부 금액 원복
+
 function restoreInLedger(order){
   const di=order.deptIdx;
-  if(di===undefined||di===null)return;
+  if(di===undefined||di===null)return Promise.resolve(false);
   const orderId=String(order.id);
-  const today=new Date();
-  const dateStr=(today.getMonth()+1)+'/'+(today.getDate());
-  db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
+  return db.ref('jangbu/depts/'+di+'/rows').once('value').then(snap=>{
     let rows=snap.val()||[];
     if(!Array.isArray(rows))rows=Object.values(rows);
-    let updated=false;
-    for(let i=0;i<rows.length;i++){
-      if(rows[i]&&rows[i].orderId===orderId&&rows[i].note==='주문취소'){
-        const origAmt=rows[i].basePrice||0;
-        rows[i]={...rows[i],order:origAmt,note:'',updatedAt:dateStr};
-        updated=true;
-      }
-    }
-    if(updated)db.ref('jangbu/depts/'+di+'/rows').set(rows);
-  });
+    const before=rows.length;
+    rows=rows.filter(row=>!(row&&row.cancelRow&&String(row.sourceOrderId||'')===orderId));
+    if(rows.length!==before)return db.ref('jangbu/depts/'+di+'/rows').set(rows).then(()=>true);
+    return false;
+  }).catch(err=>console.error('장부 취소복구 반영 실패:',err));
 }
 
 function getAudioCtx(){
@@ -307,6 +294,9 @@ function listenOrders(){
       }
     });
     if(hasNew)playAlert();
+    Object.values(newOrders).forEach(o=>{
+      if(o.status==='cancelled')markCancelledInLedger(o);
+    });
 
     orders=newOrders;
     renderOrders();
@@ -327,24 +317,31 @@ function completeOrder(id){
 }
 // 주문 취소 처리
 function cancelOrder(id){
-  if(!confirm('주문을 취소할까요? 장부 금액이 0으로 변경됩니다.'))return;
+  if(!confirm('주문을 취소할까요? 장부 금액도 함께 복구됩니다.'))return;
   const order=Object.values(orders).find(o=>String(o.id)===String(id));
-  db.ref('orders/'+id+'/status').set('cancelled');
-  if(order)markCancelledInLedger(order);
-}
-function restoreOrder(id){
-  if(!confirm('취소된 주문을 대기 상태로 복구할까요?'))return;
-  const order=Object.values(orders).find(o=>String(o.id)===String(id));
-  db.ref('orders/'+id+'/status').set('pending');
-  if(order)restoreInLedger(order);
-  document.getElementById('detailOverlay').style.display='none';
+  const finish=()=>db.ref('orders/'+id+'/status').set('cancelled');
+  if(order)markCancelledInLedger(order).finally(finish);
+  else finish();
 }
 function cancelCompletedOrder(id){
-  if(!confirm('완료된 주문을 취소 처리할까요? 장부 금액이 0으로 변경됩니다.'))return;
+  if(!confirm('완료된 주문을 취소 처리할까요? 장부 금액도 함께 복구됩니다.'))return;
   const order=Object.values(orders).find(o=>String(o.id)===String(id));
-  db.ref('orders/'+id+'/status').set('cancelled');
-  if(order)markCancelledInLedger(order);
-  document.getElementById('detailOverlay').style.display='none';
+  const finish=()=>{
+    document.getElementById('detailOverlay').style.display='none';
+    return db.ref('orders/'+id+'/status').set('cancelled');
+  };
+  if(order)markCancelledInLedger(order).finally(finish);
+  else finish();
+}
+function restoreOrder(id){
+  if(!confirm('취소된 주문을 복구할까요? 장부 금액도 다시 차감됩니다.'))return;
+  const order=Object.values(orders).find(o=>String(o.id)===String(id));
+  const finish=()=>{
+    document.getElementById('detailOverlay').style.display='none';
+    return db.ref('orders/'+id+'/status').set('pending');
+  };
+  if(order)restoreInLedger(order).finally(finish);
+  else finish();
 }
 // 세부 음료 제조완료 토글
 function toggleMade(orderId,itemIdx){
@@ -504,13 +501,12 @@ function renderOrders(){
 
       foot.appendChild(btnRow);
     } else {
+      card.style.cursor='pointer';
+      card.onclick=()=>openDetail(order);
       const btn=document.createElement('button');
       btn.className='done-btn completed';
       btn.textContent=isCancelled?'✕ 취소됨':'✓ 완료됨';
       foot.appendChild(btn);
-      // 완료/취소 카드 클릭 → 상세 팝업
-      card.style.cursor='pointer';
-      card.onclick=()=>openDetail(order);
     }
     card.appendChild(foot);
     grid.appendChild(card);
@@ -542,43 +538,52 @@ function toggleDone(){
 function openDetail(order){
   const isTake=order.orderType==='take';
   const isCancelled=order.status==='cancelled';
-  const time=new Date(order.createdAt);
-  const timeStr=`${time.getMonth()+1}/${time.getDate()} ${String(time.getHours()).padStart(2,'0')}:${String(time.getMinutes()).padStart(2,'0')}`;
-  document.getElementById('detailTitle').textContent=`#${String(order.id).padStart(3,'0')} ${esc(order.deptName)}`;
-  document.getElementById('detailHead').style.background=isCancelled?'#fce8e8':'#e8f5e8';
-  let html=`<div class="detail-meta">
-    <div class="detail-meta-row"><span class="detail-meta-label">주문시간</span><span class="detail-meta-val">${timeStr}</span></div>
-    <div class="detail-meta-row"><span class="detail-meta-label">유형</span><span class="detail-meta-val">${isTake?'🛍️ 포장':'🍽️ 매장'}</span></div>
-    <div class="detail-meta-row"><span class="detail-meta-label">상태</span><span class="detail-meta-val">${isCancelled?'❌ 취소됨':'✅ 완료됨'}</span></div>
-  </div>
-  <hr class="detail-hr">
-  <div class="detail-items-title">주문 내역 (${(order.items||[]).length}종)</div>`;
+  const d=new Date(order.createdAt||Date.now());
+  const timeStr=(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  const title='#'+String(order.id).padStart(3,'0')+' '+esc(order.deptName||'');
+  document.getElementById('detailTitle').textContent=title;
+  document.getElementById('detailHead').style.background=isCancelled?'#FCE8E8':'#E8F5E8';
+
+  let html='<div class="detail-meta">'
+    +'<div class="detail-label">상태</div><div>'+(isCancelled?'취소됨':'완료됨')+'</div>'
+    +'<div class="detail-label">구분</div><div>'+(isTake?'Take-out':'부서 주문')+'</div>'
+    +'<div class="detail-label">시간</div><div>'+timeStr+'</div>'
+    +'<div class="detail-label">금액</div><div>'+fmt(order.total||0)+'</div>'
+    +'</div>';
+
+  html+='<div class="detail-items">';
   (order.items||[]).forEach(item=>{
-    const optStr=(item.opts||[]).map(o=>o.name).join(' · ');
-    html+=`<div class="detail-item">
-      <div class="detail-item-name">
-        ${esc(item.displayName||item.name)}
-        ${item.temp?`<span class="tag tag-${item.temp.toLowerCase()}">${item.temp}</span>`:''}
-        <span style="margin-left:auto;font-size:13px;font-weight:700;">×${item.qty}</span>
-      </div>
-      ${optStr?`<div class="detail-item-opt">▶ ${esc(optStr)}</div>`:''}
-    </div>`;
+    const name=esc(item.displayName||item.name||'메뉴');
+    const qty=pn(item.qty)||1;
+    const opts=(item.options||[]).map(esc).join(', ');
+    const amount=(pn(item.unitPrice)||0)*qty;
+    html+='<div class="detail-item">'
+      +'<div class="detail-item-name">'+name+' × '+qty+'</div>'
+      +'<div class="detail-item-sub">'+(opts?opts+' · ':'')+fmt(amount)+'</div>'
+      +'</div>';
   });
+  html+='</div>';
+
   if(isCancelled){
-    html+=`<button onclick="restoreOrder('${order.id}')" style="width:100%;margin-top:12px;padding:10px;background:#FFF3CD;border:1.5px solid #E8D84A;border-radius:8px;font-size:13px;font-weight:500;color:#2C2C2A;cursor:pointer;">↩ 취소 복구 (대기 상태로 되돌리기)</button>`;
-  } else {
-    html+=`<button onclick="cancelCompletedOrder('${order.id}')" style="width:100%;margin-top:12px;padding:10px;background:#fce8e8;border:1.5px solid #f0c0c0;border-radius:8px;font-size:13px;font-weight:500;color:#993C1D;cursor:pointer;">✕ 완료 취소 (취소 처리하기)</button>`;
+    html+='<button class="detail-action restore" onclick="restoreOrder(\''+String(order.id)+'\')">취소 복구하기</button>';
+  }else{
+    html+='<button class="detail-action cancel" onclick="cancelCompletedOrder(\''+String(order.id)+'\')">완료 주문 취소하기</button>';
   }
+
   document.getElementById('detailBody').innerHTML=html;
   document.getElementById('detailOverlay').style.display='flex';
 }
+
 function closeDetailOverlay(e){
-  if(e.target===document.getElementById('detailOverlay'))
+  if(e.target===document.getElementById('detailOverlay')){
     document.getElementById('detailOverlay').style.display='none';
+  }
 }
+
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;');}
 
 listenOrders();
 </script>
 </body>
 </html>
+
