@@ -1308,7 +1308,21 @@ function deleteRow(di,ri){
   if(row.orderId)deleted['order:'+String(row.orderId)]=true;
   if(row.sourceOrderKey)deleted['cancel:'+String(row.sourceOrderKey)]=true;
   if(row.sourceOrderId&&row.date)deleted['cancelId:'+String(row.sourceOrderId)+':'+String(row.date)]=true;
-  depts[di].rows.splice(ri,1);
+  const orderId=String(row.orderId||'');
+  if(orderId&&!row.cancelRow&&!orderId.includes('-cancel-')&&!orderId.includes('-cancel-total')){
+    depts[di].rows=(depts[di].rows||[]).filter((r,idx)=>{
+      if(idx===ri)return false;
+      const linkedCancel=r&&r.cancelRow&&String(r.sourceOrderId||'')===orderId;
+      if(linkedCancel){
+        if(r.orderId)deleted['order:'+String(r.orderId)]=true;
+        if(r.sourceOrderKey)deleted['cancel:'+String(r.sourceOrderKey)]=true;
+        if(r.sourceOrderId&&r.date)deleted['cancelId:'+String(r.sourceOrderId)+':'+String(r.date)]=true;
+      }
+      return !linkedCancel;
+    });
+  }else{
+    depts[di].rows.splice(ri,1);
+  }
   ensureRows(di);
   renderLedger(di);
   calcBal(di);
