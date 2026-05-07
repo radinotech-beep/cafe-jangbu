@@ -217,6 +217,11 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
 .so-item.sold{background:#FCEBEB;border-color:#E24B4A;color:#A32D2D;}
 .so-item.hidden{background:#F0F0F0;border-color:#ccc;color:#aaa;text-decoration:line-through;}
 .so-item:hover{background:#f5f4f0;}
+.so-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:8px;}
+.so-actions{display:flex;gap:4px;flex-shrink:0;}
+.so-mini{border:1px solid #ddd;border-radius:4px;background:#fff;padding:2px 6px;font-size:10px;font-family:inherit;cursor:pointer;color:#555;}
+.so-mini.sold-on{background:#E24B4A;border-color:#E24B4A;color:#fff;}
+.so-mini.hidden-on{background:#777;border-color:#777;color:#fff;}
 .so-badge{font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px;font-weight:500;}
 .so-badge.sold{background:#E24B4A;color:#fff;}
 .so-badge.hidden{background:#999;color:#fff;}
@@ -767,7 +772,7 @@ function saveSoldout(){
   db.ref('soldout').set(soldout).then(()=>setSyncStatus('ok')).catch(()=>setSyncStatus('err'));
 }
 function saveHidden(){
-  db.ref('hiddenMenus').set(hiddenMenus);
+  db.ref('hiddenMenus').set(hiddenMenus).then(()=>setSyncStatus('ok')).catch(()=>setSyncStatus('err'));
 }
 function saveDeptSettings(){
   // 각 부서의 비밀번호를 해당 부서 경로에 저장
@@ -1180,9 +1185,9 @@ function toggleSubOpt(cat,subName,optName){
 function renderSoldoutMgmt(){
   const allMenus=[...menuDB,...dessertDB];
   let h=`<div style="display:flex;gap:8px;margin-bottom:10px;font-size:11px;align-items:center;">
-    <span style="color:#888;">좌클릭: 품절토글</span>
+    <span style="color:#888;">품절: 주문창에 보이지만 선택 불가</span>
     <span style="color:#888;">·</span>
-    <span style="color:#888;">우클릭: 숨김토글 (주문창에서 완전히 사라짐)</span>
+    <span style="color:#888;">숨김: 주문창에서 완전히 사라짐</span>
   </div>`;
   MAIN_CATS.forEach(cat=>{
     const items=allMenus.filter(m=>(m.cat||guessCat(m.name))===cat);
@@ -1194,10 +1199,12 @@ function renderSoldoutMgmt(){
       const isHidden=!!(hiddenMenus[m.name]||hiddenMenus[cleanName]);
       const cls=isHidden?'hidden':isSold?'sold':'';
       const badge=isHidden?'<span class="so-badge hidden">숨김</span>':isSold?'<span class="so-badge sold">품절</span>':'';
-      h+=`<div class="so-item${cls?' '+cls:''}" 
-        onclick="toggleSoldout('${esc(cleanName)}')"
-        oncontextmenu="toggleHidden('${esc(cleanName)}');event.preventDefault();">
-        ${esc(cleanName)}${badge}
+      h+=`<div class="so-item${cls?' '+cls:''}">
+        <span class="so-name">${esc(cleanName)}${badge}</span>
+        <span class="so-actions">
+          <button class="so-mini${isSold?' sold-on':''}" onclick="toggleSoldout('${esc(cleanName)}')">품절</button>
+          <button class="so-mini${isHidden?' hidden-on':''}" onclick="toggleHidden('${esc(cleanName)}')">숨김</button>
+        </span>
       </div>`;
     });
     h+='</div>';

@@ -321,6 +321,7 @@ let depts=[],optionDB=[],soldout={},hiddenMenus={},catOptMap=null,catSubMap=null
 function stockName(s){return String(s||'').replace(/^\\((HOT|ICE)\\)/,'').replace(/\\s+(HOT|ICE)$/,'').trim();}
 function stockKeys(item){const base=stockName(item&&item.name!==undefined?item.name:item);const orig=stockName(item&&item.originalName?item.originalName:'');return [item&&item.name,item&&item.originalName,base,orig,'(HOT)'+base,'(ICE)'+base,base+' HOT',base+' ICE'].filter(Boolean);}
 function isStockedOut(item){return stockKeys(item).some(k=>soldout[k]);}
+function isHiddenMenu(item){return stockKeys(item).some(k=>hiddenMenus[k]);}
 let rawMenuDB=[],rawDessertDB=[]; // Firebase 원본
 let menuDB=[]; // 주문용 변환된 메뉴 (needTemp/tempFixed 포함)
 let curDeptIdx=null,curCat=null,cart=[],orderCount=0;
@@ -575,10 +576,7 @@ function renderMenuArea(catKey){
   area.innerHTML='';
   const items=menuDB.filter(m=>{
     if(m.cat!==catKey)return false;
-    // 숨김 처리 — 원본명 또는 표시명으로 체크
-    const n=m.name;
-    const orig=m.originalName||n;
-    return!hiddenMenus[n]&&!hiddenMenus[orig];
+    return !isHiddenMenu(m);
   });
   if(items.length===0){
     area.innerHTML='<div style="text-align:center;padding:40px;color:#aaa;font-size:13px;">표시할 메뉴가 없습니다</div>';
