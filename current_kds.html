@@ -20,11 +20,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .top-count{background:#111;color:#F5C800;font-size:12px;font-weight:500;padding:3px 12px;border-radius:20px;}
 .page-indicator{display:none;background:#FFF9D6;color:#111;border:1px solid #111;font-size:12px;font-weight:800;padding:3px 10px;border-radius:20px;}
 .page-indicator.show{display:inline-flex;}
+.page-btn{display:none;width:26px;height:26px;border:1px solid #111;border-radius:50%;background:#fff;color:#111;font-size:16px;font-weight:900;line-height:1;cursor:pointer;font-family:inherit;}
+.page-btn.show{display:inline-flex;align-items:center;justify-content:center;}
+.page-btn:disabled{opacity:.35;cursor:default;}
 
 /* 주문 그리드 */
 .order-grid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr;gap:10px;padding:12px;overflow:hidden;align-content:stretch;}
 .order-grid::-webkit-scrollbar{width:4px;}
 .order-grid::-webkit-scrollbar-thumb{background:#E8D84A;border-radius:2px;}
+.order-grid.slide-next .order-card{animation:slideInNext .22s ease-out both;}
+.order-grid.slide-prev .order-card{animation:slideInPrev .22s ease-out both;}
+@keyframes slideInNext{from{opacity:.35;transform:translateX(42px);}to{opacity:1;transform:translateX(0);}}
+@keyframes slideInPrev{from{opacity:.35;transform:translateX(-42px);}to{opacity:1;transform:translateX(0);}}
 
 /* 주문 카드 */
 .order-card{background:#fff;border:2px solid #E8D84A;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 4px rgba(0,0,0,0.06);min-height:0;}
@@ -150,7 +157,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
   <div class="top-right">
     <span class="sync-dot" id="syncDot"></span>
     <span class="top-time" id="topTime"></span>
+    <button class="page-btn" id="pagePrevBtn" onclick="moveKdsPage(-1)">‹</button>
     <span class="page-indicator" id="pageIndicator">1/1 페이지</span>
+    <button class="page-btn" id="pageNextBtn" onclick="moveKdsPage(1)">›</button>
     <button onclick="playAlert()" style="background:none;border:1px solid #111;border-radius:10px;font-size:11px;padding:3px 8px;cursor:pointer;color:#111;">🔔 테스트</button>
     <span class="top-count" id="topCount">대기 0건</span>
   </div>
@@ -187,6 +196,7 @@ let orders={};
 let showDone=false;
 let kdsPage=0;
 const KDS_PAGE_SIZE=4;
+let kdsPageAnim='';
 let audioCtx=null;
 let knownOrderIds=new Set();
 let madeItems={}; // {orderId_itemIdx: true} 제조완료 로컬 상태
@@ -508,6 +518,12 @@ function renderOrders(){
   const grid=document.getElementById('orderGrid');
   grid.innerHTML='';
   grid.classList.toggle('history-mode',showDone);
+  grid.classList.remove('slide-next','slide-prev');
+  if(kdsPageAnim){
+    grid.classList.add(kdsPageAnim);
+    setTimeout(()=>grid.classList.remove('slide-next','slide-prev'),260);
+    kdsPageAnim='';
+  }
 
   const allList=Object.values(orders)
     .filter(o=>showDone?(o.status==='done'||o.status==='cancelled'):o.status==='pending')
@@ -690,9 +706,13 @@ function renderHistoryCard(grid,order){
 
 function updatePageIndicator(totalPending){
   const el=document.getElementById('pageIndicator');
+  const prev=document.getElementById('pagePrevBtn');
+  const next=document.getElementById('pageNextBtn');
   if(!el)return;
   if(showDone||totalPending<=KDS_PAGE_SIZE){
     el.classList.remove('show');
+    if(prev)prev.classList.remove('show');
+    if(next)next.classList.remove('show');
     return;
   }
   const totalPages=Math.max(1,Math.ceil(totalPending/KDS_PAGE_SIZE));
@@ -700,6 +720,14 @@ function updatePageIndicator(totalPending){
   if(kdsPage<0)kdsPage=0;
   el.textContent=(kdsPage+1)+'/'+totalPages+' 페이지';
   el.classList.add('show');
+  if(prev){
+    prev.classList.add('show');
+    prev.disabled=kdsPage<=0;
+  }
+  if(next){
+    next.classList.add('show');
+    next.disabled=kdsPage>=totalPages-1;
+  }
 }
 
 function moveKdsPage(delta){
@@ -708,6 +736,7 @@ function moveKdsPage(delta){
   const totalPages=Math.max(1,Math.ceil(pendingCount/KDS_PAGE_SIZE));
   const next=Math.max(0,Math.min(totalPages-1,kdsPage+delta));
   if(next===kdsPage)return;
+  kdsPageAnim=delta>0?'slide-next':'slide-prev';
   kdsPage=next;
   renderOrders();
 }
@@ -732,6 +761,17 @@ orderGridEl.addEventListener('wheel',e=>{
   e.preventDefault();
   moveKdsPage(e.deltaX>0?1:-1);
 },{passive:false});
+orderGridEl.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  swipeStartX=e.clientX;
+  swipeStartY=e.clientY;
+});
+orderGridEl.addEventListener('pointerup',e=>{
+  const dx=e.clientX-swipeStartX;
+  const dy=e.clientY-swipeStartY;
+  if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.4)return;
+  moveKdsPage(dx<0?1:-1);
+});
 
 // 경과시간 1초마다 갱신
 setInterval(()=>{
