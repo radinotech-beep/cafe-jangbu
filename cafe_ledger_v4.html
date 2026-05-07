@@ -440,6 +440,26 @@ function cleanDeptForSave(dept){
   delete copy._key;
   return copy;
 }
+function blankLedgerRow(){
+  return {date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''};
+}
+function normalizeOpts(opts){
+  if(Array.isArray(opts))return opts.filter(Boolean);
+  if(opts&&typeof opts==='object')return Object.keys(opts).filter(k=>opts[k]).sort((a,b)=>{
+    const na=parseInt(a,10),nb=parseInt(b,10);
+    if(!isNaN(na)&&!isNaN(nb))return na-nb;
+    return String(a).localeCompare(String(b));
+  }).map(k=>opts[k]);
+  return [];
+}
+function normalizeLedgerRows(rows){
+  const arr=Array.isArray(rows)?rows:(rows&&typeof rows==='object'?Object.keys(rows).filter(k=>rows[k]).sort((a,b)=>{
+    const na=parseInt(a,10),nb=parseInt(b,10);
+    if(!isNaN(na)&&!isNaN(nb))return na-nb;
+    return String(a).localeCompare(String(b));
+  }).map(k=>rows[k]):[]);
+  return arr.map(r=>({...blankLedgerRow(),...(r||{}),opts:normalizeOpts(r&&r.opts)}));
+}
 function deptKey(i){
   const d=depts[i];
   return d&&d._key!==undefined?String(d._key):String(i);
@@ -479,6 +499,7 @@ function normalizeDeptData(data,persistMissingIds){
       });
   return keys.map(k=>{
     const dept={...data[k],_key:String(k)};
+    dept.rows=normalizeLedgerRows(dept.rows);
     if(!dept.id){
       dept.id=makeDeptId();
       if(persistMissingIds)db.ref('jangbu/depts/'+k+'/id').set(dept.id);
@@ -1304,7 +1325,9 @@ function search(q){
   return res.slice(0,10);
 }
 function ensureRows(di){
-  while(depts[di].rows.length<ROWS)depts[di].rows.push({date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''});
+  if(!depts[di])return;
+  depts[di].rows=normalizeLedgerRows(depts[di].rows);
+  while(depts[di].rows.length<ROWS)depts[di].rows.push(blankLedgerRow());
 }
 function renderLedger(di){
   const tb=document.getElementById('ledgerBody');
