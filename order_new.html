@@ -382,7 +382,7 @@ function convertMenuDB(raw,des){
     const isHOT=name.startsWith('(HOT)');
     const isICE=name.startsWith('(ICE)');
     const cleanName=name.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
-    const cat=m.cat||'커피';
+    const cat=normalizeMenuCat(m.cat||guessOrderCat(cleanName));
     const key=cat+'::'+cleanName;
     if(isHOT)hotMap.set(key,{price:m.price,m,cleanName,cat});
     else if(isICE)iceMap.set(key,{price:m.price,m,cleanName,cat});
@@ -396,7 +396,7 @@ function convertMenuDB(raw,des){
     const isHOT=name.startsWith('(HOT)');
     const isICE=name.startsWith('(ICE)');
     const cleanName=name.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
-    const cat=m.cat||'커피';
+    const cat=normalizeMenuCat(m.cat||guessOrderCat(cleanName));
     const key=cat+'::'+cleanName;
 
     if(isHOT){
@@ -435,6 +435,29 @@ function convertMenuDB(raw,des){
 // 카테고리 순서 정의 (Firebase menuDB의 cat 기준)
 const CAT_ORDER=['커피','디카페인','콜드브루','티(Tea)','음료(논커피라떼)','에이드&주스','스무디&프라페','디저트'];
 const CAT_LABELS={'커피':'커피','디카페인':'디카페인','콜드브루':'콜드브루','티(Tea)':'티(Tea)','음료(논커피라떼)':'음료','에이드&주스':'에이드&주스','스무디&프라페':'스무디','디저트':'디저트'};
+function normalizeMenuCat(cat){
+  const c=String(cat||'').trim();
+  if(!c)return'커피';
+  if(c==='음료'||c.includes('논커피'))return'음료(논커피라떼)';
+  if(c==='티'||c.toLowerCase()==='tea')return'티(Tea)';
+  if(c==='에이드'||c==='주스'||c.includes('에이드')||c.includes('주스'))return'에이드&주스';
+  if(c==='스무디'||c==='프라페'||c.includes('스무디')||c.includes('프라페'))return'스무디&프라페';
+  return c;
+}
+function guessOrderCat(name){
+  const n=String(name||'');
+  if(n.includes('디카페인'))return'디카페인';
+  if(n.startsWith('콜드브루'))return'콜드브루';
+  if(n.includes('스무디')||n.includes('프라페')||n.includes('퐁크러쉬')||n.includes('쉐이크'))return'스무디&프라페';
+  if(n.includes('에이드')||n.includes('주스')||n.includes('모히또')||n.includes('콜라'))return'에이드&주스';
+  if((n.includes('티')&&!n.includes('라떼'))||n.includes('차')||n.includes('아이스티'))return'티(Tea)';
+  if(n.includes('라떼')||n.includes('초코')||n.includes('밀크티')||n.includes('고구마')||n.includes('곡물'))return'음료(논커피라떼)';
+  return'커피';
+}
+function visibleCats(){
+  const cats=[...new Set(menuDB.map(m=>m.cat).filter(Boolean))];
+  return [...CAT_ORDER.filter(c=>cats.includes(c)),...cats.filter(c=>!CAT_ORDER.includes(c)).sort()];
+}
 
 // menuDB는 Firebase에서 로드 (위 convertMenuDB 참조)
 
@@ -541,7 +564,7 @@ function selectType(type){
   orderType=type;
   document.getElementById('waitScreen').classList.remove('active');
   renderCatBar();
-  const firstCat=CAT_ORDER.find(cat=>menuDB.some(m=>m.cat===cat));
+  const firstCat=visibleCats().find(cat=>menuDB.some(m=>m.cat===cat&&!isHiddenMenu(m)));
   if(firstCat)selectCat(firstCat);
 }
 
@@ -549,8 +572,8 @@ function selectType(type){
 function renderCatBar(){
   const bar=document.getElementById('catBar');
   bar.innerHTML='';
-  // menuDB에 실제 존재하는 카테고리만 표시
-  const existCats=CAT_ORDER.filter(cat=>menuDB.some(m=>m.cat===cat));
+  // 장부 메뉴 DB에 실제 존재하는 카테고리를 모두 표시
+  const existCats=visibleCats().filter(cat=>menuDB.some(m=>m.cat===cat&&!isHiddenMenu(m)));
   existCats.forEach(cat=>{
     const btn=document.createElement('button');
     btn.className='cat-btn'+(curCat===cat?' active':'');
