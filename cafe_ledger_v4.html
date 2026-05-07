@@ -99,8 +99,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
   .ledger-name{font-size:17px;font-weight:800;}
   .mgmt-nav{overflow-x:auto;}
   .mgmt-tab{padding:12px 16px;font-size:14px;}
-  .tbl-wrap{overflow-x:auto;}
-  .tbl-wrap thead th{top:188px;}
+  .tbl-wrap{overflow:auto;max-height:calc(100vh - 250px);}
+  .tbl-wrap thead th{top:0;}
   table{min-width:860px;}
   .mobile-dept-sheet.open{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:1000;}
   .mobile-dept-panel{width:100%;max-height:76vh;background:#fff;border-radius:18px 18px 0 0;overflow:hidden;box-shadow:0 -10px 30px rgba(0,0,0,.18);}
@@ -113,10 +113,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 }
 
 /* 테이블 - 셀 구분선 추가 */
-.tbl-wrap{overflow-x:auto;background:#fff;}
+.tbl-wrap{overflow:auto;background:#fff;max-height:calc(100vh - 190px);}
 table{width:100%;border-collapse:collapse;table-layout:fixed;}
 th{background:#f5f4f0;padding:7px 5px;text-align:center;color:#888780;font-weight:500;border-bottom:1px solid #d8d7d0;border-right:1px solid #e8e7e0;font-size:11px;white-space:nowrap;}
-.tbl-wrap thead th{position:sticky;top:130px;z-index:100;}
+.tbl-wrap thead th{position:sticky;top:0;z-index:20;}
 th:last-child{border-right:none;}
 td{padding:0;border-bottom:1px solid #f0efe8;border-right:1px solid #eeede6;position:relative;}
 td:last-child{border-right:none;}
