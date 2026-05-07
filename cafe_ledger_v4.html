@@ -129,6 +129,8 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
 .sc-label{font-size:10px;color:#888780;margin-bottom:3px;}
 .sc-val{font-size:14px;font-weight:500;}
 .hint{font-size:11px;color:#B4B2A9;padding:4px 14px;background:#fff;border-top:1px solid #f5f4f0;}
+.move-fab{position:fixed;right:16px;bottom:16px;z-index:250;background:#2C2C2A;color:#fff;border:none;border-radius:8px;padding:9px 13px;font-size:12px;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.18);cursor:pointer;}
+.move-fab:hover{background:#444;}
 
 /* 자동완성 */
 .ac-pop{position:fixed;background:#fff;border:1px solid #e0dfd8;border-radius:6px;z-index:300;min-width:230px;box-shadow:0 4px 16px rgba(0,0,0,0.12);max-height:240px;overflow-y:auto;display:none;}
@@ -307,6 +309,7 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
     <div class="sc"><div class="sc-label">총 주문</div><div class="sc-val" id="sumOrder">0원</div></div>
     <div class="sc"><div class="sc-label">현재잔액</div><div class="sc-val" id="sumBal">0원</div></div>
   </div>
+  <button class="move-fab" onclick="openMoveRowsModal()">행 이동/복사</button>
 </div>
 
 <!-- 부서별 현황 요약 -->
