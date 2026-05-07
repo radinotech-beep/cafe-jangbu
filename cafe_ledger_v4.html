@@ -261,10 +261,7 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
 <!-- 서브 네비게이션 -->
 <div class="subnav" id="subnav">
   <button class="snav-item active" id="snav-home" onclick="goHome()">부서별 장부내역</button>
-  <div class="snav-sep"></div>
   <button class="mobile-dept-btn" id="mobileDeptBtn" onclick="openMobileDeptSheet()"><span class="mobile-dept-name">부서 선택</span><span>⌄</span></button>
-  <div class="snav-dept-wrap" id="snavDepts"></div>
-  <div class="snav-sep"></div>
   <button class="snav-item summary-btn" id="snav-summary" onclick="goSummary()">현황 요약</button>
   <div class="snav-sep"></div>
   <button class="snav-item" id="snav-mgmt" onclick="goDeptMgmt()" style="color:#3B6D11;">부서 DB 관리</button>
@@ -1358,12 +1355,13 @@ function openDept(i){
 // ── 서브 네비 렌더 ──
 function renderSubnav(){
   const wrap=document.getElementById('snavDepts');
-  wrap.innerHTML='';
+  if(wrap)wrap.innerHTML='';
   const deptSel=document.getElementById('ledgerDeptSelect');
   if(deptSel){
     deptSel.innerHTML=depts.map((d,i)=>`<option value="${i}">${esc(d.name)}</option>`).join('');
     if(curDeptIdx!==null&&depts[curDeptIdx])deptSel.value=String(curDeptIdx);
   }
+  if(!wrap){renderMobileDeptList();return;}
   depts.forEach((d,i)=>{
     const b=document.createElement('button');
     b.className='snav-item snav-dept-btn'+(curScreen==='ledger'&&curDeptIdx===i?' active':'');
