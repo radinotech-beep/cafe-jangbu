@@ -14,6 +14,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .topbar{background:#2C2C2A;padding:0 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;height:42px;}
 .topbar-title{color:#F1EFE8;font-size:15px;font-weight:500;}
 .topbar-right{display:flex;gap:6px;align-items:center;}
+.main-nav{display:flex;gap:4px;margin-left:16px;}
+.main-tab{height:28px;padding:0 13px;border:0;background:transparent;color:#B4B2A9;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
+.main-tab:hover{background:#444441;color:#F1EFE8;}
+.main-tab.active{background:#F1EFE8;color:#2C2C2A;}
 .sync-status{font-size:11px;padding:2px 8px;border-radius:10px;}
 .sync-ok{background:#EAF3DE;color:#3B6D11;}
 .sync-ing{background:#FFF3CD;color:#856404;}
@@ -23,7 +27,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 
 /* 관리 탭 네비 */
 .mgmt-nav{display:flex;border-bottom:2px solid #e0dfd8;background:#fff;overflow-x:auto;flex-shrink:0;}
-#screen-mgmt{display:flex;flex-direction:column;overflow:hidden;}
+#screen-mgmt.active{display:flex;flex-direction:column;overflow:hidden;}
 .mgmt-nav::-webkit-scrollbar{display:none;}
 .mgmt-tab{padding:11px 20px;font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-2px;font-family:inherit;color:#888780;transition:all 0.15s;}
 .mgmt-tab:hover{background:#f5f4f0;}
@@ -80,12 +84,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 
 @media(max-width:640px){
   body{font-size:13px;}
-  .topbar{height:48px;padding:0 14px;}
+  .topbar{height:auto;min-height:48px;padding:8px 12px;flex-wrap:wrap;gap:6px;}
   .topbar-title{font-size:17px;font-weight:700;}
-  .subnav{top:48px;display:grid;grid-template-columns:64px 1fr 86px 72px;align-items:stretch;padding:0;gap:0;overflow:visible;}
-  .subnav>.snav-item{padding:13px 6px;font-size:14px;text-align:center;border-bottom-width:3px;}
+  .main-nav{order:3;width:100%;margin-left:0;}
+  .main-tab{flex:1;background:#3A3A37;}
+  .topbar-right{margin-left:auto;}
+  .subnav{top:82px;display:flex;align-items:stretch;padding:0;gap:0;overflow-x:auto;flex-wrap:nowrap;}
+  .subnav>.snav-item{padding:13px 12px;font-size:14px;text-align:center;border-bottom-width:3px;flex:0 0 auto;}
   .subnav>.snav-sep,.snav-dept-wrap{display:none;}
-  .mobile-dept-btn{display:flex;align-items:center;justify-content:center;gap:5px;border:0;border-bottom:3px solid transparent;background:#fff;color:#777;font-size:14px;font-weight:800;font-family:inherit;min-width:0;padding:0 6px;}
+  .mobile-dept-btn{display:flex;align-items:center;justify-content:center;gap:5px;border:0;border-bottom:3px solid transparent;background:#fff;color:#777;font-size:14px;font-weight:800;font-family:inherit;min-width:110px;padding:0 10px;flex:0 0 auto;}
   .mobile-dept-btn.active{color:#111;border-bottom-color:#111;}
   .mobile-dept-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
   .ledger-topbar{padding:10px 12px;}
@@ -242,6 +249,10 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
 <!-- 탑바 -->
 <div class="topbar">
   <span class="topbar-title">☕ 카페 장부</span>
+  <div class="main-nav">
+    <button class="main-tab active" id="main-ledger" onclick="goLedgerMain()">장부관리</button>
+    <button class="main-tab" id="main-menu" onclick="goMenuMain()">메뉴관리</button>
+  </div>
   <div class="topbar-right">
     <span class="sync-status sync-ing" id="syncStatus">연결 중...</span>
   </div>
@@ -249,14 +260,14 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
 
 <!-- 서브 네비게이션 -->
 <div class="subnav" id="subnav">
-  <button class="snav-item active" id="snav-home" onclick="goHome()">🏠 홈</button>
+  <button class="snav-item active" id="snav-home" onclick="goHome()">부서별 장부내역</button>
   <div class="snav-sep"></div>
   <button class="mobile-dept-btn" id="mobileDeptBtn" onclick="openMobileDeptSheet()"><span class="mobile-dept-name">부서 선택</span><span>⌄</span></button>
   <div class="snav-dept-wrap" id="snavDepts"></div>
   <div class="snav-sep"></div>
-  <button class="snav-item summary-btn" id="snav-summary" onclick="goSummary()">📊 현황 요약</button>
+  <button class="snav-item summary-btn" id="snav-summary" onclick="goSummary()">현황 요약</button>
   <div class="snav-sep"></div>
-  <button class="snav-item" id="snav-mgmt" onclick="goMgmt()" style="color:#B8520A;">⚙️ 관리</button>
+  <button class="snav-item" id="snav-mgmt" onclick="goDeptMgmt()" style="color:#3B6D11;">부서 DB 관리</button>
 </div>
 
 <div class="mobile-dept-sheet" id="mobileDeptSheet" onclick="closeMobileDeptSheet(event)">
@@ -279,11 +290,15 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
 <!-- 장부 화면 -->
 <div class="screen" id="screen-ledger">
   <div class="ledger-topbar">
-    <span class="ledger-name" id="ledgerName">장부</span>
+    <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+      <span class="ledger-name" id="ledgerName">장부</span>
+      <select id="ledgerDeptSelect" onchange="openDept(parseInt(this.value,10))" style="padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:6px;font-size:12px;font-family:inherit;background:#FFFBE6;color:#5F5E5A;font-weight:600;"></select>
+    </div>
     <div class="ledger-actions">
       <span class="bal-badge zero-b" id="badge">잔액 0원</span>
       <button class="abtn" onclick="openMoveRowsModal()">행 이동/복사</button>
       <button class="abtn" onclick="openInsertRowsModal()">중간 행 추가</button>
+      <button class="abtn" onclick="openDeleteRowsModal()">행 삭제</button>
       <button class="abtn primary" onclick="exportLedgerExcel()">엑셀 저장</button>
     </div>
   </div>
@@ -312,6 +327,7 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
   </div>
   <button class="move-fab" onclick="openMoveRowsModal()">행 이동/복사</button>
   <button class="move-fab" style="bottom:58px;background:#5A7F2B;" onclick="openInsertRowsModal()">중간 행 추가</button>
+  <button class="move-fab" style="bottom:100px;background:#A32D2D;" onclick="openDeleteRowsModal()">행 삭제</button>
 </div>
 
 <!-- 부서별 현황 요약 -->
@@ -434,6 +450,21 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
     <div class="mfoot">
       <button class="btn-c" onclick="closeInsertRowsModal()">취소</button>
       <button class="btn-s" onclick="applyInsertRows()">추가</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="deleteRowsModal">
+  <div class="modal dm">
+    <div class="mhead"><h2>행 삭제</h2><button class="mclose" onclick="closeDeleteRowsModal()">&#10005;</button></div>
+    <div style="padding:14px;">
+      <div style="font-size:12px;color:#888780;margin-bottom:10px;">지정한 행 범위를 삭제합니다. 자동 주문 연동 행은 제외되고, 수동 입력 행만 삭제됩니다.</div>
+      <div class="set-row"><label>시작 행</label><input type="number" id="deleteStartRow" min="1" value="1"></div>
+      <div class="set-row"><label>끝 행</label><input type="number" id="deleteEndRow" min="1" value="1"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn-c" onclick="closeDeleteRowsModal()">취소</button>
+      <button class="btn-s" style="background:#A32D2D;" onclick="applyDeleteRows()">삭제</button>
     </div>
   </div>
 </div>
@@ -933,8 +964,25 @@ function showScreen(id){
     const btns=document.querySelectorAll('.snav-dept-btn');
     btns.forEach((b,i)=>b.classList.toggle('active',i===curDeptIdx));
   }
+  updateMainTabs(id);
 }
 
+function updateMainTabs(id){
+  const ledgerOn=id==='home'||id==='ledger'||id==='summary'||(id==='mgmt'&&curMgmtTab==='dept');
+  const menuOn=id==='mgmt'&&curMgmtTab!=='dept';
+  const ml=document.getElementById('main-ledger'),mm=document.getElementById('main-menu');
+  if(ml)ml.classList.toggle('active',ledgerOn);
+  if(mm)mm.classList.toggle('active',menuOn);
+}
+function goLedgerMain(){
+  if(curDeptIdx!==null&&depts[curDeptIdx])openDept(curDeptIdx);
+  else if(depts.length>0)openDept(0);
+  else goHome();
+}
+function goMenuMain(){
+  goMgmt();
+  switchMgmtTab(curMgmtTab==='dept'?'menu':curMgmtTab);
+}
 function goHome(){showScreen('home');renderHome();}
 function goSummary(){showScreen('summary');renderSummary();}
 function openMobileDeptSheet(){
@@ -952,6 +1000,10 @@ function goMgmt(){
   showScreen('mgmt');
   switchMgmtTab(curMgmtTab);
 }
+function goDeptMgmt(){
+  showScreen('mgmt');
+  switchMgmtTab('dept');
+}
 
 function switchMgmtTab(tab){
   curMgmtTab=tab;
@@ -959,10 +1011,14 @@ function switchMgmtTab(tab){
     document.getElementById('mtab-'+t).classList.toggle('active',t===tab);
     document.getElementById('mscreen-'+t).classList.toggle('active',t===tab);
   });
+  const deptMode=tab==='dept';
+  ['menu','opt','soldout'].forEach(t=>{document.getElementById('mtab-'+t).style.display=deptMode?'none':'';});
+  document.getElementById('mtab-dept').style.display=deptMode?'':'none';
   if(tab==='menu')renderMenuDb();
   if(tab==='dept')renderDeptMgmt();
   if(tab==='opt')renderOptMgmt();
   if(tab==='soldout')renderSoldoutMgmt();
+  updateMainTabs('mgmt');
 }
 
 // ── 메뉴 DB 탭 ──
@@ -1303,6 +1359,11 @@ function openDept(i){
 function renderSubnav(){
   const wrap=document.getElementById('snavDepts');
   wrap.innerHTML='';
+  const deptSel=document.getElementById('ledgerDeptSelect');
+  if(deptSel){
+    deptSel.innerHTML=depts.map((d,i)=>`<option value="${i}">${esc(d.name)}</option>`).join('');
+    if(curDeptIdx!==null&&depts[curDeptIdx])deptSel.value=String(curDeptIdx);
+  }
   depts.forEach((d,i)=>{
     const b=document.createElement('button');
     b.className='snav-item snav-dept-btn'+(curScreen==='ledger'&&curDeptIdx===i?' active':'');
@@ -1531,6 +1592,44 @@ function openInsertRowsModal(){
 }
 function closeInsertRowsModal(){
   document.getElementById('insertRowsModal').classList.remove('open');
+}
+function openDeleteRowsModal(){
+  if(curDeptIdx===null)return;
+  document.getElementById('deleteStartRow').value=1;
+  document.getElementById('deleteEndRow').value=1;
+  document.getElementById('deleteRowsModal').classList.add('open');
+  setTimeout(()=>document.getElementById('deleteStartRow').focus(),50);
+}
+function closeDeleteRowsModal(){
+  document.getElementById('deleteRowsModal').classList.remove('open');
+}
+function applyDeleteRows(){
+  if(curDeptIdx===null)return;
+  const di=curDeptIdx;
+  const start=parseInt(document.getElementById('deleteStartRow').value,10);
+  const end=parseInt(document.getElementById('deleteEndRow').value,10);
+  if(isNaN(start)||isNaN(end)||start<1||end<start){alert('행 범위를 확인해주세요.');return;}
+  ensureRows(di,end);
+  let removedManual=0,removedEmpty=0,skipped=0;
+  for(let ri=start-1;ri<=end-1;ri++){
+    const row=depts[di].rows[ri];
+    if(isEmptyLedgerRow(row))removedEmpty++;
+    else if(isManualLedgerRow(row))removedManual++;
+    else skipped++;
+  }
+  if(removedManual+removedEmpty===0){alert(skipped>0?'자동 주문 연동 행만 포함되어 삭제하지 않았습니다.':'삭제할 행이 없습니다.');return;}
+  const msg=`${depts[di].name} ${start}~${end}행에서 수동 입력 ${removedManual}개${removedEmpty?`, 빈 행 ${removedEmpty}개`:''}를 삭제할까요?${skipped?`\n자동 주문 연동 행 ${skipped}개는 제외됩니다.`:''}`;
+  if(!confirm(msg))return;
+  depts[di].rows=depts[di].rows.filter((row,idx)=>{
+    if(idx<start-1||idx>end-1)return true;
+    if(isEmptyLedgerRow(row))return false;
+    if(isManualLedgerRow(row))return false;
+    return true;
+  });
+  ensureRows(di);
+  renderLedger(di);
+  saveDept(di,true);
+  closeDeleteRowsModal();
 }
 function applyInsertRows(){
   if(curDeptIdx===null)return;
