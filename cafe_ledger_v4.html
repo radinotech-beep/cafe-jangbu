@@ -1183,7 +1183,14 @@ function toggleSubOpt(cat,subName,optName){
 
 // ── 품절 관리 탭 — cat 필드 기반 ──
 function renderSoldoutMgmt(){
-  const allMenus=[...menuDB,...dessertDB];
+  const seenMenus={};
+  const allMenus=[...menuDB,...dessertDB].filter(m=>{
+    if(!m||!m.name)return false;
+    const key=String(m.name).trim();
+    if(seenMenus[key])return false;
+    seenMenus[key]=true;
+    return true;
+  });
   let h=`<div style="display:flex;gap:8px;margin-bottom:10px;font-size:11px;align-items:center;">
     <span style="color:#888;">품절: 주문창에 보이지만 선택 불가</span>
     <span style="color:#888;">·</span>
@@ -1194,16 +1201,16 @@ function renderSoldoutMgmt(){
     if(items.length===0)return;
     h+=`<div class="so-cat">${cat} (${items.length})</div><div class="soldout-grid">`;
     items.forEach(m=>{
-      const cleanName=m.name.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
-      const isSold=!!(soldout[m.name]||soldout[cleanName]);
-      const isHidden=!!(hiddenMenus[m.name]||hiddenMenus[cleanName]);
+      const dbName=String(m.name||'').trim();
+      const isSold=!!soldout[dbName];
+      const isHidden=!!hiddenMenus[dbName];
       const cls=isHidden?'hidden':isSold?'sold':'';
       const badge=isHidden?'<span class="so-badge hidden">숨김</span>':isSold?'<span class="so-badge sold">품절</span>':'';
       h+=`<div class="so-item${cls?' '+cls:''}">
-        <span class="so-name">${esc(cleanName)}${badge}</span>
+        <span class="so-name">${esc(dbName)}${badge}</span>
         <span class="so-actions">
-          <button class="so-mini${isSold?' sold-on':''}" onclick="toggleSoldout('${esc(cleanName)}')">품절</button>
-          <button class="so-mini${isHidden?' hidden-on':''}" onclick="toggleHidden('${esc(cleanName)}')">숨김</button>
+          <button class="so-mini${isSold?' sold-on':''}" onclick="toggleSoldout('${esc(dbName)}')">품절</button>
+          <button class="so-mini${isHidden?' hidden-on':''}" onclick="toggleHidden('${esc(dbName)}')">숨김</button>
         </span>
       </div>`;
     });
@@ -1212,8 +1219,10 @@ function renderSoldoutMgmt(){
   document.getElementById('soldoutBody').innerHTML=h;
 }
 function toggleHidden(name){
-  if(hiddenMenus[name])delete hiddenMenus[name];
-  else hiddenMenus[name]=true;
+  const base=String(name||'').replace(/^\\((HOT|ICE)\\)/,'').replace(/\\s+(HOT|ICE)$/,'').trim();
+  const keys=[name,base,'(HOT)'+base,'(ICE)'+base,base+' HOT',base+' ICE'].filter(Boolean);
+  const next=!keys.some(k=>hiddenMenus[k]);
+  keys.forEach(k=>{if(next)hiddenMenus[k]=true;else delete hiddenMenus[k];});
   saveHidden();
   renderSoldoutMgmt();
 }

@@ -319,7 +319,13 @@ const db=firebase.database();
 // ── 상태 ──
 let depts=[],optionDB=[],soldout={},hiddenMenus={},catOptMap=null,catSubMap=null;
 function stockName(s){return String(s||'').replace(/^\\((HOT|ICE)\\)/,'').replace(/\\s+(HOT|ICE)$/,'').trim();}
-function stockKeys(item){const base=stockName(item&&item.name!==undefined?item.name:item);const orig=stockName(item&&item.originalName?item.originalName:'');return [item&&item.name,item&&item.originalName,base,orig,'(HOT)'+base,'(ICE)'+base,base+' HOT',base+' ICE'].filter(Boolean);}
+function stockKeys(item){
+  const display=item&&item.name!==undefined?item.name:item;
+  const original=item&&item.originalName?item.originalName:'';
+  const base=stockName(display);
+  const orig=stockName(original);
+  return [display,original,base,orig,'(HOT)'+base,'(ICE)'+base,'(HOT)'+orig,'(ICE)'+orig,base+' HOT',base+' ICE',orig+' HOT',orig+' ICE'].filter(Boolean);
+}
 function isStockedOut(item){return stockKeys(item).some(k=>soldout[k]);}
 function isHiddenMenu(item){return stockKeys(item).some(k=>hiddenMenus[k]);}
 let rawMenuDB=[],rawDessertDB=[]; // Firebase 원본
