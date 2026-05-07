@@ -18,14 +18,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .sync-dot.err{background:#E24B4A;}
 .top-time{font-size:13px;color:#555;font-weight:500;}
 .top-count{background:#111;color:#F5C800;font-size:12px;font-weight:500;padding:3px 12px;border-radius:20px;}
+.page-indicator{display:none;background:#FFF9D6;color:#111;border:1px solid #111;font-size:12px;font-weight:800;padding:3px 10px;border-radius:20px;}
+.page-indicator.show{display:inline-flex;}
 
 /* 주문 그리드 */
-.order-grid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:12px;overflow-y:auto;align-content:start;}
+.order-grid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr;gap:10px;padding:12px;overflow:hidden;align-content:stretch;}
 .order-grid::-webkit-scrollbar{width:4px;}
 .order-grid::-webkit-scrollbar-thumb{background:#E8D84A;border-radius:2px;}
 
 /* 주문 카드 */
-.order-card{background:#fff;border:2px solid #E8D84A;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 4px rgba(0,0,0,0.06);}
+.order-card{background:#fff;border:2px solid #E8D84A;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 1px 4px rgba(0,0,0,0.06);min-height:0;}
 .order-card.urgent{border-color:#E24B4A;animation:pulse 1.5s infinite;}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(226,75,74,0.3);}50%{box-shadow:0 0 0 6px rgba(226,75,74,0);}}
 .order-card.done{opacity:0.82;border-color:#ddd;}
@@ -39,7 +41,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .order-time{font-size:10px;color:#888;}
 .urgent-badge{font-size:9px;background:#E24B4A;color:#fff;padding:2px 6px;border-radius:3px;font-weight:500;}
 
-.card-body{padding:8px 10px;flex:1;}
+.card-body{padding:8px 10px;flex:1;overflow:auto;}
 .menu-item{padding:5px 0;border-bottom:1px solid #FFF0CC;}
 .menu-item:last-child{border-bottom:none;}
 .menu-row{display:flex;justify-content:space-between;align-items:center;}
@@ -91,7 +93,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .history-btn.detail{background:#fff;border:1px solid #111;color:#111;}
 .history-btn.cancel{background:#E24B4A;color:#fff;}
 .history-btn.restore{background:#3B6D11;color:#fff;}
-.order-grid.history-mode{grid-template-columns:repeat(6,minmax(120px,1fr));gap:8px;padding:12px;align-content:start;}
+.order-grid.history-mode{grid-template-columns:repeat(6,minmax(120px,1fr));grid-template-rows:auto;gap:8px;padding:12px;align-content:start;overflow-y:auto;}
 .history-card{height:74px;background:#fff;border:1px solid #dedbd0;border-radius:8px;padding:9px 10px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 1px 2px rgba(0,0,0,.04);}
 .history-card:hover{border-color:#111;}
 .history-card.cancelled{background:#fffafa;border-color:#ead0d0;}
@@ -148,6 +150,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
   <div class="top-right">
     <span class="sync-dot" id="syncDot"></span>
     <span class="top-time" id="topTime"></span>
+    <span class="page-indicator" id="pageIndicator">1/1 페이지</span>
     <button onclick="playAlert()" style="background:none;border:1px solid #111;border-radius:10px;font-size:11px;padding:3px 8px;cursor:pointer;color:#111;">🔔 테스트</button>
     <span class="top-count" id="topCount">대기 0건</span>
   </div>
@@ -182,6 +185,8 @@ const db=firebase.database();
 
 let orders={};
 let showDone=false;
+let kdsPage=0;
+const KDS_PAGE_SIZE=4;
 let audioCtx=null;
 let knownOrderIds=new Set();
 let madeItems={}; // {orderId_itemIdx: true} 제조완료 로컬 상태
@@ -510,7 +515,7 @@ function renderOrders(){
 
   // 대기 중인 것도 항상 위에 표시
   const pendingList=Object.values(orders).filter(o=>o.status==='pending').sort((a,b)=>a.createdAt-b.createdAt);
-  const list=showDone?allList:pendingList;
+  let list=showDone?allList:pendingList;
 
   const pending=Object.values(orders).filter(o=>o.status==='pending');
   const done=Object.values(orders).filter(o=>o.status==='done');
@@ -521,6 +526,7 @@ function renderOrders(){
   document.getElementById('statPending').textContent=pending.length+'건';
   document.getElementById('statDone').textContent=done.length+'건';
   document.getElementById('statUrgent').textContent=urgent.length+'건';
+  updatePageIndicator(pendingList.length);
 
   if(list.length===0){
     grid.innerHTML=`<div class="empty-state" style="grid-column:1/-1;">
@@ -528,6 +534,15 @@ function renderOrders(){
       <div class="empty-text">${showDone?'완료/취소 내역이 없어요':'주문을 기다리는 중...'}</div>
     </div>`;
     return;
+  }
+
+  if(!showDone){
+    const totalPages=Math.max(1,Math.ceil(pendingList.length/KDS_PAGE_SIZE));
+    if(kdsPage>=totalPages)kdsPage=totalPages-1;
+    if(kdsPage<0)kdsPage=0;
+    const start=kdsPage*KDS_PAGE_SIZE;
+    list=pendingList.slice(start,start+KDS_PAGE_SIZE);
+    updatePageIndicator(pendingList.length);
   }
 
   // 날짜별 그룹핑 (완료내역 볼 때)
@@ -673,6 +688,51 @@ function renderHistoryCard(grid,order){
   grid.appendChild(card);
 }
 
+function updatePageIndicator(totalPending){
+  const el=document.getElementById('pageIndicator');
+  if(!el)return;
+  if(showDone||totalPending<=KDS_PAGE_SIZE){
+    el.classList.remove('show');
+    return;
+  }
+  const totalPages=Math.max(1,Math.ceil(totalPending/KDS_PAGE_SIZE));
+  if(kdsPage>=totalPages)kdsPage=totalPages-1;
+  if(kdsPage<0)kdsPage=0;
+  el.textContent=(kdsPage+1)+'/'+totalPages+' 페이지';
+  el.classList.add('show');
+}
+
+function moveKdsPage(delta){
+  if(showDone)return;
+  const pendingCount=Object.values(orders).filter(o=>o.status==='pending').length;
+  const totalPages=Math.max(1,Math.ceil(pendingCount/KDS_PAGE_SIZE));
+  const next=Math.max(0,Math.min(totalPages-1,kdsPage+delta));
+  if(next===kdsPage)return;
+  kdsPage=next;
+  renderOrders();
+}
+
+let swipeStartX=0;
+let swipeStartY=0;
+const orderGridEl=document.getElementById('orderGrid');
+orderGridEl.addEventListener('touchstart',e=>{
+  if(!e.touches||!e.touches.length)return;
+  swipeStartX=e.touches[0].clientX;
+  swipeStartY=e.touches[0].clientY;
+},{passive:true});
+orderGridEl.addEventListener('touchend',e=>{
+  if(!e.changedTouches||!e.changedTouches.length)return;
+  const dx=e.changedTouches[0].clientX-swipeStartX;
+  const dy=e.changedTouches[0].clientY-swipeStartY;
+  if(Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*1.4)return;
+  moveKdsPage(dx<0?1:-1);
+},{passive:true});
+orderGridEl.addEventListener('wheel',e=>{
+  if(showDone||Math.abs(e.deltaX)<=Math.abs(e.deltaY))return;
+  e.preventDefault();
+  moveKdsPage(e.deltaX>0?1:-1);
+},{passive:false});
+
 // 경과시간 1초마다 갱신
 setInterval(()=>{
   if(showDone)return;
@@ -692,6 +752,7 @@ setInterval(()=>{
 
 function toggleDone(){
   showDone=!showDone;
+  kdsPage=0;
   document.getElementById('showDoneBtn').textContent=showDone?'완료/취소 내역 숨기기':'완료/취소 내역 보기';
   renderOrders();
 }
