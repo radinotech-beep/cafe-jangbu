@@ -2035,7 +2035,7 @@ document.addEventListener('click',e=>{
 });
 window.addEventListener('scroll',e=>{
   const t=e.target;
-  if(t&&t.closest&&t.closest('#optPop'))return;
+  if(t&&t.closest&&(t.closest('#optPop')||t.closest('#acPop')))return;
   hideAC();hideOpt();
 },true);
 
