@@ -1527,8 +1527,11 @@ function hideOpt(){document.getElementById('optPop').style.display='none';optTar
 function navKey(e,di,ri,col){
   if(e.key==='Enter'&&document.getElementById('acPop').style.display==='none'){
     e.preventDefault();
-    const next=document.querySelector(`input[data-di="${di}"][data-ri="${ri+1}"][data-col="${col}"]`);
-    if(next)next.focus();
+    let next;
+    if(col==='content')next=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="qty"]`);
+    else if(col==='qty')next=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="order"]`);
+    else next=document.querySelector(`input[data-di="${di}"][data-ri="${ri+1}"][data-col="${col}"]`);
+    if(next){next.focus();next.select&&next.select();}
   }
 }
 function handlePaste(e,di,ri,col){
@@ -1536,7 +1539,7 @@ function handlePaste(e,di,ri,col){
   if(!txt.includes('\n')&&!txt.includes('\t'))return;
   e.preventDefault();
   const rows=txt.split('\n').map(r=>r.split('\t'));
-  const colOrder=['date','content','pay','order','note'];
+  const colOrder=['date','content','qty','pay','order','note'];
   const startCol=colOrder.indexOf(col);if(startCol<0)return;
   rows.forEach((cells,rOff)=>{
     const tRi=ri+rOff;if(tRi>=depts[di].rows.length)return;
