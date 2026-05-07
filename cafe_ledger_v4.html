@@ -70,7 +70,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .neg{color:#A32D2D;}.pos{color:#3B6D11;}.zero{color:#888780;}
 
 /* 장부 */
-.ledger-topbar{padding:9px 14px;background:#fff;border-bottom:1px solid #e0dfd8;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+.ledger-topbar{padding:9px 14px;background:#fff;border-bottom:1px solid #e0dfd8;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:87px;z-index:101;}
 .ledger-name{font-size:14px;font-weight:500;}
 .ledger-actions{display:flex;gap:6px;align-items:center;}
 .bal-badge{font-size:11px;padding:3px 10px;border-radius:6px;white-space:nowrap;}
@@ -95,11 +95,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
   .mobile-dept-btn{display:flex;align-items:center;justify-content:center;gap:5px;border:0;border-bottom:3px solid transparent;background:#fff;color:#777;font-size:14px;font-weight:800;font-family:inherit;min-width:110px;padding:0 10px;flex:0 0 auto;}
   .mobile-dept-btn.active{color:#111;border-bottom-color:#111;}
   .mobile-dept-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
-  .ledger-topbar{padding:10px 12px;}
+  .ledger-topbar{padding:10px 12px;top:130px;}
   .ledger-name{font-size:17px;font-weight:800;}
   .mgmt-nav{overflow-x:auto;}
   .mgmt-tab{padding:12px 16px;font-size:14px;}
   .tbl-wrap{overflow-x:auto;}
+  .tbl-wrap thead th{top:188px;}
   table{min-width:860px;}
   .mobile-dept-sheet.open{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:1000;}
   .mobile-dept-panel{width:100%;max-height:76vh;background:#fff;border-radius:18px 18px 0 0;overflow:hidden;box-shadow:0 -10px 30px rgba(0,0,0,.18);}
@@ -115,6 +116,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .tbl-wrap{overflow-x:auto;background:#fff;}
 table{width:100%;border-collapse:collapse;table-layout:fixed;}
 th{background:#f5f4f0;padding:7px 5px;text-align:center;color:#888780;font-weight:500;border-bottom:1px solid #d8d7d0;border-right:1px solid #e8e7e0;font-size:11px;white-space:nowrap;}
+.tbl-wrap thead th{position:sticky;top:130px;z-index:100;}
 th:last-child{border-right:none;}
 td{padding:0;border-bottom:1px solid #f0efe8;border-right:1px solid #eeede6;position:relative;}
 td:last-child{border-right:none;}
