@@ -421,6 +421,8 @@ firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
 const ROWS=80;
+const ROW_EXTEND_THRESHOLD=10;
+const ROW_EXTEND_COUNT=30;
 let depts=[],menuDB=[],optionDB=[],dessertDB=[];
 let curDeptIdx=null,curDeptId=null,curDBTab='menu';
 let acTarget=null,acIdx=-1,acList=[];
@@ -1324,10 +1326,26 @@ function search(q){
   }
   return res.slice(0,10);
 }
-function ensureRows(di){
+function ensureRows(di,minRows=ROWS){
   if(!depts[di])return;
   depts[di].rows=normalizeLedgerRows(depts[di].rows);
-  while(depts[di].rows.length<ROWS)depts[di].rows.push(blankLedgerRow());
+  while(depts[di].rows.length<minRows)depts[di].rows.push(blankLedgerRow());
+}
+function appendLedgerRows(di,count=ROW_EXTEND_COUNT){
+  if(!depts[di])return;
+  const start=depts[di].rows.length;
+  for(let i=0;i<count;i++)depts[di].rows.push(blankLedgerRow());
+  if(curScreen==='ledger'&&curDeptIdx===di){
+    const tb=document.getElementById('ledgerBody');
+    if(tb){
+      for(let ri=start;ri<depts[di].rows.length;ri++)tb.appendChild(makeRow(di,ri));
+    }
+  }
+}
+function extendRowsIfNeeded(di,ri){
+  ensureRows(di);
+  if(!depts[di]||ri<depts[di].rows.length-ROW_EXTEND_THRESHOLD)return;
+  appendLedgerRows(di);
 }
 function renderLedger(di){
   const tb=document.getElementById('ledgerBody');
@@ -1388,7 +1406,7 @@ function mkQtyTd(di,ri,val){
       const oInp=document.getElementById(`or-inp-${di2}-${ri2}`);
       if(oInp)oInp.value=newOrder.toLocaleString();
     }
-    stampDates(di2,ri2);calcBal(di2);saveDept(di2);
+    stampDates(di2,ri2);extendRowsIfNeeded(di2,ri2);calcBal(di2);saveDept(di2);
   });
   inp.addEventListener('keydown',e=>navKey(e,di,ri,'qty'));
   td.appendChild(inp);return td;
@@ -1403,7 +1421,7 @@ function mkOrderTd(di,ri,val){
     const di2=+inp.dataset.di,ri2=+inp.dataset.ri;
     depts[di2].rows[ri2].order=inp.value.trim();
     depts[di2].rows[ri2].basePrice=pn(inp.value);
-    stampDates(di2,ri2);calcBal(di2);saveDept(di2);
+    stampDates(di2,ri2);extendRowsIfNeeded(di2,ri2);calcBal(di2);saveDept(di2);
   });
   inp.addEventListener('keydown',e=>navKey(e,di,ri,'order'));
   inp.addEventListener('paste',e=>handlePaste(e,di,ri,'order'));
@@ -1438,7 +1456,7 @@ function stampDates(di,ri){
 function cc(inp){
   const di=+inp.dataset.di,ri=+inp.dataset.ri,col=inp.dataset.col;
   depts[di].rows[ri][col]=inp.value.trim();
-  stampDates(di,ri);if(col==='pay')calcBal(di);saveDept(di);
+  stampDates(di,ri);extendRowsIfNeeded(di,ri);if(col==='pay')calcBal(di);saveDept(di);
 }
 function deleteRow(di,ri){
   if(!confirm((ri+1)+'행을 삭제할까요?'))return;
@@ -1488,7 +1506,7 @@ function pa(i,di,ri){
   if(inp)inp.value=item.name;
   const row=depts[di].rows[ri];
   row.content=item.name;row.basePrice=item.price;row.order=item.price;
-  applyOrderWithOpts(di,ri);stampDates(di,ri);hideAC();calcBal(di);sv();
+  applyOrderWithOpts(di,ri);stampDates(di,ri);extendRowsIfNeeded(di,ri);hideAC();calcBal(di);sv();
   const qi=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="qty"]`);
   if(qi)setTimeout(()=>{qi.focus();qi.select&&qi.select();},10);
 }
@@ -1536,7 +1554,7 @@ function toggleOpt(i){
   const selectedNames=row.opts.map(o=>o.name);
   document.getElementById('optList').querySelectorAll('.opt-item').forEach((el,j)=>el.classList.toggle('checked',selectedNames.includes(optionDB[j].name)));
   if(!row.basePrice)row.basePrice=pn(row.order);
-  applyOrderWithOpts(di,ri);stampDates(di,ri);calcBal(di);saveDept(di);
+  applyOrderWithOpts(di,ri);stampDates(di,ri);extendRowsIfNeeded(di,ri);calcBal(di);saveDept(di);
 }
 function clearOpts(){
   if(!optTarget)return;
@@ -1551,7 +1569,10 @@ function navKey(e,di,ri,col){
     e.preventDefault();
     let next;
     if(col==='content')next=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="qty"]`);
-    else if(col==='qty')next=document.querySelector(`input[data-di="${di}"][data-ri="${ri+1}"][data-col="content"]`);
+    else if(col==='qty'){
+      extendRowsIfNeeded(di,ri);
+      next=document.querySelector(`input[data-di="${di}"][data-ri="${ri+1}"][data-col="content"]`);
+    }
     else next=document.querySelector(`input[data-di="${di}"][data-ri="${ri+1}"][data-col="${col}"]`);
     if(next){next.focus();next.select&&next.select();}
   }
@@ -1563,6 +1584,7 @@ function handlePaste(e,di,ri,col){
   const rows=txt.split('\n').map(r=>r.split('\t'));
   const colOrder=['date','content','qty','pay','order','note'];
   const startCol=colOrder.indexOf(col);if(startCol<0)return;
+  ensureRows(di,ri+rows.length+ROW_EXTEND_THRESHOLD);
   rows.forEach((cells,rOff)=>{
     const tRi=ri+rOff;if(tRi>=depts[di].rows.length)return;
     cells.forEach((val,cOff)=>{
@@ -1574,6 +1596,8 @@ function handlePaste(e,di,ri,col){
     });
     stampDates(di,tRi);
   });
+  extendRowsIfNeeded(di,ri+rows.length-1);
+  if(curScreen==='ledger'&&curDeptIdx===di)renderLedger(di);
   calcBal(di);saveDept(di);
 }
 function calcBal(di){
@@ -1844,7 +1868,7 @@ function addDept(){
   const nm=document.getElementById('newDept').value.trim();if(!nm)return;
   addingDept=true;
   const emptyRows=[];
-  for(let i=0;i<80;i++)emptyRows.push({date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''});
+  for(let i=0;i<ROWS;i++)emptyRows.push(blankLedgerRow());
   Promise.all([
     db.ref('jangbu/depts').once('value'),
     db.ref('jangbu/deletedDeptNames/'+deptNameKey(nm)).once('value')
