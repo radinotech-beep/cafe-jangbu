@@ -280,6 +280,7 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
     <span class="ledger-name" id="ledgerName">장부</span>
     <div class="ledger-actions">
       <span class="bal-badge zero-b" id="badge">잔액 0원</span>
+      <button class="abtn" onclick="openMoveRowsModal()">행 이동/복사</button>
       <button class="abtn primary" onclick="exportLedgerExcel()">엑셀 저장</button>
     </div>
   </div>
@@ -396,6 +397,23 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
     <div class="mfoot">
       <button class="btn-c" onclick="closeDM()">취소</button>
       <button class="btn-s" onclick="addDept()">추가</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="moveRowsModal">
+  <div class="modal dm">
+    <div class="mhead"><h2>행 이동/복사</h2><button class="mclose" onclick="closeMoveRowsModal()">&#10005;</button></div>
+    <div style="padding:14px;">
+      <div style="font-size:12px;color:#888780;margin-bottom:10px;">현재 부서의 지정 행 범위를 다른 부서 첫 빈 줄로 옮깁니다. 자동 주문 연동 행은 제외됩니다.</div>
+      <div class="set-row"><label>시작 행</label><input type="number" id="moveStartRow" min="1" value="1"></div>
+      <div class="set-row"><label>끝 행</label><input type="number" id="moveEndRow" min="1" value="1"></div>
+      <div class="set-row"><label>대상 부서</label><select id="moveTargetDept" style="flex:1;padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:5px;font-size:12px;font-family:inherit;"></select></div>
+      <div class="set-row"><label>작업</label><select id="moveMode" style="flex:1;padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:5px;font-size:12px;font-family:inherit;"><option value="move">이동</option><option value="copy">복사</option></select></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn-c" onclick="closeMoveRowsModal()">취소</button>
+      <button class="btn-s" onclick="applyMoveRows()">실행</button>
     </div>
   </div>
 </div>
@@ -1447,6 +1465,76 @@ function mkOptTd(di,ri,opts){
   td.appendChild(btn);return td;
 }
 function optLabel(opts){return(!opts||opts.length===0)?'+ 옵션':opts.map(o=>o.name).join(', ');}
+function isEmptyLedgerRow(row){
+  if(!row)return true;
+  return !row.date&&!row.content&&!row.pay&&!row.order&&!(row.opts&&row.opts.length)&&!row.qty&&!row.note;
+}
+function isManualLedgerRow(row){
+  return row&&!row.orderId&&!row.sourceOrderId&&!row.cancelRow;
+}
+function cloneManualLedgerRow(row){
+  const copy={...blankLedgerRow(),...(row||{})};
+  copy.opts=normalizeOpts(row&&row.opts).map(o=>({...o}));
+  delete copy.orderId;delete copy.sourceOrderId;delete copy.cancelRow;delete copy.cancelReflected;delete copy.deptId;
+  return copy;
+}
+function clearManualLedgerRow(row){
+  Object.assign(row,blankLedgerRow());
+}
+function firstEmptyRowIndex(di){
+  ensureRows(di);
+  const idx=depts[di].rows.findIndex(isEmptyLedgerRow);
+  return idx>=0?idx:depts[di].rows.length;
+}
+function openMoveRowsModal(){
+  if(curDeptIdx===null)return;
+  const sel=document.getElementById('moveTargetDept');
+  sel.innerHTML=depts.map((d,i)=>`<option value="${i}"${i===curDeptIdx?' disabled':''}>${esc(d.name)}</option>`).join('');
+  const firstTarget=depts.findIndex((d,i)=>i!==curDeptIdx);
+  if(firstTarget>=0)sel.value=String(firstTarget);
+  document.getElementById('moveStartRow').value=1;
+  document.getElementById('moveEndRow').value=1;
+  document.getElementById('moveMode').value='move';
+  document.getElementById('moveRowsModal').classList.add('open');
+}
+function closeMoveRowsModal(){
+  document.getElementById('moveRowsModal').classList.remove('open');
+}
+function applyMoveRows(){
+  if(curDeptIdx===null)return;
+  const from=curDeptIdx;
+  const to=parseInt(document.getElementById('moveTargetDept').value,10);
+  const start=parseInt(document.getElementById('moveStartRow').value,10);
+  const end=parseInt(document.getElementById('moveEndRow').value,10);
+  const mode=document.getElementById('moveMode').value;
+  if(isNaN(to)||to===from){alert('대상 부서를 선택해주세요.');return;}
+  if(isNaN(start)||isNaN(end)||start<1||end<start){alert('행 범위를 확인해주세요.');return;}
+  ensureRows(from,end);
+  ensureRows(to);
+  const picked=[];
+  let skipped=0;
+  for(let ri=start-1;ri<=end-1;ri++){
+    const row=depts[from].rows[ri];
+    if(isEmptyLedgerRow(row))continue;
+    if(!isManualLedgerRow(row)){skipped++;continue;}
+    picked.push({ri,row:cloneManualLedgerRow(row)});
+  }
+  if(picked.length===0){alert(skipped>0?'자동 주문 연동 행만 포함되어 이동/복사하지 않았습니다.':'옮길 수동 입력 행이 없습니다.');return;}
+  const msg=`${depts[from].name} ${start}~${end}행 중 수동 입력 ${picked.length}개를 ${depts[to].name}(으)로 ${mode==='move'?'이동':'복사'}할까요?${skipped?`\n자동 주문 연동 행 ${skipped}개는 제외됩니다.`:''}`;
+  if(!confirm(msg))return;
+  let insertAt=firstEmptyRowIndex(to);
+  ensureRows(to,insertAt+picked.length+ROW_EXTEND_THRESHOLD);
+  picked.forEach((p,idx)=>{
+    depts[to].rows[insertAt+idx]=p.row;
+    if(mode==='move')clearManualLedgerRow(depts[from].rows[p.ri]);
+  });
+  ensureRows(from);ensureRows(to);
+  if(mode==='move')saveDept(from,true);
+  saveDept(to,true);
+  renderLedger(from);
+  calcBal(to);
+  closeMoveRowsModal();
+}
 
 function stampDates(di,ri){
   const row=depts[di].rows[ri];const t=todayDisplay();
