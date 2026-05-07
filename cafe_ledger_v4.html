@@ -1466,8 +1466,8 @@ function pa(i,di,ri){
   const row=depts[di].rows[ri];
   row.content=item.name;row.basePrice=item.price;row.order=item.price;
   applyOrderWithOpts(di,ri);stampDates(di,ri);hideAC();calcBal(di);sv();
-  const pi=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="pay"]`);
-  if(pi)setTimeout(()=>pi.focus(),10);
+  const qi=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="qty"]`);
+  if(qi)setTimeout(()=>{qi.focus();qi.select&&qi.select();},10);
 }
 function applyOrderWithOpts(di,ri){
   const row=depts[di].rows[ri];
