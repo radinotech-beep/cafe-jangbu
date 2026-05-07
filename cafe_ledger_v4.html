@@ -1551,7 +1551,7 @@ function navKey(e,di,ri,col){
     e.preventDefault();
     let next;
     if(col==='content')next=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="qty"]`);
-    else if(col==='qty')next=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="order"]`);
+    else if(col==='qty')next=document.querySelector(`input[data-di="${di}"][data-ri="${ri+1}"][data-col="content"]`);
     else next=document.querySelector(`input[data-di="${di}"][data-ri="${ri+1}"][data-col="${col}"]`);
     if(next){next.focus();next.select&&next.select();}
   }
