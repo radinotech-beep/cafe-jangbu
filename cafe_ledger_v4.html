@@ -980,7 +980,11 @@ function goMenuMain(){
   goMgmt();
   switchMgmtTab(curMgmtTab==='dept'?'menu':curMgmtTab);
 }
-function goHome(){showScreen('home');renderHome();}
+function goHome(){
+  if(curDeptIdx!==null&&depts[curDeptIdx]){openDept(curDeptIdx);return;}
+  if(depts.length>0){openDept(0);return;}
+  showScreen('home');renderHome();
+}
 function goSummary(){showScreen('summary');renderSummary();}
 function openMobileDeptSheet(){
   renderMobileDeptList();
