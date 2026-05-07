@@ -283,6 +283,7 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
     <div class="ledger-actions">
       <span class="bal-badge zero-b" id="badge">잔액 0원</span>
       <button class="abtn" onclick="openMoveRowsModal()">행 이동/복사</button>
+      <button class="abtn" onclick="openInsertRowsModal()">중간 행 추가</button>
       <button class="abtn primary" onclick="exportLedgerExcel()">엑셀 저장</button>
     </div>
   </div>
@@ -310,6 +311,7 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
     <div class="sc"><div class="sc-label">현재잔액</div><div class="sc-val" id="sumBal">0원</div></div>
   </div>
   <button class="move-fab" onclick="openMoveRowsModal()">행 이동/복사</button>
+  <button class="move-fab" style="bottom:58px;background:#5A7F2B;" onclick="openInsertRowsModal()">중간 행 추가</button>
 </div>
 
 <!-- 부서별 현황 요약 -->
@@ -417,6 +419,21 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
     <div class="mfoot">
       <button class="btn-c" onclick="closeMoveRowsModal()">취소</button>
       <button class="btn-s" onclick="applyMoveRows()">실행</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="insertRowsModal">
+  <div class="modal dm">
+    <div class="mhead"><h2>중간 행 추가</h2><button class="mclose" onclick="closeInsertRowsModal()">&#10005;</button></div>
+    <div style="padding:14px;">
+      <div style="font-size:12px;color:#888780;margin-bottom:10px;">지정한 행 아래에 빈 행을 끼워 넣습니다. 기존 아래 행들은 밀려납니다.</div>
+      <div class="set-row"><label>몇 번 행 아래</label><input type="number" id="insertAfterRow" min="0" value="1"></div>
+      <div class="set-row"><label>추가할 줄 수</label><input type="number" id="insertRowCount" min="1" value="5"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn-c" onclick="closeInsertRowsModal()">취소</button>
+      <button class="btn-s" onclick="applyInsertRows()">추가</button>
     </div>
   </div>
 </div>
@@ -1502,6 +1519,36 @@ function openMoveRowsModal(){
 }
 function closeMoveRowsModal(){
   document.getElementById('moveRowsModal').classList.remove('open');
+}
+function openInsertRowsModal(){
+  if(curDeptIdx===null)return;
+  const after=document.getElementById('insertAfterRow');
+  const count=document.getElementById('insertRowCount');
+  after.value=1;
+  count.value=5;
+  document.getElementById('insertRowsModal').classList.add('open');
+  setTimeout(()=>after.focus(),50);
+}
+function closeInsertRowsModal(){
+  document.getElementById('insertRowsModal').classList.remove('open');
+}
+function applyInsertRows(){
+  if(curDeptIdx===null)return;
+  const di=curDeptIdx;
+  const after=parseInt(document.getElementById('insertAfterRow').value,10);
+  const count=parseInt(document.getElementById('insertRowCount').value,10);
+  if(isNaN(after)||after<0){alert('행 번호를 확인해주세요.');return;}
+  if(isNaN(count)||count<1){alert('추가할 줄 수를 확인해주세요.');return;}
+  ensureRows(di,after);
+  const insertAt=Math.min(after,depts[di].rows.length);
+  const blanks=[];
+  for(let i=0;i<count;i++)blanks.push(blankLedgerRow());
+  depts[di].rows.splice(insertAt,0,...blanks);
+  renderLedger(di);
+  saveDept(di,true);
+  closeInsertRowsModal();
+  const next=document.querySelector(`input[data-di="${di}"][data-ri="${insertAt}"][data-col="content"]`);
+  if(next)setTimeout(()=>next.focus(),50);
 }
 function applyMoveRows(){
   if(curDeptIdx===null)return;
