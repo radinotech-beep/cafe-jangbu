@@ -1485,8 +1485,7 @@ function ak(e,inp){
   if(e.key==='ArrowDown'){e.preventDefault();acIdx=Math.min(acIdx+1,items.length-1);items.forEach((el,i)=>el.classList.toggle('sel',i===acIdx));}
   else if(e.key==='ArrowUp'){e.preventDefault();acIdx=Math.max(acIdx-1,0);items.forEach((el,i)=>el.classList.toggle('sel',i===acIdx));}
   else if(e.key==='Enter'){
-    if(acIdx>=0){e.preventDefault();pa(acIdx,+inp.dataset.di,+inp.dataset.ri);}
-    else if(acList.length===1){e.preventDefault();pa(0,+inp.dataset.di,+inp.dataset.ri);}
+    if(acList.length>0){e.preventDefault();pa(acIdx>=0?acIdx:0,+inp.dataset.di,+inp.dataset.ri);}
   }
   else if(e.key==='Escape')hideAC();
 }
