@@ -1358,7 +1358,7 @@ function search(q){
     const nn=norm(item.name);
     const als=(item.alias||'').split(';').map(a=>norm(a)).filter(Boolean);
     if(nn.includes(nq)||als.some(a=>a.includes(nq))){
-      const key=norm(item.name).replace(/\(hot\)/g,'').replace(/\(ice\)/g,'');
+      const key=String(item.name||'').replace(/\s/g,'').toLowerCase();
       if(!seen.has(key)){seen.set(key,true);res.push(item);}
     }
   }
