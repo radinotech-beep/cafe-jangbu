@@ -347,9 +347,9 @@ td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px
         <th class="tl" style="min-width:110px;">팀명</th>
         <th style="width:88px;">주문금액</th>
         <th style="width:80px;">결제금액</th>
-        <th style="width:100px;text-align:left;">결제일</th>
         <th style="width:85px;">잔액</th>
         <th class="tl">비고</th>
+        <th style="width:100px;text-align:left;">결제일</th>
       </tr></thead>
       <tbody id="summaryBody"></tbody>
     </table>
@@ -956,7 +956,7 @@ function showScreen(id){
   document.getElementById('screen-'+id).classList.add('active');
   curScreen=id;
   document.querySelectorAll('.snav-item').forEach(b=>b.classList.remove('active'));
-  document.getElementById('snav-home').classList.toggle('active',id==='home');
+  document.getElementById('snav-home').classList.toggle('active',id==='home'||id==='ledger');
   document.getElementById('snav-summary').classList.toggle('active',id==='summary');
   document.getElementById('snav-mgmt').classList.toggle('active',id==='mgmt');
   if(id==='ledger'&&curDeptIdx!==null){
@@ -1456,6 +1456,12 @@ function renderLedger(di){
   depts[di].rows.forEach((row,ri)=>tb.appendChild(makeRow(di,ri)));
   calcBal(di);
 }
+function moneyDisplay(v){
+  const raw=String(v||'').trim();
+  if(!raw)return'';
+  const n=pn(raw);
+  return n?n.toLocaleString():raw;
+}
 function makeRow(di,ri){
   const row=depts[di].rows[ri];
   const tr=document.createElement('tr');
@@ -1482,7 +1488,7 @@ function makeRow(di,ri){
 function mkInp(di,ri,col,val,align){
   const td=document.createElement('td');
   const inp=document.createElement('input');
-  inp.type='text';inp.value=val||'';inp.style.textAlign=align;
+  inp.type='text';inp.value=(col==='pay')?moneyDisplay(val):(val||'');inp.style.textAlign=align;
   inp.dataset.di=di;inp.dataset.ri=ri;inp.dataset.col=col;
   inp.addEventListener('change',()=>cc(inp));
   inp.addEventListener('keydown',e=>navKey(e,di,ri,col));
@@ -1517,13 +1523,15 @@ function mkQtyTd(di,ri,val){
 function mkOrderTd(di,ri,val){
   const td=document.createElement('td');
   const inp=document.createElement('input');
-  inp.type='text';inp.value=val||'';inp.style.textAlign='right';
+  inp.type='text';inp.value=moneyDisplay(val);inp.style.textAlign='right';
   inp.dataset.di=di;inp.dataset.ri=ri;inp.dataset.col='order';
   inp.id=`or-inp-${di}-${ri}`;
   inp.addEventListener('change',()=>{
     const di2=+inp.dataset.di,ri2=+inp.dataset.ri;
-    depts[di2].rows[ri2].order=inp.value.trim();
-    depts[di2].rows[ri2].basePrice=pn(inp.value);
+    const n=pn(inp.value);
+    depts[di2].rows[ri2].order=n?n:'';
+    depts[di2].rows[ri2].basePrice=n;
+    inp.value=n?n.toLocaleString():'';
     stampDates(di2,ri2);extendRowsIfNeeded(di2,ri2);calcBal(di2);saveDept(di2);
   });
   inp.addEventListener('keydown',e=>navKey(e,di,ri,'order'));
@@ -1696,7 +1704,13 @@ function stampDates(di,ri){
 }
 function cc(inp){
   const di=+inp.dataset.di,ri=+inp.dataset.ri,col=inp.dataset.col;
-  depts[di].rows[ri][col]=inp.value.trim();
+  if(col==='pay'){
+    const n=pn(inp.value);
+    depts[di].rows[ri][col]=n?n:'';
+    inp.value=n?n.toLocaleString():'';
+  }else{
+    depts[di].rows[ri][col]=inp.value.trim();
+  }
   stampDates(di,ri);extendRowsIfNeeded(di,ri);if(col==='pay')calcBal(di);saveDept(di);
 }
 function deleteRow(di,ri){
@@ -1918,9 +1932,9 @@ function renderSummary(){
     tr.appendChild(nmTd);
     const rest=document.createElement('td');rest.colSpan=0;
     tr.innerHTML+=`<td>${mOrd.toLocaleString()}</td><td>${mPay.toLocaleString()}</td>
-      <td class="nt">${pdates.join(', ')||'-'}</td>
       <td class="${bal<0?'neg':bal>0?'pos':''}">${bal.toLocaleString()}</td>
-      <td class="nt"></td>`;
+      <td class="nt"></td>
+      <td class="nt">${pdates.join(', ')||'-'}</td>`;
     // 부서명 클릭 다시 주입
     tr.cells[1].className='nm';tr.cells[1].style.cursor='pointer';
     tr.cells[1].onclick=()=>openDept(i);
@@ -1928,8 +1942,8 @@ function renderSummary(){
   });
   const tr=document.createElement('tr');tr.className='tot';
   tr.innerHTML=`<td class="no"></td><td class="nm" style="color:#2C2C2A;cursor:default;text-decoration:none;">합계</td>
-    <td>${tOrd.toLocaleString()}</td><td>${tPay.toLocaleString()}</td><td></td>
-    <td class="${tBal<0?'neg':tBal>0?'pos':''}">${tBal.toLocaleString()}</td><td></td>`;
+    <td>${tOrd.toLocaleString()}</td><td>${tPay.toLocaleString()}</td>
+    <td class="${tBal<0?'neg':tBal>0?'pos':''}">${tBal.toLocaleString()}</td><td></td><td></td>`;
   tb.appendChild(tr);
 }
 
@@ -1971,14 +1985,14 @@ function exportSummaryExcel(){
   const from=document.getElementById('periodFrom').value;
   const to=document.getElementById('periodTo').value;
   const usePeriod=from&&to;
-  const headers=['NO','팀명','주문금액','결제금액','결제일','잔액'];
+  const headers=['NO','팀명','주문금액','결제금액','잔액','비고','결제일'];
   const rows=depts.map((d,i)=>{
     let mOrd=0,mPay=0;const pdates=[];
     (d.rows||[]).forEach(row=>{
       const inRange=usePeriod?dateInRange(row.date,from,to):true;
       if(inRange){mOrd+=pn(row.order);mPay+=pn(row.pay);if(pn(row.pay)>0&&row.date)pdates.push(row.date.trim());}
     });
-    return [i+1,d.name,mOrd,mPay,pdates.join(', '),mPay-mOrd];
+    return [i+1,d.name,mOrd,mPay,mPay-mOrd,'',pdates.join(', ')];
   });
   const fname=usePeriod?`부서별현황요약_${from}_${to}.csv`:'부서별현황요약_전체.csv';
   downloadCSV(fname,toCSV(headers,rows));
