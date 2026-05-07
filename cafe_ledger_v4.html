@@ -1849,7 +1849,11 @@ document.addEventListener('click',e=>{
   if(!e.target.closest('#acPop')&&!(e.target.dataset&&e.target.dataset.col==='content'))hideAC();
   if(!e.target.closest('#optPop')&&!e.target.classList.contains('opt-trigger'))hideOpt();
 });
-window.addEventListener('scroll',()=>{hideAC();hideOpt();},true);
+window.addEventListener('scroll',e=>{
+  const t=e.target;
+  if(t&&t.closest&&t.closest('#optPop'))return;
+  hideAC();hideOpt();
+},true);
 
 function initUI(){
   renderSubnav();renderHome();showScreen('home');listenRealtime();
