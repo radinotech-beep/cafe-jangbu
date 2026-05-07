@@ -418,8 +418,11 @@ function convertMenuDB(raw,des){
       processed.add(key+'_ICE');
       const hotEntry=hotMap.get(key);
       if(hotEntry&&hotEntry.price===m.price){
-        // 가격 같음 → 통합 카드 (HOT에서 이미 처리됨)
-        processed.add(key+'_merged');
+        // 가격 같음 → HOT/ICE 통합 카드. ICE가 먼저 나와도 반드시 생성한다.
+        if(!processed.has(key+'_merged')){
+          processed.add(key+'_merged');
+          result.push({name:cleanName,originalName:hotEntry.m.name,cat,price:hotEntry.price,alias:hotEntry.m.alias||m.alias||'',needTemp:true,tempFixed:null,hotPrice:hotEntry.price,icePrice:m.price});
+        }
       } else {
         // 가격 다르거나 HOT 없음 → ICE 별도 카드
         result.push({name:cleanName+' ICE',originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:'ICE',hotPrice:null,icePrice:m.price});
