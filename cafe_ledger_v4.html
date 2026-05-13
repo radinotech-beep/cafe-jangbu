@@ -133,6 +133,12 @@ td.opt-cell{padding:2px 3px;}
 .opt-trigger:hover{background:#f5f4f0;}
 .opt-trigger.has-opt{color:#185FA5;font-weight:500;}
 td.auto-cell{padding:5px 6px;text-align:center;background:#fafaf8;font-size:11px;color:#B4B2A9;}
+tr.cancel-ledger-row td{background:#FFF1F1!important;border-bottom-color:#F0C9C9;}
+tr.cancel-ledger-row td.rn, tr.cancel-ledger-row td.del-cell, tr.cancel-ledger-row td.auto-cell{background:#FCE4E4!important;}
+tr.cancel-ledger-row td:first-child{box-shadow:inset 3px 0 0 #E24B4A;}
+tr.cancel-ledger-row input{color:#8F2424;font-weight:600;}
+tr.cancel-ledger-row .opt-trigger{color:#A32D2D;font-weight:700;}
+tr.cancel-ledger-row .cancel-note input{background:#F9DADA;color:#A32D2D;border-radius:4px;text-align:center;font-weight:800;}
 
 /* 합계 */
 .sum-bar{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 14px;background:#fff;border-top:1px solid #e0dfd8;}
@@ -1467,6 +1473,8 @@ function moneyDisplay(v){
 function makeRow(di,ri){
   const row=depts[di].rows[ri];
   const tr=document.createElement('tr');
+  const isCancel=!!(row.cancelRow||String(row.note||'').includes('주문취소'));
+  if(isCancel)tr.className='cancel-ledger-row';
   // 삭제
   const tdD=document.createElement('td');tdD.className='del-cell';
   const db2=document.createElement('button');db2.className='del-btn';db2.textContent='×';
@@ -1482,7 +1490,9 @@ function makeRow(di,ri){
   const tdBal=document.createElement('td');tdBal.id=`bl-${di}-${ri}`;
   tdBal.style.cssText='text-align:right;padding:5px 6px;background:#fafaf8;font-size:12px;border-right:1px solid #eeede6;';
   tr.appendChild(tdBal);
-  tr.appendChild(mkInp(di,ri,'note',row.note,'left'));
+  const noteTd=mkInp(di,ri,'note',row.note,'left');
+  if(isCancel)noteTd.classList.add('cancel-note');
+  tr.appendChild(noteTd);
   const tdCA=document.createElement('td');tdCA.className='auto-cell';tdCA.id=`ca-${di}-${ri}`;tdCA.textContent=row.createdAt||'';tr.appendChild(tdCA);
   const tdUA=document.createElement('td');tdUA.className='auto-cell';tdUA.id=`ua-${di}-${ri}`;tdUA.textContent=row.updatedAt||'';tr.appendChild(tdUA);
   return tr;

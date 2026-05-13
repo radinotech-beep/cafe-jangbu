@@ -225,6 +225,12 @@ setInterval(cleanOldOrders,60*60*1000);
 function cleanMenuName(name){
   return String(name||'').replace(/^\((HOT|ICE)\)/,'').replace(/\s+(HOT|ICE)$/,'').trim();
 }
+function ledgerItemName(item){
+  const raw=String((item&&item.originalName)||(item&&item.displayName)||(item&&item.name)||'메뉴').trim();
+  const temp=String((item&&item.temp)||'').toUpperCase();
+  if(temp&&!/^\((HOT|ICE)\)/.test(raw)&&!/\s+(HOT|ICE)$/.test(raw))return '('+temp+')'+raw;
+  return raw;
+}
 function orderDateStr(order){
   const d=new Date(order.createdAt||Date.now());
   return (d.getMonth()+1)+'/'+d.getDate();
@@ -297,7 +303,7 @@ function makeCancelRows(order,dateStr){
   const orderId=String(order.id);
   const sourceKey=sourceOrderKey(order);
   const rows=orderItems(order).map((item,idx)=>{
-    const ledgerName=cleanMenuName(item.originalName||item.displayName||item.name||'메뉴');
+    const ledgerName=ledgerItemName(item);
     const amount=itemAmount(item);
     const opts=item.opts||item.options||[];
     const qty=pn(item.qty)||1;
@@ -332,9 +338,11 @@ function writeCancelRows(deptKey,order,dept){
       if(tokens.some(t=>deleted[t])||deleted['cancel:'+sourceKey]||deleted['cancelId:'+orderId+':'+dateStr]||deleted['order:'+orderId]){
         return {ok:true,reason:'사용자가 삭제한 취소 줄이라 재생성하지 않음'};
       }
-    const alreadyCancelled=rows.some(row=>row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr)));
-    if(alreadyCancelled)return {ok:true,reason:'이미 취소 줄 있음'};
-    let insertAt=rows.findIndex(row=>row&&String(row.orderId||'')===orderId&&(!row.date||row.date===dateStr));
+    rows=rows.filter(row=>!(row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr))));
+    let insertAt=-1;
+    rows.forEach((row,idx)=>{
+      if(row&&String(row.orderId||'')===orderId&&(!row.date||row.date===dateStr))insertAt=idx;
+    });
     if(insertAt>=0)rows.splice(insertAt+1,0,...cancelRows);
     else{
       const emptyIdx=rows.findIndex(r=>!r.content&&!r.date&&!r.pay&&!r.order);
