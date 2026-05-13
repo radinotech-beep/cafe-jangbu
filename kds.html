@@ -231,6 +231,21 @@ function ledgerItemName(item){
   if(temp&&!/^\((HOT|ICE)\)/.test(raw)&&!/\s+(HOT|ICE)$/.test(raw))return '('+temp+')'+raw;
   return raw;
 }
+function normLedgerMenuName(name){
+  return cleanMenuName(name).replace(/\s+/g,'').toLowerCase();
+}
+function rowMatchesOrderItem(row,item,dateStr){
+  if(!row||row.cancelRow||String(row.note||'').includes('주문취소'))return false;
+  if(row.date&&dateStr&&row.date!==dateStr)return false;
+  const rowName=String(row.content||'');
+  const itemName=ledgerItemName(item);
+  const sameName=rowName===itemName||normLedgerMenuName(rowName)===normLedgerMenuName(itemName);
+  if(!sameName)return false;
+  const qty=pn(item.qty)||1;
+  if(row.qty&&pn(row.qty)!==qty)return false;
+  const amount=itemAmount(item);
+  return !amount||pn(row.order)===amount;
+}
 function orderDateStr(order){
   const d=new Date(order.createdAt||Date.now());
   return (d.getMonth()+1)+'/'+d.getDate();
@@ -342,6 +357,11 @@ function writeCancelRows(deptKey,order,dept){
     let insertAt=-1;
     rows.forEach((row,idx)=>{
       if(row&&String(row.orderId||'')===orderId&&(!row.date||row.date===dateStr))insertAt=idx;
+    });
+    orderItems(order).forEach(item=>{
+      rows.forEach((row,idx)=>{
+        if(rowMatchesOrderItem(row,item,dateStr)&&idx>insertAt)insertAt=idx;
+      });
     });
     if(insertAt>=0)rows.splice(insertAt+1,0,...cancelRows);
     else{
