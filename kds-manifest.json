@@ -1,0 +1,19 @@
+{
+  "name": "메가커피 인천역점 KDS",
+  "short_name": "KDS",
+  "description": "메가커피 인천역점 KDS",
+  "id": "./kds-app",
+  "start_url": "./kds.html?app=kds",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FFFBE6",
+  "theme_color": "#F5C800",
+  "icons": [
+    {
+      "src": "./mega-logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

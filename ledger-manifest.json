@@ -1,0 +1,19 @@
+{
+  "name": "카페 장부",
+  "short_name": "장부",
+  "description": "메가커피 인천역점 장부 관리",
+  "id": "./ledger-app",
+  "start_url": "./cafe_ledger_v4.html?app=ledger",
+  "scope": "./cafe_ledger_v4.html",
+  "display": "standalone",
+  "background_color": "#F5F4F0",
+  "theme_color": "#2C2C2A",
+  "icons": [
+    {
+      "src": "./mega-logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

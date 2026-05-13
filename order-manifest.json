@@ -1,0 +1,19 @@
+{
+  "name": "메가커피 인천역점 주문",
+  "short_name": "주문",
+  "description": "메가커피 인천역점 장부거래 전용 주문",
+  "id": "./order-app",
+  "start_url": "./order_new.html?app=order",
+  "scope": "./order_new.html",
+  "display": "standalone",
+  "background_color": "#FFFBE6",
+  "theme_color": "#F5C800",
+  "icons": [
+    {
+      "src": "./mega-logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
