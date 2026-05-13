@@ -10,7 +10,7 @@
   "theme_color": "#2C2C2A",
   "icons": [
     {
-      "src": "./mega-logo.png",
+      "src": "./ledger-icon-512.png",
       "sizes": "any",
       "type": "image/png",
       "purpose": "any"

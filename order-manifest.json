@@ -10,7 +10,7 @@
   "theme_color": "#F5C800",
   "icons": [
     {
-      "src": "./mega-logo.png",
+      "src": "./order-icon-512.png",
       "sizes": "any",
       "type": "image/png",
       "purpose": "any"

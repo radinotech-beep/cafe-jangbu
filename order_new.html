@@ -353,6 +353,29 @@ let curDeptIdx=null,curCat=null,cart=[],orderCount=0;
 let orderType='eat';
 let popupItem=null,popupTemp=null,popupOpts=[],popupQty=1;
 let pwdBuffer='';
+let backGuardReady=false;
+
+function keepOrderAppOpen(){
+  if(backGuardReady)return;
+  backGuardReady=true;
+  try{
+    history.replaceState({orderGuard:true},'',location.href);
+    history.pushState({orderGuard:true},'',location.href);
+    window.addEventListener('popstate',handleBackButton);
+  }catch(e){}
+}
+function handleBackButton(){
+  try{history.pushState({orderGuard:true},'',location.href);}catch(e){}
+  const popup=document.getElementById('popupBg');
+  const pwd=document.getElementById('pwdModal');
+  const complete=document.getElementById('completePopup');
+  const intro=document.getElementById('introScreen');
+  if(popup&&popup.classList.contains('open')){closePopup();return;}
+  if(pwd&&pwd.classList.contains('open')){closePwdModal();return;}
+  if(complete&&complete.classList.contains('open')){closeCompletePopup();return;}
+  if(intro&&intro.classList.contains('active')){goIntro();return;}
+  showToast('주문 화면에서는 뒤로가기를 사용할 수 없습니다');
+}
 
 function makeDeptId(){
   return 'dept_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
@@ -545,6 +568,7 @@ function loadData(){
 
 // ── UI 초기화 ──
 function initUI(){
+  keepOrderAppOpen();
   // menuDB 로드 후 카테고리바 렌더
   renderCatBar();
   renderTypeScreen();
@@ -795,7 +819,7 @@ function addToCart(){
     name:popupItem.name,
     displayName:popupItem.name,
       originalName:popupItem.originalName||popupItem.name,
-    temp,opts,qty:popupQty,unitPrice,
+    temp,opts,qty:popupQty,basePrice:popupItem.price,unitPrice,
     cat:popupItem.cat
   });
   closePopup();
@@ -901,9 +925,12 @@ function doSubmitOrder(){
     cartSnapshot.forEach(item=>{
       // 장부 기록명은 originalName 사용 (장부 menuDB와 일치)
       const ledgerName=item.originalName||item.displayName;
-      const content=ledgerName+(item.opts.length>0?' +'+item.opts.map(o=>o.name).join('+'):'')+(item.qty>1?' x'+item.qty:'');
+      const content=ledgerName;
+      const qty=parseInt(item.qty,10)||1;
       const amount=item.unitPrice*item.qty;
-      const newRow={date:dateStr,content,opts:item.opts,order:amount,pay:'',note:'',createdAt:dateStr,updatedAt:dateStr,basePrice:amount,orderId:String(order.id),deptId:dept.id};
+      const optTotal=(item.opts||[]).reduce((s,o)=>s+(parseInt(o.price,10)||0),0);
+      const basePrice=parseInt(item.basePrice,10)||Math.max(0,(parseInt(item.unitPrice,10)||0)-optTotal);
+      const newRow={date:dateStr,content,opts:item.opts||[],qty,order:amount,pay:'',note:'',createdAt:dateStr,updatedAt:dateStr,basePrice,orderId:String(order.id),deptId:dept.id};
       const emptyIdx=rows.findIndex(r=>!r.content&&!r.date&&!r.pay&&!r.order);
       if(emptyIdx>=0)rows[emptyIdx]=newRow;
       else rows.push(newRow);

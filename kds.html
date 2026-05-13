@@ -300,9 +300,10 @@ function makeCancelRows(order,dateStr){
     const ledgerName=cleanMenuName(item.originalName||item.displayName||item.name||'메뉴');
     const amount=itemAmount(item);
     const opts=item.opts||item.options||[];
-    const optText=opts.map(o=>typeof o==='string'?o:o.name).filter(Boolean).join('+');
-    const content=ledgerName+(optText?' +'+optText:'')+((pn(item.qty)||1)>1?' x'+(pn(item.qty)||1):'');
-    return {date:dateStr,content,opts,order:-Math.abs(amount),pay:'',note:'주문취소',createdAt:dateStr,updatedAt:dateStr,basePrice:-Math.abs(amount),orderId:orderId+'-cancel-'+idx,sourceOrderId:orderId,sourceOrderKey:sourceKey,deptId:order.deptId||'',cancelRow:true};
+    const qty=pn(item.qty)||1;
+    const optTotal=opts.reduce((s,o)=>s+pn(typeof o==='string'?0:o.price),0);
+    const unit=pn(item.basePrice)||Math.max(0,(pn(item.unitPrice)||0)-optTotal);
+    return {date:dateStr,content:ledgerName,opts,qty,order:-Math.abs(amount),pay:'',note:'주문취소',createdAt:dateStr,updatedAt:dateStr,basePrice:-Math.abs(unit),orderId:orderId+'-cancel-'+idx,sourceOrderId:orderId,sourceOrderKey:sourceKey,deptId:order.deptId||'',cancelRow:true};
   }).filter(row=>pn(row.order)!==0);
   if(rows.length===0){
     const total=pn(order.totalPrice)||pn(order.total)||0;
