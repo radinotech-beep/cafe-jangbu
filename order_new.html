@@ -860,12 +860,14 @@ function openPopup(item){
   if(optSecLabel)optSecLabel.style.display='';
   // 중카테고리 찾기
   let allowedOpts=null;
+  let hasMatchedOptionRule=false;
   const directOptionMap=menuOptionMap||buildClientMenuOptionMap();
   if(directOptionMap){
     const keys=itemOptionKeys(item);
     for(const key of keys){
       if(Array.isArray(directOptionMap[key])){
         allowedOpts=directOptionMap[key];
+        hasMatchedOptionRule=true;
         break;
       }
     }
@@ -877,11 +879,15 @@ function openPopup(item){
       const subKey=subOptKey(item.cat,matchSub);
       const legacyKey=item.cat+'>>'+matchSub.name;
       allowedOpts=catOptMap&&(catOptMap[subKey]||catOptMap[legacyKey]);
+      hasMatchedOptionRule=Array.isArray(allowedOpts);
+    } else if(subs.length>0){
+      allowedOpts=[];
+      hasMatchedOptionRule=true;
     }
   }
-  // 중카테고리 없으면 대카테고리 옵션
-  if(!allowedOpts&&catOptMap)allowedOpts=catOptMap[item.cat];
-  const useFilter=allowedOpts&&allowedOpts.length>0;
+  // 중카테고리가 아예 없는 카테고리만 대카테고리 기본 옵션을 사용한다.
+  if(!hasMatchedOptionRule&&catOptMap)allowedOpts=catOptMap[item.cat];
+  const useFilter=Array.isArray(allowedOpts);
   optionDB.forEach((opt,i)=>{
     if(useFilter&&!allowedOpts.includes(opt.name))return;
     const btn=document.createElement('button');
