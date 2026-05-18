@@ -566,6 +566,16 @@ function buildMenuOptionMap(){
   });
   return map;
 }
+function decafOptionListFromCoffee(opts){
+  const out=[];
+  (opts||[]).forEach(opt=>{
+    let next=opt;
+    if(opt==='샷추가')next='디카페인샷추가';
+    else if(opt==='2샷추가')next='디카페인2샷추가';
+    if(next&&!out.includes(next))out.push(next);
+  });
+  return out;
+}
 function ensureCatSubMapShape(){
   if(!catSubMap||typeof catSubMap!=='object')catSubMap={};
   Object.keys(catSubMap).forEach(cat=>{
@@ -1326,7 +1336,10 @@ function renderOptMgmt(){
       h+=`<div style="margin-bottom:16px;border:0.5px solid #e0dfd8;border-radius:8px;overflow:hidden;">
         <div style="background:#F5F4F0;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:13px;font-weight:500;">${cat}</span>
-          <button class="abtn" style="font-size:11px;padding:2px 8px;" onclick="addSubCat('${esc(cat)}')">+ 중카테고리 추가</button>
+          <span style="display:flex;gap:6px;align-items:center;">
+            ${cat==='디카페인'?`<button class="abtn" style="font-size:11px;padding:2px 8px;" onclick="copyCoffeeOptionsToDecaf()">커피 옵션 복사</button>`:''}
+            <button class="abtn" style="font-size:11px;padding:2px 8px;" onclick="addSubCat('${esc(cat)}')">+ 중카테고리 추가</button>
+          </span>
         </div>`;
       // 미배정 메뉴 드롭존
       if(unassigned.length>0){
@@ -1427,6 +1440,23 @@ function removeFromSub(cat,si,mName){
   if(!catSubMap[cat]||!catSubMap[cat][si])return;
   removeMenuFromSub(catSubMap[cat][si],cat,mName);
   sv();renderOptMgmt();
+}
+function copyCoffeeOptionsToDecaf(){
+  ensureCatSubMapShape();
+  const coffeeSubs=catSubMap['커피']||[];
+  const decafSubs=catSubMap['디카페인']||[];
+  if(coffeeSubs.length===0){alert('커피 중카테고리가 없습니다.');return;}
+  if(decafSubs.length===0){alert('디카페인 중카테고리가 없습니다.');return;}
+  const baseOpts=decafOptionListFromCoffee(catOptMap['커피']||defaultCatOpts['커피']||[]);
+  catOptMap['디카페인']=baseOpts;
+  decafSubs.forEach((sub,si)=>{
+    const coffeeSub=coffeeSubs[Math.min(si,coffeeSubs.length-1)];
+    const coffeeOpts=(catOptMap[subOptKey('커피',coffeeSub)]||catOptMap['커피>>'+coffeeSub.name]||catOptMap['커피']||defaultCatOpts['커피']||[]);
+    catOptMap[subOptKey('디카페인',sub)]=decafOptionListFromCoffee(coffeeOpts);
+    delete catOptMap['디카페인>>'+sub.name];
+  });
+  sv();renderOptMgmt();
+  alert('디카페인 옵션을 커피 기준으로 맞췄습니다. 저장 후 주문창을 새로고침해주세요.');
 }
 
 // 드래그앤드롭 (옵션관리)
