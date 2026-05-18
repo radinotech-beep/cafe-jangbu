@@ -508,10 +508,45 @@ let savingDepts=new Set();
 let addingDept=false;
 let soldout={};  // {메뉴명: true}
 let hiddenMenus={};  // {메뉴명: true} — 주문창에서 아예 안 보임
-// catOptMap: { "대카>중카": [옵션명] }
-// catSubMap: { "대카": [{name:"중카명", menus:[메뉴명]}] }
+// catOptMap: { "대카>>중카ID": [옵션명] }
+// catSubMap: { "대카": [{id:"고유ID", name:"중카테고리명", menus:["대카::메뉴명"]}] }
 function makeDeptId(){
   return 'dept_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8);
+}
+function makeSubCatId(){
+  return 'sub_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7);
+}
+function menuSubKey(cat,name){
+  return String(cat||'')+'::'+String(name||'');
+}
+function menuNameFromSubKey(key){
+  const v=String(key||'');
+  const pos=v.indexOf('::');
+  return pos>=0?v.slice(pos+2):v;
+}
+function subHasMenu(sub,cat,name){
+  const menus=(sub&&sub.menus)||[];
+  return menus.includes(menuSubKey(cat,name))||menus.includes(name);
+}
+function removeMenuFromSub(sub,cat,name){
+  if(!sub||!Array.isArray(sub.menus))return;
+  const key=menuSubKey(cat,name);
+  sub.menus=sub.menus.filter(m=>m!==key&&m!==name);
+}
+function subOptKey(cat,sub){
+  return String(cat||'')+'>>'+String((sub&&sub.id)||(sub&&sub.name)||'');
+}
+function ensureCatSubMapShape(){
+  if(!catSubMap||typeof catSubMap!=='object')catSubMap={};
+  Object.keys(catSubMap).forEach(cat=>{
+    const subs=Array.isArray(catSubMap[cat])?catSubMap[cat]:[];
+    catSubMap[cat]=subs.map(sub=>{
+      const next=(sub&&typeof sub==='object')?sub:{name:String(sub||'새 중카테고리'),menus:[]};
+      if(!next.id)next.id=makeSubCatId();
+      if(!Array.isArray(next.menus))next.menus=[];
+      return next;
+    });
+  });
 }
 function cleanDeptForSave(dept){
   const copy={...dept};
@@ -1166,6 +1201,7 @@ function switchOptSub(sub){
 let dragSubSrc=null,dragSubSrcCat=null,dragSubSrcSub=null;
 
 function renderOptMgmt(){
+  ensureCatSubMapShape();
   if(curOptSub==='list'){
     let h=`<table class="dbt"><thead><tr><th>옵션명</th><th>별칭</th><th style="width:70px;">금액</th><th style="width:30px;"></th></tr></thead><tbody>`;
     optionDB.forEach((it,i)=>{
@@ -1183,10 +1219,16 @@ function renderOptMgmt(){
     MAIN_CATS.forEach(cat=>{
       const subs=(catSubMap&&catSubMap[cat])||[];
       const catMenus=[...menuDB,...dessertDB].filter(m=>(m.cat||guessCat(m.name))===cat);
-      // 중카테고리에 배정된 메뉴
-      const assignedMenus=subs.flatMap(s=>s.menus||[]);
+      // 중카테고리에 배정된 메뉴. 대카테고리까지 포함한 키로 비교해서
+      // 같은 메뉴명/같은 중카테고리명이 다른 곳에 있어도 함께 움직이지 않게 한다.
+      const assignedMenuKeys=new Set();
+      subs.forEach(sub=>{
+        catMenus.forEach(m=>{
+          if(subHasMenu(sub,cat,m.name))assignedMenuKeys.add(menuSubKey(cat,m.name));
+        });
+      });
       // 미배정 메뉴
-      const unassigned=catMenus.filter(m=>!assignedMenus.includes(m.name));
+      const unassigned=catMenus.filter(m=>!assignedMenuKeys.has(menuSubKey(cat,m.name)));
       h+=`<div style="margin-bottom:16px;border:0.5px solid #e0dfd8;border-radius:8px;overflow:hidden;">
         <div style="background:#F5F4F0;padding:8px 12px;display:flex;justify-content:space-between;align-items:center;">
           <span style="font-size:13px;font-weight:500;">${cat}</span>
@@ -1206,7 +1248,8 @@ function renderOptMgmt(){
       }
       // 중카테고리들
       subs.forEach((sub,si)=>{
-        const selOpts=catOptMap[cat+'>>'+sub.name]||catOptMap[cat]||[];
+        const legacyKey=cat+'>>'+sub.name;
+        const selOpts=catOptMap[subOptKey(cat,sub)]||catOptMap[legacyKey]||catOptMap[cat]||[];
         h+=`<div style="border-top:0.5px solid #e0dfd8;">
           <div style="padding:6px 12px;background:#fff;display:flex;align-items:center;gap:8px;"
             ondragover="event.preventDefault()"
@@ -1214,7 +1257,7 @@ function renderOptMgmt(){
             <span style="font-size:12px;font-weight:500;min-width:100px;">📁
               <input value="${esc(sub.name)}" 
                 style="border:none;font-size:12px;font-weight:500;width:120px;outline:none;"
-                onchange="catSubMap['${esc(cat)}'][${si}].name=this.value;sv();">
+                onchange="renameSubCat('${esc(cat)}',${si},this.value)">
             </span>
             <button class="bdel" onclick="delSubCat('${esc(cat)}',${si})" title="중카테고리 삭제">✕</button>
           </div>
@@ -1222,7 +1265,10 @@ function renderOptMgmt(){
           <div style="padding:4px 12px 8px 28px;display:flex;flex-wrap:wrap;gap:4px;"
             ondragover="event.preventDefault()"
             ondrop="dropOnSub('${esc(cat)}',${si},event)">`;
-        (sub.menus||[]).forEach(mName=>{
+        const subMenuNames=catMenus
+          .filter(m=>subHasMenu(sub,cat,m.name))
+          .map(m=>m.name);
+        subMenuNames.forEach(mName=>{
           h+=`<span draggable="true"
             ondragstart="dragSubStart('${esc(mName)}','${esc(cat)}',${si},event)"
             style="font-size:11px;padding:2px 8px;border:0.5px solid #E8D84A;border-radius:10px;background:#FFFBE6;cursor:grab;">${esc(mName)} <span onclick="removeFromSub('${esc(cat)}',${si},'${esc(mName)}')" style="color:#aaa;cursor:pointer;margin-left:2px;">✕</span></span>`;
@@ -1235,7 +1281,7 @@ function renderOptMgmt(){
         optionDB.forEach(opt=>{
           const on=selOpts.includes(opt.name);
           h+=`<span class="catopt-tag${on?' on':''}" style="font-size:10px;" 
-            onclick="toggleSubOpt('${esc(cat)}','${esc(sub.name)}','${esc(opt.name)}')">${esc(opt.name)}</span>`;
+            onclick="toggleSubOpt('${esc(cat)}',${si},'${esc(opt.name)}')">${esc(opt.name)}</span>`;
         });
         h+=`</div></div></div>`;
       });
@@ -1260,19 +1306,32 @@ function renderOptMgmt(){
 
 // 중카테고리 추가/삭제
 function addSubCat(cat){
+  ensureCatSubMapShape();
   if(!catSubMap[cat])catSubMap[cat]=[];
-  catSubMap[cat].push({name:'새 중카테고리',menus:[]});
+  catSubMap[cat].push({id:makeSubCatId(),name:'새 중카테고리',menus:[]});
+  sv();renderOptMgmt();
+}
+function renameSubCat(cat,si,name){
+  ensureCatSubMapShape();
+  if(!catSubMap[cat]||!catSubMap[cat][si])return;
+  catSubMap[cat][si].name=name;
   sv();renderOptMgmt();
 }
 function delSubCat(cat,si){
+  ensureCatSubMapShape();
   if(!confirm('중카테고리를 삭제할까요? 배정된 메뉴는 미배정으로 돌아갑니다.'))return;
+  const sub=catSubMap[cat][si];
+  if(sub){
+    delete catOptMap[subOptKey(cat,sub)];
+    delete catOptMap[cat+'>>'+sub.name];
+  }
   catSubMap[cat].splice(si,1);
   sv();renderOptMgmt();
 }
 function removeFromSub(cat,si,mName){
-  const menus=catSubMap[cat][si].menus||[];
-  const idx=menus.indexOf(mName);
-  if(idx>=0)menus.splice(idx,1);
+  ensureCatSubMapShape();
+  if(!catSubMap[cat]||!catSubMap[cat][si])return;
+  removeMenuFromSub(catSubMap[cat][si],cat,mName);
   sv();renderOptMgmt();
 }
 
@@ -1284,25 +1343,35 @@ function dragSubStart(mName,cat,subIdx,e){
 function dropOnSub(cat,si,e){
   e.preventDefault();e.stopPropagation();
   if(!dragSubSrc)return;
+  ensureCatSubMapShape();
+  if(dragSubSrcCat!==cat){
+    alert('다른 대카테고리의 메뉴는 이 중카테고리로 이동할 수 없습니다.');
+    dragSubSrc=null;dragSubSrcCat=null;dragSubSrcSub=null;
+    renderOptMgmt();
+    return;
+  }
   // 기존 위치에서 제거
   if(dragSubSrcSub!==null&&catSubMap[dragSubSrcCat]&&catSubMap[dragSubSrcCat][dragSubSrcSub]){
-    const oldMenus=catSubMap[dragSubSrcCat][dragSubSrcSub].menus||[];
-    const idx=oldMenus.indexOf(dragSubSrc);
-    if(idx>=0)oldMenus.splice(idx,1);
+    removeMenuFromSub(catSubMap[dragSubSrcCat][dragSubSrcSub],dragSubSrcCat,dragSubSrc);
   }
   // 새 위치에 추가
   if(!catSubMap[cat][si].menus)catSubMap[cat][si].menus=[];
-  if(!catSubMap[cat][si].menus.includes(dragSubSrc)){
-    catSubMap[cat][si].menus.push(dragSubSrc);
+  const key=menuSubKey(cat,dragSubSrc);
+  if(!subHasMenu(catSubMap[cat][si],cat,dragSubSrc)){
+    catSubMap[cat][si].menus.push(key);
   }
-  dragSubSrc=null;
+  dragSubSrc=null;dragSubSrcCat=null;dragSubSrcSub=null;
   sv();renderOptMgmt();
 }
 
 // 중카테고리별 옵션 토글
-function toggleSubOpt(cat,subName,optName){
-  const key=cat+'>>'+subName;
-  if(!catOptMap[key])catOptMap[key]=[...(catOptMap[cat]||[])];
+function toggleSubOpt(cat,si,optName){
+  ensureCatSubMapShape();
+  const sub=catSubMap[cat]&&catSubMap[cat][si];
+  if(!sub)return;
+  const key=subOptKey(cat,sub);
+  const legacyKey=cat+'>>'+sub.name;
+  if(!catOptMap[key])catOptMap[key]=[...((catOptMap[legacyKey])||(catOptMap[cat])||[])];
   const idx=catOptMap[key].indexOf(optName);
   if(idx>=0)catOptMap[key].splice(idx,1);
   else catOptMap[key].push(optName);

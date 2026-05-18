@@ -350,6 +350,14 @@ const db=firebase.database();
 
 // ── 상태 ──
 let depts=[],optionDB=[],soldout={},hiddenMenus={},catOptMap=null,catSubMap=null;
+function menuSubKey(cat,name){return String(cat||'')+'::'+String(name||'');}
+function subHasMenu(sub,cat,name){
+  const menus=(sub&&sub.menus)||[];
+  return menus.includes(menuSubKey(cat,name))||menus.includes(name);
+}
+function subOptKey(cat,sub){
+  return String(cat||'')+'>>'+String((sub&&sub.id)||(sub&&sub.name)||'');
+}
 function stockName(s){return String(s||'').replace(/^\\((HOT|ICE)\\)/,'').replace(/\\s+(HOT|ICE)$/,'').trim();}
 function stockKeys(item){
   const display=item&&item.name!==undefined?item.name:item;
@@ -765,10 +773,11 @@ function openPopup(item){
     let allowedOpts=null;
     if(catSubMap&&catSubMap[item.cat]){
       const subs=catSubMap[item.cat];
-      const matchSub=subs.find(s=>(s.menus||[]).includes(item.name));
+      const matchSub=subs.find(s=>subHasMenu(s,item.cat,item.name));
       if(matchSub){
-        const subKey=item.cat+'>>'+matchSub.name;
-        allowedOpts=catOptMap&&catOptMap[subKey];
+        const subKey=subOptKey(item.cat,matchSub);
+        const legacyKey=item.cat+'>>'+matchSub.name;
+        allowedOpts=catOptMap&&(catOptMap[subKey]||catOptMap[legacyKey]);
       }
     }
     // 중카테고리 없으면 대카테고리 옵션
