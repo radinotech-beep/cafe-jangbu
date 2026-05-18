@@ -83,6 +83,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .abtn:hover{background:#f5f4f0;}
 .abtn.primary{background:#2C2C2A;color:#F1EFE8;border-color:#2C2C2A;}
 .abtn.primary:hover{background:#444441;}
+.abtn.save{background:#5A7F2B;color:#fff;border-color:#5A7F2B;}
+.abtn.undo:disabled,.abtn.save:disabled{opacity:.38;cursor:not-allowed;}
 
 @media(max-width:640px){
   body{font-size:13px;}
@@ -303,6 +305,8 @@ tr.cancel-ledger-row .cancel-note input{background:#F9DADA;color:#A32D2D;border-
     </div>
     <div class="ledger-actions">
       <span class="bal-badge zero-b" id="badge">잔액 0원</span>
+      <button class="abtn undo" id="undoLedgerBtn" onclick="undoLedgerChange()" disabled>↶ 되돌리기</button>
+      <button class="abtn save" id="saveLedgerBtn" onclick="saveCurrentLedger()" disabled>저장</button>
       <button class="abtn" onclick="openMoveRowsModal()">행 이동/복사</button>
       <button class="abtn" onclick="openInsertRowsModal()">중간 행 추가</button>
       <button class="abtn" onclick="openDeleteRowsModal()">행 삭제</button>
@@ -505,6 +509,8 @@ let acTarget=null,acIdx=-1,acList=[];
 let optTarget=null,saveTimer=null,deptSaveTimers={};
 let curScreen='home';
 let savingDepts=new Set();
+let dirtyDeptKeys=new Set();
+let ledgerUndoStack=[];
 let addingDept=false;
 let soldout={};  // {메뉴명: true}
 let hiddenMenus={};  // {메뉴명: true} — 주문창에서 아예 안 보임
@@ -647,6 +653,7 @@ function setSyncStatus(s){
   const el=document.getElementById('syncStatus');
   if(s==='ok'){el.textContent='저장됨 ✓';el.className='sync-status sync-ok';}
   else if(s==='ing'){el.textContent='저장 중...';el.className='sync-status sync-ing';}
+  else if(s==='dirty'){el.textContent='저장 필요';el.className='sync-status sync-ing';}
   else{el.textContent='오프라인';el.className='sync-status sync-err';}
 }
 function today(){
@@ -925,6 +932,64 @@ function saveDept(di,immediate){
       .catch(()=>{setSyncStatus('err');savingDepts.delete(di);});
   },delay);
 }
+function cloneRowsForUndo(rows){
+  return JSON.parse(JSON.stringify(normalizeLedgerRows(rows||[])));
+}
+function updateLedgerEditButtons(){
+  const undoBtn=document.getElementById('undoLedgerBtn');
+  const saveBtn=document.getElementById('saveLedgerBtn');
+  const hasUndo=ledgerUndoStack.length>0;
+  const dirty=curDeptIdx!==null&&depts[curDeptIdx]&&dirtyDeptKeys.has(deptKey(curDeptIdx));
+  if(undoBtn)undoBtn.disabled=!hasUndo;
+  if(saveBtn)saveBtn.disabled=!dirty;
+  if(dirty)setSyncStatus('dirty');
+}
+function pushLedgerUndo(di,label){
+  if(!depts[di])return;
+  ledgerUndoStack.push({
+    deptId:depts[di].id||'',
+    deptKey:deptKey(di),
+    name:depts[di].name,
+    rows:cloneRowsForUndo(depts[di].rows),
+    label:label||'장부 수정'
+  });
+  if(ledgerUndoStack.length>10)ledgerUndoStack.shift();
+  updateLedgerEditButtons();
+}
+function markLedgerDirty(di){
+  if(!depts[di])return;
+  dirtyDeptKeys.add(deptKey(di));
+  calcBal(di);
+  updateLedgerEditButtons();
+}
+function saveCurrentLedger(){
+  if(curDeptIdx===null||!depts[curDeptIdx])return;
+  const key=deptKey(curDeptIdx);
+  dirtyDeptKeys.delete(key);
+  saveDept(curDeptIdx,true);
+  updateLedgerEditButtons();
+}
+function undoLedgerChange(){
+  const snap=ledgerUndoStack.pop();
+  if(!snap)return;
+  let di=-1;
+  for(let i=0;i<depts.length;i++){
+    if((depts[i].id&&snap.deptId&&depts[i].id===snap.deptId)||deptKey(i)===snap.deptKey){di=i;break;}
+  }
+  if(di<0)di=curDeptIdx;
+  if(di===null||di<0||!depts[di])return;
+  depts[di].rows=cloneRowsForUndo(snap.rows);
+  dirtyDeptKeys.add(deptKey(di));
+  curDeptIdx=di;curDeptId=depts[di].id||curDeptId;
+  renderLedger(di);
+  updateLedgerEditButtons();
+}
+window.addEventListener('beforeunload',e=>{
+  if(dirtyDeptKeys.size>0){
+    e.preventDefault();
+    e.returnValue='';
+  }
+});
 function loadFromFirebase(){
   db.ref('jangbu').once('value').then(snap=>{
     const data=snap.val();
@@ -956,9 +1021,12 @@ function listenRealtime(){
     if(!data){depts=[];renderSubnav();return;}
     // Firebase 실제 키를 _key로 보존한다. 부서 추가/삭제 후에도 장부 경로가 꼬이지 않게 한다.
     const newDepts=normalizeDeptData(data,true);
-    // 저장 중인 부서만 로컬 버전 유지, 나머지 교체
-    newDepts.forEach((d,i)=>{if(!savingDepts.has(i))depts[i]=d;});
-    if(savingDepts.size===0)depts=newDepts;
+    // 저장 중이거나 저장 전 수동 수정 중인 부서는 로컬 버전을 유지한다.
+    newDepts.forEach((d,i)=>{
+      const key=String(d._key);
+      if(!savingDepts.has(i)&&!dirtyDeptKeys.has(key))depts[i]=d;
+    });
+    if(savingDepts.size===0&&dirtyDeptKeys.size===0)depts=newDepts;
     if(curDeptId){
       const nextIdx=findDeptIndexById(curDeptId);
       if(nextIdx>=0)curDeptIdx=nextIdx;
@@ -966,7 +1034,7 @@ function listenRealtime(){
     }
     renderSubnav();
     if(curScreen==='ledger'&&curDeptIdx!==null&&curDeptIdx<depts.length){
-      if(!savingDepts.has(curDeptIdx))renderLedger(curDeptIdx);
+      if(!savingDepts.has(curDeptIdx)&&!dirtyDeptKeys.has(deptKey(curDeptIdx)))renderLedger(curDeptIdx);
     }
     if(curScreen==='summary')renderSummary();
   });
@@ -1433,6 +1501,7 @@ function openDept(i){
   document.getElementById('ledgerName').textContent=depts[i].name+' 장부';
   renderSubnav();
   renderLedger(i);
+  updateLedgerEditButtons();
 }
 
 // ── 서브 네비 렌더 ──
@@ -1532,6 +1601,7 @@ function renderLedger(di){
   ensureRows(di);tb.innerHTML='';
   depts[di].rows.forEach((row,ri)=>tb.appendChild(makeRow(di,ri)));
   calcBal(di);
+  updateLedgerEditButtons();
 }
 function moneyDisplay(v){
   const raw=String(v||'').trim();
@@ -1584,6 +1654,7 @@ function mkQtyTd(di,ri,val){
   inp.id=`qty-inp-${di}-${ri}`;
   inp.addEventListener('change',()=>{
     const di2=+inp.dataset.di,ri2=+inp.dataset.ri;
+    pushLedgerUndo(di2,'수량 수정');
     const qty=parseInt(inp.value)||1;
     inp.value=qty;
     depts[di2].rows[ri2].qty=qty;
@@ -1596,7 +1667,7 @@ function mkQtyTd(di,ri,val){
       const oInp=document.getElementById(`or-inp-${di2}-${ri2}`);
       if(oInp)oInp.value=newOrder.toLocaleString();
     }
-    stampDates(di2,ri2);extendRowsIfNeeded(di2,ri2);calcBal(di2);saveDept(di2);
+    stampDates(di2,ri2);extendRowsIfNeeded(di2,ri2);markLedgerDirty(di2);
   });
   inp.addEventListener('keydown',e=>navKey(e,di,ri,'qty'));
   td.appendChild(inp);return td;
@@ -1609,11 +1680,12 @@ function mkOrderTd(di,ri,val){
   inp.id=`or-inp-${di}-${ri}`;
   inp.addEventListener('change',()=>{
     const di2=+inp.dataset.di,ri2=+inp.dataset.ri;
+    pushLedgerUndo(di2,'주문금액 수정');
     const n=pn(inp.value);
     depts[di2].rows[ri2].order=n?n:'';
     depts[di2].rows[ri2].basePrice=n;
     inp.value=n?n.toLocaleString():'';
-    stampDates(di2,ri2);extendRowsIfNeeded(di2,ri2);calcBal(di2);saveDept(di2);
+    stampDates(di2,ri2);extendRowsIfNeeded(di2,ri2);markLedgerDirty(di2);
   });
   inp.addEventListener('keydown',e=>navKey(e,di,ri,'order'));
   inp.addEventListener('paste',e=>handlePaste(e,di,ri,'order'));
@@ -1713,6 +1785,7 @@ function applyDeleteRows(){
   if(removedManual+removedEmpty===0){alert(skipped>0?'자동 주문 연동 행만 포함되어 삭제하지 않았습니다.':'삭제할 행이 없습니다.');return;}
   const msg=`${depts[di].name} ${start}~${end}행에서 수동 입력 ${removedManual}개${removedEmpty?`, 빈 행 ${removedEmpty}개`:''}를 삭제할까요?${skipped?`\n자동 주문 연동 행 ${skipped}개는 제외됩니다.`:''}`;
   if(!confirm(msg))return;
+  pushLedgerUndo(di,'행 삭제');
   depts[di].rows=depts[di].rows.filter((row,idx)=>{
     if(idx<start-1||idx>end-1)return true;
     if(isEmptyLedgerRow(row))return false;
@@ -1721,7 +1794,7 @@ function applyDeleteRows(){
   });
   ensureRows(di);
   renderLedger(di);
-  saveDept(di,true);
+  markLedgerDirty(di);
   closeDeleteRowsModal();
 }
 function applyInsertRows(){
@@ -1735,9 +1808,10 @@ function applyInsertRows(){
   const insertAt=Math.min(after,depts[di].rows.length);
   const blanks=[];
   for(let i=0;i<count;i++)blanks.push(blankLedgerRow());
+  pushLedgerUndo(di,'중간 행 추가');
   depts[di].rows.splice(insertAt,0,...blanks);
   renderLedger(di);
-  saveDept(di,true);
+  markLedgerDirty(di);
   closeInsertRowsModal();
   const next=document.querySelector(`input[data-di="${di}"][data-ri="${insertAt}"][data-col="content"]`);
   if(next)setTimeout(()=>next.focus(),50);
@@ -1764,6 +1838,8 @@ function applyMoveRows(){
   if(picked.length===0){alert(skipped>0?'자동 주문 연동 행만 포함되어 이동/복사하지 않았습니다.':'옮길 수동 입력 행이 없습니다.');return;}
   const msg=`${depts[from].name} ${start}~${end}행 중 수동 입력 ${picked.length}개를 ${depts[to].name}(으)로 ${mode==='move'?'이동':'복사'}할까요?${skipped?`\n자동 주문 연동 행 ${skipped}개는 제외됩니다.`:''}`;
   if(!confirm(msg))return;
+  pushLedgerUndo(from,mode==='move'?'행 이동':'행 복사');
+  pushLedgerUndo(to,mode==='move'?'행 이동 받기':'행 복사 받기');
   let insertAt=firstEmptyRowIndex(to);
   ensureRows(to,insertAt+picked.length+ROW_EXTEND_THRESHOLD);
   picked.forEach((p,idx)=>{
@@ -1771,8 +1847,8 @@ function applyMoveRows(){
     if(mode==='move')clearManualLedgerRow(depts[from].rows[p.ri]);
   });
   ensureRows(from);ensureRows(to);
-  if(mode==='move')saveDept(from,true);
-  saveDept(to,true);
+  if(mode==='move')markLedgerDirty(from);
+  markLedgerDirty(to);
   renderLedger(from);
   calcBal(to);
   closeMoveRowsModal();
@@ -1785,6 +1861,7 @@ function stampDates(di,ri){
 }
 function cc(inp){
   const di=+inp.dataset.di,ri=+inp.dataset.ri,col=inp.dataset.col;
+  pushLedgerUndo(di,'장부 셀 수정');
   if(col==='pay'){
     const n=pn(inp.value);
     depts[di].rows[ri][col]=n?n:'';
@@ -1792,10 +1869,11 @@ function cc(inp){
   }else{
     depts[di].rows[ri][col]=inp.value.trim();
   }
-  stampDates(di,ri);extendRowsIfNeeded(di,ri);if(col==='pay')calcBal(di);saveDept(di);
+  stampDates(di,ri);extendRowsIfNeeded(di,ri);markLedgerDirty(di);
 }
 function deleteRow(di,ri){
   if(!confirm((ri+1)+'행을 삭제할까요?'))return;
+  pushLedgerUndo(di,'행 삭제');
   const row=depts[di].rows[ri]||{};
   const key=deptKey(di);
   const deptId=(row.deptId||(depts[di]&&depts[di].id)||key);
@@ -1818,7 +1896,7 @@ function deleteRow(di,ri){
     depts[di].deletedRows={...(depts[di].deletedRows||{}),...deleted};
     db.ref('jangbu/deletedLedgerRows/'+firebaseSafeKey(deptId)).update(deleted);
   }
-  saveDept(di,true);
+  markLedgerDirty(di);
 }
 
 // 자동완성
@@ -1838,11 +1916,12 @@ function showAC(inp,di,ri){
 function hideAC(){document.getElementById('acPop').style.display='none';acList=[];acIdx=-1;acTarget=null;}
 function pa(i,di,ri){
   const item=acList[i];
+  pushLedgerUndo(di,'자동완성 선택');
   const inp=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="content"]`);
   if(inp)inp.value=item.name;
   const row=depts[di].rows[ri];
   row.content=item.name;row.basePrice=item.price;row.order=item.price;
-  applyOrderWithOpts(di,ri);stampDates(di,ri);extendRowsIfNeeded(di,ri);hideAC();calcBal(di);sv();
+  applyOrderWithOpts(di,ri);stampDates(di,ri);extendRowsIfNeeded(di,ri);hideAC();markLedgerDirty(di);
   const qi=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="qty"]`);
   if(qi)setTimeout(()=>{qi.focus();qi.select&&qi.select();},10);
 }
@@ -1884,19 +1963,21 @@ function openOptPop(di,ri,btn){
 function toggleOpt(i){
   if(!optTarget)return;
   const {di,ri}=optTarget;const row=depts[di].rows[ri];
+  pushLedgerUndo(di,'옵션 수정');
   if(!row.opts)row.opts=[];
   const opt=optionDB[i];const idx=row.opts.findIndex(o=>o.name===opt.name);
   if(idx>=0)row.opts.splice(idx,1);else row.opts.push({name:opt.name,price:opt.price});
   const selectedNames=row.opts.map(o=>o.name);
   document.getElementById('optList').querySelectorAll('.opt-item').forEach((el,j)=>el.classList.toggle('checked',selectedNames.includes(optionDB[j].name)));
   if(!row.basePrice)row.basePrice=pn(row.order);
-  applyOrderWithOpts(di,ri);stampDates(di,ri);extendRowsIfNeeded(di,ri);calcBal(di);saveDept(di);
+  applyOrderWithOpts(di,ri);stampDates(di,ri);extendRowsIfNeeded(di,ri);markLedgerDirty(di);
 }
 function clearOpts(){
   if(!optTarget)return;
   const {di,ri}=optTarget;const row=depts[di].rows[ri];
+  pushLedgerUndo(di,'옵션 초기화');
   row.opts=[];if(row.basePrice!==undefined)row.order=row.basePrice;
-  applyOrderWithOpts(di,ri);hideOpt();calcBal(di);saveDept(di);
+  applyOrderWithOpts(di,ri);hideOpt();markLedgerDirty(di);
 }
 function hideOpt(){document.getElementById('optPop').style.display='none';optTarget=null;}
 
@@ -1917,6 +1998,7 @@ function handlePaste(e,di,ri,col){
   const txt=e.clipboardData.getData('text');
   if(!txt.includes('\n')&&!txt.includes('\t'))return;
   e.preventDefault();
+  pushLedgerUndo(di,'엑셀 붙여넣기');
   const rows=txt.split('\n').map(r=>r.split('\t'));
   const colOrder=['date','content','qty','pay','order','note'];
   const startCol=colOrder.indexOf(col);if(startCol<0)return;
@@ -1934,7 +2016,7 @@ function handlePaste(e,di,ri,col){
   });
   extendRowsIfNeeded(di,ri+rows.length-1);
   if(curScreen==='ledger'&&curDeptIdx===di)renderLedger(di);
-  calcBal(di);saveDept(di);
+  markLedgerDirty(di);
 }
 function calcBal(di){
   const d=depts[di];let run=0,tp=0,to=0;
