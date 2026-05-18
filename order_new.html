@@ -434,6 +434,7 @@ let orderType='eat';
 let popupItem=null,popupTemp=null,popupOpts=[],popupQty=1;
 let pwdBuffer='';
 let backGuardReady=false;
+let suppressBackUntil=0;
 
 function keepOrderAppOpen(){
   if(backGuardReady)return;
@@ -446,14 +447,13 @@ function keepOrderAppOpen(){
 }
 function handleBackButton(){
   try{history.pushState({orderGuard:true},'',location.href);}catch(e){}
+  if(Date.now()<suppressBackUntil)return;
   const popup=document.getElementById('popupBg');
   const pwd=document.getElementById('pwdModal');
   const complete=document.getElementById('completePopup');
-  const intro=document.getElementById('introScreen');
   if(popup&&popup.classList.contains('open')){closePopup();return;}
   if(pwd&&pwd.classList.contains('open')){closePwdModal();return;}
   if(complete&&complete.classList.contains('open')){closeCompletePopup();return;}
-  if(intro&&intro.classList.contains('active')){goIntro();return;}
   showToast('주문 화면에서는 뒤로가기를 사용할 수 없습니다');
 }
 
@@ -698,9 +698,14 @@ function goIntro(){
   document.getElementById('waitScreen').classList.add('active');
 }
 function selectType(type){
+  suppressBackUntil=Date.now()+900;
   orderType=type;
   document.getElementById('waitDeptName').textContent=type==='eat'?'🍽️ 매장 주문':'🛍️ 포장 주문';
   renderIntroScreen(true);
+  setTimeout(()=>{
+    document.getElementById('introScreen').classList.add('active');
+    document.getElementById('waitScreen').classList.remove('active');
+  },0);
 }
 
 // ── 카테고리 탭 ──
@@ -830,43 +835,39 @@ function openPopup(item){
   const grid=document.getElementById('optGrid');
   grid.innerHTML='';
   const optSecLabel=document.querySelector('.sec-label:last-of-type');
-  if(item.cat==='디저트'){
-    if(optSecLabel)optSecLabel.style.display='none';
-  } else {
-    if(optSecLabel)optSecLabel.style.display='';
-    // 중카테고리 찾기
-    let allowedOpts=null;
-    const directOptionMap=menuOptionMap||buildClientMenuOptionMap();
-    if(directOptionMap){
-      const keys=itemOptionKeys(item);
-      for(const key of keys){
-        if(Array.isArray(directOptionMap[key])){
-          allowedOpts=directOptionMap[key];
-          break;
-        }
+  if(optSecLabel)optSecLabel.style.display='';
+  // 중카테고리 찾기
+  let allowedOpts=null;
+  const directOptionMap=menuOptionMap||buildClientMenuOptionMap();
+  if(directOptionMap){
+    const keys=itemOptionKeys(item);
+    for(const key of keys){
+      if(Array.isArray(directOptionMap[key])){
+        allowedOpts=directOptionMap[key];
+        break;
       }
     }
-    if(!allowedOpts&&catSubMap&&catSubMap[item.cat]){
-      const subs=catSubMap[item.cat];
-      const matchSub=subs.find(s=>subHasOrderItem(s,item));
-      if(matchSub){
-        const subKey=subOptKey(item.cat,matchSub);
-        const legacyKey=item.cat+'>>'+matchSub.name;
-        allowedOpts=catOptMap&&(catOptMap[subKey]||catOptMap[legacyKey]);
-      }
-    }
-    // 중카테고리 없으면 대카테고리 옵션
-    if(!allowedOpts&&catOptMap)allowedOpts=catOptMap[item.cat];
-    const useFilter=allowedOpts&&allowedOpts.length>0;
-    optionDB.forEach((opt,i)=>{
-      if(useFilter&&!allowedOpts.includes(opt.name))return;
-      const btn=document.createElement('button');
-      btn.className='opt-btn';
-      btn.innerHTML=`<span class="opt-name">${opt.name}</span><span class="opt-price">+${opt.price.toLocaleString()}</span>`;
-      btn.onclick=()=>toggleOpt(i,btn);
-      grid.appendChild(btn);
-    });
   }
+  if(!allowedOpts&&catSubMap&&catSubMap[item.cat]){
+    const subs=catSubMap[item.cat];
+    const matchSub=subs.find(s=>subHasOrderItem(s,item));
+    if(matchSub){
+      const subKey=subOptKey(item.cat,matchSub);
+      const legacyKey=item.cat+'>>'+matchSub.name;
+      allowedOpts=catOptMap&&(catOptMap[subKey]||catOptMap[legacyKey]);
+    }
+  }
+  // 중카테고리 없으면 대카테고리 옵션
+  if(!allowedOpts&&catOptMap)allowedOpts=catOptMap[item.cat];
+  const useFilter=allowedOpts&&allowedOpts.length>0;
+  optionDB.forEach((opt,i)=>{
+    if(useFilter&&!allowedOpts.includes(opt.name))return;
+    const btn=document.createElement('button');
+    btn.className='opt-btn';
+    btn.innerHTML=`<span class="opt-name">${opt.name}</span><span class="opt-price">+${opt.price.toLocaleString()}</span>`;
+    btn.onclick=()=>toggleOpt(i,btn);
+    grid.appendChild(btn);
+  });
 
   document.getElementById('popupQty').textContent=1;
   updatePopupBtn();
