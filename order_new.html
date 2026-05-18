@@ -349,16 +349,75 @@ firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
 // ── 상태 ──
-let depts=[],optionDB=[],soldout={},hiddenMenus={},catOptMap=null,catSubMap=null;
+let depts=[],optionDB=[],soldout={},hiddenMenus={},catOptMap=null,catSubMap=null,menuOptionMap=null;
 function menuSubKey(cat,name){return String(cat||'')+'::'+String(name||'');}
+function normalizeSubMenuName(cat,name){
+  let s=String(name||'').trim();
+  const prefix=String(cat||'')+'::';
+  if(s.startsWith(prefix))s=s.slice(prefix.length);
+  return s
+    .replace(/^\((HOT|ICE)\)/,'')
+    .replace(/\s+(HOT|ICE)$/,'')
+    .replace(/\s+/g,'')
+    .toLowerCase();
+}
+function menuOptionKey(cat,name){
+  return String(cat||'')+'::'+normalizeSubMenuName(cat,name);
+}
+function itemOptionKeys(item){
+  return optionMatchNames(item).map(name=>menuOptionKey(item.cat,name));
+}
 function subHasMenu(sub,cat,name){
   const menus=(sub&&sub.menus)||[];
-  return menus.includes(menuSubKey(cat,name))||menus.includes(name);
+  if(menus.includes(menuSubKey(cat,name))||menus.includes(name))return true;
+  const target=normalizeSubMenuName(cat,name);
+  return menus.some(m=>normalizeSubMenuName(cat,m)===target);
+}
+function optionMatchNames(item){
+  const names=new Set();
+  const add=v=>{if(v)names.add(String(v).trim());};
+  add(item&&item.name);
+  add(item&&item.originalName);
+  const display=String(item&&item.name||'').trim();
+  const original=String(item&&item.originalName||'').trim();
+  const temp=item&&item.tempFixed;
+  if(temp&&display.endsWith(' '+temp)){
+    const base=display.slice(0,-(temp.length+1)).trim();
+    add(base);
+    add('('+temp+')'+base);
+    add(base+' '+temp);
+  }
+  if(original.startsWith('(HOT)')||original.startsWith('(ICE)')){
+    const base=original.replace(/^\((HOT|ICE)\)/,'').trim();
+    const t=original.slice(1,4);
+    add(base);
+    add(base+' '+t);
+  }
+  return [...names];
+}
+function subHasOrderItem(sub,item){
+  return optionMatchNames(item).some(name=>subHasMenu(sub,item.cat,name));
 }
 function subOptKey(cat,sub){
   return String(cat||'')+'>>'+String((sub&&sub.id)||(sub&&sub.name)||'');
 }
-function stockName(s){return String(s||'').replace(/^\\((HOT|ICE)\\)/,'').replace(/\\s+(HOT|ICE)$/,'').trim();}
+function buildClientMenuOptionMap(){
+  if(!catSubMap||!catOptMap)return null;
+  const map={};
+  Object.keys(catSubMap).forEach(cat=>{
+    const subs=Array.isArray(catSubMap[cat])?catSubMap[cat]:[];
+    subs.forEach(sub=>{
+      const legacyKey=cat+'>>'+sub.name;
+      const opts=catOptMap[subOptKey(cat,sub)]||catOptMap[legacyKey];
+      if(!Array.isArray(opts))return;
+      (sub.menus||[]).forEach(menuName=>{
+        map[menuOptionKey(cat,menuName)]=opts;
+      });
+    });
+  });
+  return map;
+}
+function stockName(s){return String(s||'').replace(/^\((HOT|ICE)\)/,'').replace(/\s+(HOT|ICE)$/,'').trim();}
 function stockKeys(item){
   const display=item&&item.name!==undefined?item.name:item;
   const original=item&&item.originalName?item.originalName:'';
@@ -542,6 +601,7 @@ function loadData(){
       else optionDB=[...defaultOpt];
       catOptMap=data.catOptMap||null;
       catSubMap=data.catSubMap||null;
+      menuOptionMap=data.menuOptionMap||null;
       // Firebase menuDB → 주문용 변환
       rawMenuDB=data.menuDB||[];
       rawDessertDB=data.dessertDB||[];
@@ -574,8 +634,13 @@ function loadData(){
     const v=snap.val();
     if(v&&v.length>0){rawDessertDB=v;menuDB=convertMenuDB(rawMenuDB,rawDessertDB);if(curCat)renderMenuArea(curCat);}
   });
+  db.ref('jangbu/optionDB').on('value',snap=>{
+    const v=snap.val();
+    optionDB=(v&&v.length>0)?v:[...defaultOpt];
+  });
   db.ref('jangbu/catOptMap').on('value',snap=>{catOptMap=snap.val()||null;});
   db.ref('jangbu/catSubMap').on('value',snap=>{catSubMap=snap.val()||null;});
+  db.ref('jangbu/menuOptionMap').on('value',snap=>{menuOptionMap=snap.val()||null;});
   db.ref('jangbu/depts').on('value',snap=>{
     const data=snap.val();
     if(!data)return;
@@ -771,9 +836,19 @@ function openPopup(item){
     if(optSecLabel)optSecLabel.style.display='';
     // 중카테고리 찾기
     let allowedOpts=null;
-    if(catSubMap&&catSubMap[item.cat]){
+    const directOptionMap=menuOptionMap||buildClientMenuOptionMap();
+    if(directOptionMap){
+      const keys=itemOptionKeys(item);
+      for(const key of keys){
+        if(Array.isArray(directOptionMap[key])){
+          allowedOpts=directOptionMap[key];
+          break;
+        }
+      }
+    }
+    if(!allowedOpts&&catSubMap&&catSubMap[item.cat]){
       const subs=catSubMap[item.cat];
-      const matchSub=subs.find(s=>subHasMenu(s,item.cat,item.name));
+      const matchSub=subs.find(s=>subHasOrderItem(s,item));
       if(matchSub){
         const subKey=subOptKey(item.cat,matchSub);
         const legacyKey=item.cat+'>>'+matchSub.name;

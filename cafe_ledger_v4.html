@@ -542,6 +542,30 @@ function removeMenuFromSub(sub,cat,name){
 function subOptKey(cat,sub){
   return String(cat||'')+'>>'+String((sub&&sub.id)||(sub&&sub.name)||'');
 }
+function normalizeOptionMenuKey(cat,name){
+  let s=String(name||'').trim();
+  const prefix=String(cat||'')+'::';
+  if(s.startsWith(prefix))s=s.slice(prefix.length);
+  s=s.replace(/^\((HOT|ICE)\)/,'').replace(/\s+(HOT|ICE)$/,'');
+  return String(cat||'')+'::'+s.replace(/\s+/g,'').toLowerCase();
+}
+function buildMenuOptionMap(){
+  ensureCatSubMapShape();
+  const map={};
+  Object.keys(catSubMap||{}).forEach(cat=>{
+    const subs=catSubMap[cat]||[];
+    subs.forEach(sub=>{
+      const legacyKey=cat+'>>'+sub.name;
+      const opts=catOptMap[subOptKey(cat,sub)]||catOptMap[legacyKey];
+      if(!Array.isArray(opts))return;
+      (sub.menus||[]).forEach(menuName=>{
+        const key=normalizeOptionMenuKey(cat,menuName);
+        if(key)map[key]=opts;
+      });
+    });
+  });
+  return map;
+}
 function ensureCatSubMapShape(){
   if(!catSubMap||typeof catSubMap!=='object')catSubMap={};
   Object.keys(catSubMap).forEach(cat=>{
@@ -900,11 +924,13 @@ function sv(){
   setSyncStatus('ing');
   clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>{
+    const menuOptionMap=buildMenuOptionMap();
     db.ref('jangbu/menuDB').set(menuDB)
       .then(()=>db.ref('jangbu/optionDB').set(optionDB))
       .then(()=>db.ref('jangbu/dessertDB').set(dessertDB))
       .then(()=>db.ref('jangbu/catOptMap').set(catOptMap))
       .then(()=>db.ref('jangbu/catSubMap').set(catSubMap))
+      .then(()=>db.ref('jangbu/menuOptionMap').set(menuOptionMap))
       .then(()=>setSyncStatus('ok'))
       .catch(()=>setSyncStatus('err'));
   },1500);
