@@ -42,19 +42,20 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .menu-card.in-cart{border-color:#111;background:#FFF7B6;box-shadow:0 7px 0 #111,0 12px 22px rgba(0,0,0,.10);}
 .menu-card.soldout{opacity:0.4;cursor:not-allowed;pointer-events:none;}
 .sold-tag{position:absolute;top:9px;right:9px;background:#E24B4A;color:#fff;font-size:13px;padding:5px 9px;border-radius:999px;font-weight:900;}
-.menu-img-wrap{width:68px;height:68px;background:#FFF3AF;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:34px;border:2px solid #E2C300;box-shadow:inset 0 -5px 0 rgba(0,0,0,.05);}
-.menu-img-wrap.dual-temp{width:124px;height:68px;background:none;border:0;border-radius:0;box-shadow:none;gap:12px;}
-.drink-choice{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.menu-img-wrap{width:72px;height:72px;background:#FFF3AF;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:34px;border:2px solid #E2C300;box-shadow:inset 0 -5px 0 rgba(0,0,0,.05);}
+.menu-img-wrap.drink-temp{background:none;border:0;border-radius:0;box-shadow:none;font-size:0;}
+.menu-img-wrap.dual-temp{width:126px;gap:12px;}
+.drink-choice{display:flex;flex-direction:column;align-items:center;gap:4px;}
 .drink-label{font-size:10px;font-weight:950;line-height:1;padding:2px 5px;border-radius:999px;}
 .drink-label.hot{background:#FCEBEB;color:#A32D2D;}
 .drink-label.ice{background:#E6F1FB;color:#185FA5;}
-.cup-art{position:relative;display:block;width:36px;height:43px;}
-.hot-cup{background:linear-gradient(180deg,#FFF8EB 0%,#FFD9C9 100%);border:3px solid #9E3D1D;border-radius:8px 8px 12px 12px;box-shadow:inset 0 -5px 0 rgba(158,61,29,.16);}
-.hot-cup:before{content:"";position:absolute;left:7px;right:7px;top:-10px;height:10px;border-top:3px solid #9E3D1D;border-radius:50%;opacity:.65;}
-.hot-cup:after{content:"";position:absolute;right:-11px;top:12px;width:10px;height:15px;border:3px solid #9E3D1D;border-left:0;border-radius:0 12px 12px 0;}
-.ice-cup{width:34px;height:46px;background:linear-gradient(180deg,rgba(239,248,255,.92) 0%,rgba(119,190,241,.58) 100%);border:3px solid #185FA5;border-radius:5px 5px 13px 13px;transform:perspective(60px) rotateX(-5deg);box-shadow:inset 0 -8px 0 rgba(24,95,165,.12);}
-.ice-cup:before{content:"";position:absolute;left:14px;top:-13px;width:4px;height:20px;background:#185FA5;border-radius:999px;transform:rotate(15deg);}
-.ice-cup:after{content:"";position:absolute;left:6px;right:6px;top:12px;height:11px;background:rgba(255,255,255,.75);border-radius:4px;box-shadow:9px 10px 0 rgba(255,255,255,.62);}
+.cup-art{position:relative;display:block;width:44px;height:50px;}
+.hot-cup{background:linear-gradient(180deg,#FFF7DF 0%,#FFE3C8 64%,#F3B27A 100%);border:2px solid #7F2C19;border-radius:8px 8px 13px 13px;box-shadow:inset 0 -7px 0 rgba(127,44,25,.16),0 3px 0 rgba(0,0,0,.08);}
+.hot-cup:before{content:"";position:absolute;left:9px;right:9px;top:-9px;height:11px;border-top:3px solid #7F2C19;border-radius:50%;opacity:.55;}
+.hot-cup:after{content:"";position:absolute;right:-11px;top:13px;width:11px;height:17px;border:3px solid #7F2C19;border-left:0;border-radius:0 12px 12px 0;}
+.ice-cup{width:42px;height:52px;background:linear-gradient(180deg,#F7FCFF 0%,#CDEEFF 42%,#7CC9F4 100%);border:2px solid #1267A8;border-radius:7px 7px 15px 15px;transform:perspective(70px) rotateX(-5deg);box-shadow:inset 0 -8px 0 rgba(18,103,168,.16),0 3px 0 rgba(0,0,0,.08);}
+.ice-cup:before{content:"";position:absolute;left:18px;top:-15px;width:5px;height:24px;background:#1267A8;border-radius:999px;transform:rotate(14deg);}
+.ice-cup:after{content:"";position:absolute;left:8px;right:8px;top:14px;height:12px;background:rgba(255,255,255,.78);border-radius:5px;box-shadow:10px 11px 0 rgba(255,255,255,.62);}
 .menu-name{font-size:17px;font-weight:950;color:#111;margin-bottom:7px;line-height:1.22;word-break:keep-all;}
 .menu-price{font-size:18px;color:#B27300;font-weight:950;}
 .menu-cart-qty{position:absolute;top:-8px;left:-8px;background:#111;color:#F5C800;font-size:15px;font-weight:950;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;}
@@ -199,9 +200,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   .menu-grid{grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;}
   .menu-card{min-height:140px;border-radius:18px;padding:12px 8px;}
   .menu-img-wrap{width:52px;height:52px;font-size:27px;margin-bottom:6px;}
-  .menu-img-wrap.dual-temp{width:104px;height:56px;gap:9px;}
-  .cup-art{width:30px;height:36px;}
-  .ice-cup{width:29px;height:38px;}
+  .menu-img-wrap.drink-temp{width:56px;height:52px;}
+  .menu-img-wrap.dual-temp{width:108px;height:52px;gap:9px;}
+  .cup-art{width:32px;height:37px;}
+  .ice-cup{width:31px;height:39px;}
   .drink-label{font-size:9px;padding:2px 4px;}
   .menu-name{font-size:14px;}
   .menu-price{font-size:15px;}
@@ -857,8 +859,14 @@ function makeMenuCard(item){
   const mega=isMega(item.name);
   const imgWrap=document.createElement('div');imgWrap.className='menu-img-wrap';
   if(item.needTemp){
-    imgWrap.className='menu-img-wrap dual-temp';
+    imgWrap.className='menu-img-wrap drink-temp dual-temp';
     imgWrap.innerHTML='<span class="drink-choice"><span class="cup-art hot-cup"></span><span class="drink-label hot">HOT</span></span><span class="drink-choice"><span class="cup-art ice-cup"></span><span class="drink-label ice">ICE</span></span>';
+  } else if(temp==='HOT'){
+    imgWrap.className='menu-img-wrap drink-temp';
+    imgWrap.innerHTML='<span class="drink-choice"><span class="cup-art hot-cup"></span><span class="drink-label hot">HOT</span></span>';
+  } else if(temp==='ICE'){
+    imgWrap.className='menu-img-wrap drink-temp';
+    imgWrap.innerHTML='<span class="drink-choice"><span class="cup-art ice-cup"></span><span class="drink-label ice">ICE</span></span>';
   } else {
     imgWrap.textContent=getMenuIcon(item);
   }
