@@ -579,7 +579,7 @@ function firebaseSafeKey(v){
 // (HOT)xxx → tempFixed:'HOT', needTemp:false
 // (ICE)xxx → tempFixed:'ICE', needTemp:false
 // HOT/ICE 둘 다 있는 메뉴 → needTemp:true 통합카드 1개
-// HOT/ICE 둘 다 없는 → needTemp:false, tempFixed:null
+// HOT/ICE 둘 다 없는 음료 → 기본 ICE (유자생강차만 HOT)
 function convertMenuDB(raw,des){
   const result=[];
   // 1패스: HOT/ICE 쌍을 먼저 수집
@@ -587,7 +587,7 @@ function convertMenuDB(raw,des){
   const iceMap=new Map();
   const allRaw=[...(raw||[]),...(des||[])];
 
-  allRaw.forEach(m=>{
+  allRaw.forEach((m,sourceIndex)=>{
     if(!m||!m.name)return;
     const name=m.name;
     const isHOT=name.startsWith('(HOT)');
@@ -595,13 +595,13 @@ function convertMenuDB(raw,des){
     const cleanName=name.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
     const cat=normalizeMenuCat(m.cat||guessOrderCat(cleanName));
     const key=cat+'::'+cleanName;
-    if(isHOT)hotMap.set(key,{price:m.price,m,cleanName,cat});
-    else if(isICE)iceMap.set(key,{price:m.price,m,cleanName,cat});
+    if(isHOT)hotMap.set(key,{price:m.price,m,cleanName,cat,sourceIndex});
+    else if(isICE)iceMap.set(key,{price:m.price,m,cleanName,cat,sourceIndex});
   });
 
   // 2패스: 변환
   const processed=new Set();
-  allRaw.forEach(m=>{
+  allRaw.forEach((m,sourceIndex)=>{
     if(!m||!m.name)return;
     const name=m.name;
     const isHOT=name.startsWith('(HOT)');
@@ -618,11 +618,11 @@ function convertMenuDB(raw,des){
         // 가격 같음 → 통합 카드 (ICE 처리 시 생성)
         if(!processed.has(key+'_merged')){
           processed.add(key+'_merged');
-          result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:true,tempFixed:null,hotPrice:m.price,icePrice:iceEntry.price});
+          result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:true,tempFixed:null,hotPrice:m.price,icePrice:iceEntry.price,orderIndex:Math.min(sourceIndex,iceEntry.sourceIndex)});
         }
       } else {
         // 가격 다르거나 ICE 없음 → HOT 별도 카드
-        result.push({name:cleanName+' HOT',originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:'HOT',hotPrice:m.price,icePrice:null});
+        result.push({name:cleanName+' HOT',originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:'HOT',hotPrice:m.price,icePrice:null,orderIndex:sourceIndex});
       }
     } else if(isICE){
       if(processed.has(key+'_ICE'))return;
@@ -632,18 +632,18 @@ function convertMenuDB(raw,des){
         // 가격 같음 → HOT/ICE 통합 카드. ICE가 먼저 나와도 반드시 생성한다.
         if(!processed.has(key+'_merged')){
           processed.add(key+'_merged');
-          result.push({name:cleanName,originalName:hotEntry.m.name,cat,price:hotEntry.price,alias:hotEntry.m.alias||m.alias||'',needTemp:true,tempFixed:null,hotPrice:hotEntry.price,icePrice:m.price});
+          result.push({name:cleanName,originalName:hotEntry.m.name,cat,price:hotEntry.price,alias:hotEntry.m.alias||m.alias||'',needTemp:true,tempFixed:null,hotPrice:hotEntry.price,icePrice:m.price,orderIndex:Math.min(sourceIndex,hotEntry.sourceIndex)});
         }
       } else {
         // 가격 다르거나 HOT 없음 → ICE 별도 카드
-        result.push({name:cleanName+' ICE',originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:'ICE',hotPrice:null,icePrice:m.price});
+        result.push({name:cleanName+' ICE',originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:'ICE',hotPrice:null,icePrice:m.price,orderIndex:sourceIndex});
       }
     } else {
-      // 접두어 없음 → 그대로
-      result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:null,hotPrice:null,icePrice:null});
+      const defaultTemp=/유자생강차/.test(cleanName)?'HOT':'ICE';
+      result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:cat==='디저트'?null:defaultTemp,hotPrice:defaultTemp==='HOT'?m.price:null,icePrice:defaultTemp==='ICE'?m.price:null,orderIndex:sourceIndex});
     }
   });
-  return result;
+  return result.sort((a,b)=>(a.orderIndex??0)-(b.orderIndex??0));
 }
 
 // 카테고리 순서 정의 (Firebase menuDB의 cat 기준)
@@ -840,11 +840,6 @@ function setMenuImage(wrap,item){
   if(item.cat==='디저트'){
     wrap.className='menu-img-wrap emoji';
     wrap.textContent='🍰';
-    return;
-  }
-  if(item.cat==='에이드&주스'||item.cat==='스무디&프라페'||item.cat==='티(Tea)'){
-    wrap.className='menu-img-wrap emoji';
-    wrap.textContent=item.cat==='티(Tea)'?'🍵':item.cat==='에이드&주스'?'🧃':'🧋';
     return;
   }
   wrap.textContent='';
