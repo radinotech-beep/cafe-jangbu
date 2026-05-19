@@ -656,7 +656,9 @@ function renderOrders(){
       body.className='card-body';
       (order.items||[]).forEach((item,idx)=>{
         const mega=isMega(item.name);
-        const optStr=(item.opts||[]).map(o=>o.name).join(', ');
+        const optParts=(item.opts||[]).map(o=>o.name);
+        if(item.tumbler)optParts.push('텀블러');
+        const optStr=optParts.join(', ');
         const madeKey=order.id+'_'+idx;
         const isMade=!!madeItems[madeKey];
         const div=document.createElement('div');
@@ -848,7 +850,9 @@ function openDetail(order){
   (order.items||[]).forEach(item=>{
     const name=esc(item.displayName||item.name||'메뉴');
     const qty=pn(item.qty)||1;
-    const opts=(item.opts||item.options||[]).map(o=>esc(typeof o==='string'?o:o.name)).filter(Boolean).join(', ');
+    const optsArr=(item.opts||item.options||[]).map(o=>esc(typeof o==='string'?o:o.name)).filter(Boolean);
+    if(item.tumbler)optsArr.push('텀블러');
+    const opts=optsArr.join(', ');
     const amount=(pn(item.unitPrice)||0)*qty;
     html+='<div class="detail-item">'
       +'<div class="detail-item-name">'+name+' × '+qty+'</div>'
