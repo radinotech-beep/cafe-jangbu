@@ -43,9 +43,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .menu-card.soldout{opacity:0.4;cursor:not-allowed;pointer-events:none;}
 .sold-tag{position:absolute;top:9px;right:9px;background:#E24B4A;color:#fff;font-size:13px;padding:5px 9px;border-radius:999px;font-weight:900;}
 .menu-img-wrap{width:68px;height:68px;background:#FFF3AF;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:34px;border:2px solid #E2C300;box-shadow:inset 0 -5px 0 rgba(0,0,0,.05);}
-.menu-img-wrap.dual-temp{gap:0;background:linear-gradient(90deg,#FFF0EB 0 50%,#EBF3FF 50% 100%);overflow:hidden;}
-.menu-img-wrap.dual-temp .drink-icon{width:50%;height:100%;display:flex;align-items:center;justify-content:center;font-size:26px;}
-.menu-img-wrap.dual-temp .hot-icon{border-right:2px solid rgba(17,17,17,.14);}
+.menu-img-wrap.dual-temp{width:124px;height:68px;background:none;border:0;border-radius:0;box-shadow:none;gap:12px;}
+.drink-choice{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.drink-label{font-size:10px;font-weight:950;line-height:1;padding:2px 5px;border-radius:999px;}
+.drink-label.hot{background:#FCEBEB;color:#A32D2D;}
+.drink-label.ice{background:#E6F1FB;color:#185FA5;}
+.cup-art{position:relative;display:block;width:36px;height:43px;}
+.hot-cup{background:linear-gradient(180deg,#FFF8EB 0%,#FFD9C9 100%);border:3px solid #9E3D1D;border-radius:8px 8px 12px 12px;box-shadow:inset 0 -5px 0 rgba(158,61,29,.16);}
+.hot-cup:before{content:"";position:absolute;left:7px;right:7px;top:-10px;height:10px;border-top:3px solid #9E3D1D;border-radius:50%;opacity:.65;}
+.hot-cup:after{content:"";position:absolute;right:-11px;top:12px;width:10px;height:15px;border:3px solid #9E3D1D;border-left:0;border-radius:0 12px 12px 0;}
+.ice-cup{width:34px;height:46px;background:linear-gradient(180deg,rgba(239,248,255,.92) 0%,rgba(119,190,241,.58) 100%);border:3px solid #185FA5;border-radius:5px 5px 13px 13px;transform:perspective(60px) rotateX(-5deg);box-shadow:inset 0 -8px 0 rgba(24,95,165,.12);}
+.ice-cup:before{content:"";position:absolute;left:14px;top:-13px;width:4px;height:20px;background:#185FA5;border-radius:999px;transform:rotate(15deg);}
+.ice-cup:after{content:"";position:absolute;left:6px;right:6px;top:12px;height:11px;background:rgba(255,255,255,.75);border-radius:4px;box-shadow:9px 10px 0 rgba(255,255,255,.62);}
 .menu-name{font-size:17px;font-weight:950;color:#111;margin-bottom:7px;line-height:1.22;word-break:keep-all;}
 .menu-price{font-size:18px;color:#B27300;font-weight:950;}
 .menu-cart-qty{position:absolute;top:-8px;left:-8px;background:#111;color:#F5C800;font-size:15px;font-weight:950;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;}
@@ -190,7 +199,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   .menu-grid{grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;}
   .menu-card{min-height:140px;border-radius:18px;padding:12px 8px;}
   .menu-img-wrap{width:52px;height:52px;font-size:27px;margin-bottom:6px;}
-  .menu-img-wrap.dual-temp .drink-icon{font-size:21px;}
+  .menu-img-wrap.dual-temp{width:104px;height:56px;gap:9px;}
+  .cup-art{width:30px;height:36px;}
+  .ice-cup{width:29px;height:38px;}
+  .drink-label{font-size:9px;padding:2px 4px;}
   .menu-name{font-size:14px;}
   .menu-price{font-size:15px;}
   .cart-panel{width:230px;}
@@ -531,7 +543,7 @@ function firebaseSafeKey(v){
 // (HOT)xxx → tempFixed:'HOT', needTemp:false
 // (ICE)xxx → tempFixed:'ICE', needTemp:false
 // HOT/ICE 둘 다 있는 메뉴 → needTemp:true 통합카드 1개
-// HOT/ICE 둘 다 없는 → needTemp:false, tempFixed:null
+// HOT/ICE 둘 다 없는 → 기본 ICE. 단, 유자생강차는 HOT.
 function convertMenuDB(raw,des){
   const result=[];
   // 1패스: HOT/ICE 쌍을 먼저 수집
@@ -591,8 +603,8 @@ function convertMenuDB(raw,des){
         result.push({name:cleanName+' ICE',originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:'ICE',hotPrice:null,icePrice:m.price});
       }
     } else {
-      // 접두어 없음 → 그대로
-      result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:null,hotPrice:null,icePrice:null});
+      const defaultTemp=cleanName==='유자생강차'?'HOT':'ICE';
+      result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:defaultTemp,hotPrice:defaultTemp==='HOT'?m.price:null,icePrice:defaultTemp==='ICE'?m.price:null});
     }
   });
   return result;
@@ -821,7 +833,7 @@ function makeMenuCard(item){
   const imgWrap=document.createElement('div');imgWrap.className='menu-img-wrap';
   if(item.needTemp){
     imgWrap.className='menu-img-wrap dual-temp';
-    imgWrap.innerHTML='<span class="drink-icon hot-icon">☕</span><span class="drink-icon ice-icon">🧊</span>';
+    imgWrap.innerHTML='<span class="drink-choice"><span class="cup-art hot-cup"></span><span class="drink-label hot">HOT</span></span><span class="drink-choice"><span class="cup-art ice-cup"></span><span class="drink-label ice">ICE</span></span>';
   } else {
     imgWrap.textContent=getMenuIcon(item);
   }
