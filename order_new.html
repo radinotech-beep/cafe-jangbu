@@ -44,11 +44,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .sold-tag{position:absolute;top:9px;right:9px;background:#E24B4A;color:#fff;font-size:13px;padding:5px 9px;border-radius:999px;font-weight:900;}
 .menu-img-wrap{width:72px;height:72px;background:#FFF3AF;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:34px;border:2px solid #E2C300;box-shadow:inset 0 -5px 0 rgba(0,0,0,.05);}
 .menu-img-wrap.drink-temp{background:none;border:0;border-radius:0;box-shadow:none;font-size:0;}
-.menu-img-wrap.single-temp{width:72px;height:88px;}
-.menu-img-wrap.dual-temp{width:124px;height:88px;}
+.menu-img-wrap.single-temp{width:72px;height:96px;}
+.menu-img-wrap.dual-temp{width:124px;height:96px;}
 .drink-img{display:block;width:100%;height:100%;object-fit:contain;}
-.drink-choice{display:flex;flex-direction:column;align-items:center;gap:4px;}
-.drink-label{font-size:10px;font-weight:950;line-height:1;padding:2px 5px;border-radius:999px;}
+.drink-choice{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;height:100%;}
+.dual-temp .drink-choice{width:50%;}
+.drink-choice .drink-img{height:72px;}
+.drink-label{font-size:15px;font-weight:950;line-height:1;padding:4px 10px;border-radius:999px;color:#fff;box-shadow:0 2px 0 rgba(0,0,0,.18);}
 .drink-label.hot{background:#FCEBEB;color:#A32D2D;}
 .drink-label.ice{background:#E6F1FB;color:#185FA5;}
 .cup-art{position:relative;display:block;width:44px;height:50px;}
@@ -202,8 +204,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   .menu-grid{grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px;}
   .menu-card{min-height:140px;border-radius:18px;padding:12px 8px;}
   .menu-img-wrap{width:52px;height:52px;font-size:27px;margin-bottom:6px;}
-  .menu-img-wrap.single-temp{width:58px;height:64px;}
-  .menu-img-wrap.dual-temp{width:112px;height:64px;gap:0;}
+  .menu-img-wrap.single-temp{width:58px;height:72px;}
+  .menu-img-wrap.dual-temp{width:112px;height:72px;gap:0;}
+  .drink-choice .drink-img{height:52px;}
+  .drink-label{font-size:12px;padding:3px 8px;}
   .cup-art{width:32px;height:37px;}
   .ice-cup{width:31px;height:39px;}
   .drink-label{font-size:9px;padding:2px 4px;}
@@ -862,13 +866,13 @@ function makeMenuCard(item){
   const imgWrap=document.createElement('div');imgWrap.className='menu-img-wrap';
   if(item.needTemp){
     imgWrap.className='menu-img-wrap drink-temp dual-temp';
-    imgWrap.innerHTML='<img class="drink-img" src="menu-cups-hot-ice.png" alt="HOT ICE">';
+    imgWrap.innerHTML='<span class="drink-choice"><img class="drink-img" src="menu-cup-hot.png" alt="HOT"><span class="drink-label hot">HOT</span></span><span class="drink-choice"><img class="drink-img" src="menu-cup-ice.png" alt="ICE"><span class="drink-label ice">ICE</span></span>';
   } else if(temp==='HOT'){
     imgWrap.className='menu-img-wrap drink-temp single-temp';
-    imgWrap.innerHTML='<img class="drink-img" src="menu-cup-hot.png" alt="HOT">';
+    imgWrap.innerHTML='<span class="drink-choice"><img class="drink-img" src="menu-cup-hot.png" alt="HOT"><span class="drink-label hot">HOT</span></span>';
   } else if(temp==='ICE'){
     imgWrap.className='menu-img-wrap drink-temp single-temp';
-    imgWrap.innerHTML='<img class="drink-img" src="menu-cup-ice.png" alt="ICE">';
+    imgWrap.innerHTML='<span class="drink-choice"><img class="drink-img" src="menu-cup-ice.png" alt="ICE"><span class="drink-label ice">ICE</span></span>';
   } else {
     imgWrap.textContent=getMenuIcon(item);
   }
