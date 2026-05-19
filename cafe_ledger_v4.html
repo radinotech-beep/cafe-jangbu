@@ -1180,6 +1180,22 @@ function switchMenuSub(sub){
 }
 const MAIN_CATS=['커피','디카페인','콜드브루','티(Tea)','음료(논커피라떼)','에이드&주스','스무디&프라페','디저트'];
 let dragSrcIdx=null,dragSrcArr=null;
+const TEMP_MODE_OPTIONS=[
+  {value:'ICE',label:'ICE 전용'},
+  {value:'HOT',label:'HOT 전용'},
+  {value:'BOTH',label:'HOT/ICE'},
+  {value:'NONE',label:'온도 없음'}
+];
+function cleanMenuNameForTemp(name){return String(name||'').replace(/^[(]HOT[)]|^[(]ICE[)]/,'').trim();}
+function inferTempMode(item){
+  const mode=String(item&&item.tempMode||'').toUpperCase();
+  if(['ICE','HOT','BOTH','NONE'].includes(mode))return mode;
+  const name=String(item&&item.name||'');
+  if(name.startsWith('(HOT)'))return'HOT';
+  if(name.startsWith('(ICE)'))return'ICE';
+  if(cleanMenuNameForTemp(name)==='유자생강차')return'HOT';
+  return'ICE';
+}
 
 function renderMenuDb(){
   const isDesert=curMenuSub==='dessert';
@@ -1195,7 +1211,7 @@ function renderMenuDb(){
     </div>`;
     h+=`<table class="dbt" style="margin-bottom:0;"><thead><tr>
       <th style="width:20px;"></th><th>메뉴명</th><th>별칭</th>
-      <th style="width:65px;">금액</th><th style="width:60px;">카테고리</th><th style="width:24px;"></th>
+      <th style="width:65px;">금액</th><th style="width:82px;">온도</th><th style="width:60px;">카테고리</th><th style="width:24px;"></th>
     </tr></thead><tbody>`;
     items.forEach(({it,i})=>{
       h+=`<tr draggable="true"
@@ -1208,6 +1224,9 @@ function renderMenuDb(){
         <td><input value="${esc(it.name)}" onchange="dbcM(${i},'name',this.value)"></td>
         <td><input value="${esc(it.alias||'')}" onchange="dbcM(${i},'alias',this.value)"></td>
         <td><input value="${it.price}" onchange="dbcM(${i},'price',this.value)" style="text-align:right;width:60px;"></td>
+        <td><select onchange="dbcM(${i},'tempMode',this.value)" style="font-size:11px;width:100%;border:0.5px solid #e0dfd8;border-radius:4px;padding:2px;">
+          ${TEMP_MODE_OPTIONS.map(o=>`<option value="${o.value}"${inferTempMode(it)===o.value?' selected':''}>${o.label}</option>`).join('')}
+        </select></td>
         <td><select onchange="dbcM(${i},'cat',this.value)" style="font-size:11px;width:100%;border:0.5px solid #e0dfd8;border-radius:4px;padding:2px;">
           ${MAIN_CATS.map(c=>`<option value="${c}"${(it.cat||guessCat(it.name))===c?' selected':''}>${c}</option>`).join('')}
         </select></td>
@@ -2327,7 +2346,7 @@ function dbc(i,col,val){const dbArr=getDB();dbArr[i][col]=col==='price'?(parseIn
 function dbd(i){getDB().splice(i,1);renderDBTab();}
 function dba(){
   const cat=curMenuSub==='dessert'?'디저트':'커피';
-  (curMenuSub==='dessert'?dessertDB:menuDB).push({name:'',alias:'',price:0,cat:cat});
+  (curMenuSub==='dessert'?dessertDB:menuDB).push({name:'',alias:'',price:0,cat:cat,tempMode:curMenuSub==='dessert'?'NONE':'ICE'});
   renderMenuDb();
   const body=document.getElementById('menuDbBody');
   if(body)setTimeout(()=>body.scrollTop=body.scrollHeight,50);

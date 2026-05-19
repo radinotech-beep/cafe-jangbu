@@ -538,6 +538,13 @@ function deptKeyFromSelection(){
 function firebaseSafeKey(v){
   return String(v||'unknown').replace(/[.#$/\[\]]/g,'_');
 }
+function cleanTempPrefix(name){return String(name||'').replace(/^[(]HOT[)]|^[(]ICE[)]/,'').trim();}
+function normalizeTempMode(item,cleanName){
+  const mode=String(item&&item.tempMode||'').toUpperCase();
+  if(['ICE','HOT','BOTH','NONE'].includes(mode))return mode;
+  if(cleanName==='유자생강차')return'HOT';
+  return null;
+}
 
 // 장부 menuDB → 주문 태블릿용으로 변환
 // (HOT)xxx → tempFixed:'HOT', needTemp:false
@@ -556,7 +563,7 @@ function convertMenuDB(raw,des){
     const name=m.name;
     const isHOT=name.startsWith('(HOT)');
     const isICE=name.startsWith('(ICE)');
-    const cleanName=name.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
+    const cleanName=cleanTempPrefix(name);
     const cat=normalizeMenuCat(m.cat||guessOrderCat(cleanName));
     const key=cat+'::'+cleanName;
     if(isHOT)hotMap.set(key,{price:m.price,m,cleanName,cat});
@@ -570,9 +577,27 @@ function convertMenuDB(raw,des){
     const name=m.name;
     const isHOT=name.startsWith('(HOT)');
     const isICE=name.startsWith('(ICE)');
-    const cleanName=name.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
+    const cleanName=cleanTempPrefix(name);
     const cat=normalizeMenuCat(m.cat||guessOrderCat(cleanName));
     const key=cat+'::'+cleanName;
+    const explicitMode=normalizeTempMode(m,cleanName);
+
+    if(explicitMode){
+      if(processed.has(key+'_explicit'))return;
+      processed.add(key+'_explicit');
+      if(explicitMode==='BOTH'){
+        processed.add(key+'_merged');
+        processed.add(key+'_HOT');
+        processed.add(key+'_ICE');
+        result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:true,tempFixed:null,hotPrice:m.price,icePrice:m.price});
+      } else {
+        const fixedTemp=explicitMode==='NONE'?null:explicitMode;
+        if(fixedTemp==='HOT')processed.add(key+'_HOT');
+        if(fixedTemp==='ICE')processed.add(key+'_ICE');
+        result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:fixedTemp,hotPrice:fixedTemp==='HOT'?m.price:null,icePrice:fixedTemp==='ICE'?m.price:null});
+      }
+      return;
+    }
 
     if(isHOT){
       if(processed.has(key+'_HOT'))return;
