@@ -27,7 +27,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .page-btn:disabled{opacity:.35;cursor:default;}
 
 /* 주문 그리드 */
-.order-grid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr;gap:10px;padding:12px;overflow:hidden;align-content:stretch;}
+.order-grid{flex:1;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr;gap:10px;padding:12px;overflow:hidden;align-content:stretch;touch-action:pan-y;user-select:none;}
 .order-grid::-webkit-scrollbar{width:4px;}
 .order-grid::-webkit-scrollbar-thumb{background:#E8D84A;border-radius:2px;}
 .order-grid.slide-next .order-card{animation:slideInNext .22s ease-out both;}
@@ -47,7 +47,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .order-no{font-size:11px;color:#777;margin-bottom:3px;font-weight:800;}
 .order-dept{font-size:22px;font-weight:900;color:#111;line-height:1.15;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .head-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
-.order-time{font-size:10px;color:#888;}
+.order-time{font-size:12px;color:#111;background:#fff;border:1px solid #E0B800;border-radius:999px;padding:3px 8px;font-weight:900;white-space:nowrap;}
 .urgent-badge{font-size:9px;background:#E24B4A;color:#fff;padding:2px 6px;border-radius:3px;font-weight:500;}
 
 .card-body{padding:8px 10px;flex:1;overflow:auto;}
@@ -199,6 +199,7 @@ let showDone=false;
 let kdsPage=0;
 const KDS_PAGE_SIZE=4;
 let kdsPageAnim='';
+let kdsPageLocked=false;
 let audioCtx=null;
 let knownOrderIds=new Set();
 let madeItems={}; // {orderId_itemIdx: true} 제조완료 로컬 상태
@@ -645,7 +646,7 @@ function renderOrders(){
         <div class="head-right">
           ${urg?'<span class="urgent-badge">⚠ 5분초과</span>':''}
           ${isCancelled?'<span style="font-size:9px;background:#999;color:#fff;padding:2px 6px;border-radius:3px;font-weight:500;">취소됨</span>':''}
-          <span class="order-time">${timeStr}</span>
+          <span class="order-time">주문 ${timeStr}</span>
         </div>`;
     }
     card.appendChild(headDiv);
@@ -764,11 +765,13 @@ function updatePageIndicator(totalPending){
 }
 
 function moveKdsPage(delta){
-  if(showDone)return;
+  if(showDone||kdsPageLocked)return;
   const pendingCount=Object.values(orders).filter(o=>o.status==='pending').length;
   const totalPages=Math.max(1,Math.ceil(pendingCount/KDS_PAGE_SIZE));
   const next=Math.max(0,Math.min(totalPages-1,kdsPage+delta));
   if(next===kdsPage)return;
+  kdsPageLocked=true;
+  setTimeout(()=>{kdsPageLocked=false;},340);
   kdsPageAnim=delta>0?'slide-next':'slide-prev';
   kdsPage=next;
   renderOrders();
