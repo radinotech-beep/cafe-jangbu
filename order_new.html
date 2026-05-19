@@ -89,12 +89,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 /* 메뉴 팝업 */
 .popup-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.68);z-index:300;align-items:center;justify-content:center;}
 .popup-bg.open{display:flex;}
-.popup{background:#fff;border-radius:26px;width:min(620px,calc(100vw - 40px));border:4px solid #111;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35);}
+.popup{background:#fff;border-radius:26px;width:min(620px,calc(100vw - 40px));max-height:calc(100dvh - 24px);border:4px solid #111;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;}
 .popup-head{background:#F5C800;padding:20px 24px;border-bottom:4px solid #111;display:flex;justify-content:space-between;align-items:center;}
 .popup-title{font-size:27px;font-weight:950;color:#111;line-height:1.15;}
 .popup-base-price{font-size:18px;color:#5F5100;margin-top:6px;font-weight:900;}
 .popup-close{background:#111;border:none;font-size:30px;cursor:pointer;color:#F5C800;width:50px;height:50px;border-radius:50%;font-weight:900;line-height:1;}
-.popup-body{padding:22px 24px;}
+.popup-body{padding:22px 24px;display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden;}
 .sec-label{font-size:17px;color:#111;font-weight:950;margin-bottom:12px;}
 .temp-row{display:flex;gap:12px;margin-bottom:18px;}
 .temp-btn{flex:1;padding:18px;border-radius:18px;border:3px solid #D7C000;background:#fff;cursor:pointer;text-align:center;font-family:inherit;box-shadow:0 5px 0 #D7C000;}
@@ -105,19 +105,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .temp-label{font-size:20px;font-weight:950;}
 .temp-label.hot{color:#993C1D;}
 .temp-label.ice{color:#185FA5;}
-.opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;max-height:280px;overflow-y:auto;padding-right:2px;}
+.opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;overflow-y:auto;padding-right:2px;min-height:0;flex:1;align-content:start;}
 .opt-btn{min-height:62px;padding:12px 14px;border-radius:16px;border:3px solid #E2C300;background:#fff;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:inherit;box-shadow:0 4px 0 #EAD76B;}
 .opt-btn:active{transform:translateY(2px);box-shadow:0 2px 0 #EAD76B;}
 .opt-btn.sel{border-color:#111;background:#FFF3A3;box-shadow:0 4px 0 #111;}
 .opt-name{font-size:16px;font-weight:900;color:#111;text-align:left;line-height:1.2;}
 .opt-price{font-size:16px;color:#B27300;font-weight:950;margin-left:8px;}
-.qty-row{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:#FFF3A3;border-radius:20px;margin-bottom:18px;border:3px solid #111;}
+.qty-row{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:#FFF3A3;border-radius:20px;margin-bottom:0;border:3px solid #111;flex-shrink:0;}
 .qty-label{font-size:19px;color:#111;font-weight:950;}
 .qty-ctrl{display:flex;align-items:center;gap:18px;}
 .qty-btn{width:48px;height:48px;border-radius:50%;border:3px solid #111;background:#fff;font-size:27px;font-weight:950;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#111;font-family:inherit;box-shadow:0 4px 0 #111;}
 .qty-btn:active{background:#F5C800;border-color:#F5C800;}
 .qty-num{font-size:30px;font-weight:950;color:#111;min-width:32px;text-align:center;}
-.popup-foot{padding:0 24px 24px;display:flex;gap:12px;}
+.popup-foot{padding:0 24px 24px;display:flex;gap:12px;flex-shrink:0;}
 .popup-cancel{flex:1;padding:18px;background:#fff;color:#777;border:3px solid #CFCFCF;border-radius:18px;font-size:19px;cursor:pointer;font-family:inherit;font-weight:950;}
 .popup-add{flex:2;padding:18px;background:#F5C800;color:#111;border:3px solid #111;border-radius:18px;font-size:21px;font-weight:950;cursor:pointer;font-family:inherit;box-shadow:0 6px 0 #111;}
 .popup-add:disabled{background:#E8D84A;color:#999;cursor:not-allowed;}
@@ -194,9 +194,24 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   .total-price{font-size:23px;}
   .order-btn{padding:15px;font-size:19px;}
   .popup{width:min(560px,calc(100vw - 34px));}
+  .popup-head{padding:12px 18px;}
   .popup-title{font-size:24px;}
-  .opt-grid{max-height:220px;}
+  .popup-base-price{font-size:16px;margin-top:4px;}
+  .popup-close{width:42px;height:42px;font-size:25px;}
+  .popup-body{padding:14px 18px;}
+  .sec-label{font-size:15px;margin-bottom:8px;}
+  .temp-row{gap:10px;margin-bottom:12px;}
+  .temp-btn{padding:10px 14px;border-radius:15px;}
+  .temp-icon{font-size:24px;margin-bottom:2px;}
+  .temp-label{font-size:17px;}
+  .opt-grid{gap:8px;margin-bottom:12px;}
   .opt-btn{min-height:54px;}
+  .qty-row{padding:10px 16px;border-radius:16px;}
+  .qty-label{font-size:17px;}
+  .qty-btn{width:40px;height:40px;font-size:23px;}
+  .qty-num{font-size:25px;}
+  .popup-foot{padding:0 18px 16px;}
+  .popup-cancel,.popup-add{padding:13px 14px;font-size:18px;border-radius:16px;}
 }
 
 /* 비밀번호 모달 */
