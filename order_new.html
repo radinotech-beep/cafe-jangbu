@@ -42,7 +42,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .menu-card.in-cart{border-color:#111;background:#FFF7B6;box-shadow:0 7px 0 #111,0 12px 22px rgba(0,0,0,.10);}
 .menu-card.soldout{opacity:0.4;cursor:not-allowed;pointer-events:none;}
 .sold-tag{position:absolute;top:9px;right:9px;background:#E24B4A;color:#fff;font-size:13px;padding:5px 9px;border-radius:999px;font-weight:900;}
-.menu-img-wrap{width:68px;height:68px;background:#FFF3AF;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:34px;border:2px solid #E2C300;box-shadow:inset 0 -5px 0 rgba(0,0,0,.05);}
+.menu-img-wrap{width:88px;height:70px;background:transparent;border-radius:0;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:34px;border:0;box-shadow:none;gap:2px;overflow:hidden;}
+.menu-img-wrap img{width:100%;height:100%;object-fit:contain;display:block;mix-blend-mode:multiply;}
+.menu-img-wrap.dual img{width:58%;height:100%;margin:0 -7px;}
+.menu-img-wrap.emoji{width:68px;height:68px;background:#FFF3AF;border-radius:50%;font-size:34px;border:2px solid #E2C300;box-shadow:inset 0 -5px 0 rgba(0,0,0,.05);}
 .menu-name{font-size:17px;font-weight:950;color:#111;margin-bottom:7px;line-height:1.22;word-break:keep-all;}
 .menu-price{font-size:18px;color:#B27300;font-weight:950;}
 .menu-cart-qty{position:absolute;top:-8px;left:-8px;background:#111;color:#F5C800;font-size:15px;font-weight:950;width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid #fff;}
@@ -833,6 +836,27 @@ function getTemp(item){
 function supportsTumbler(item){
   return item&&item.cat&&item.cat!=='디저트';
 }
+function setMenuImage(wrap,item){
+  if(item.cat==='디저트'){
+    wrap.className='menu-img-wrap emoji';
+    wrap.textContent='🍰';
+    return;
+  }
+  if(item.cat==='에이드&주스'||item.cat==='스무디&프라페'||item.cat==='티(Tea)'){
+    wrap.className='menu-img-wrap emoji';
+    wrap.textContent=item.cat==='티(Tea)'?'🍵':item.cat==='에이드&주스'?'🧃':'🧋';
+    return;
+  }
+  wrap.textContent='';
+  if(item.needTemp){
+    wrap.className='menu-img-wrap dual';
+    wrap.innerHTML='<img src="temp-hot-cup.png" alt=""><img src="temp-ice-cup.png" alt="">';
+  } else if(item.tempFixed==='ICE'){
+    wrap.innerHTML='<img src="temp-ice-cup.png" alt="">';
+  } else {
+    wrap.innerHTML='<img src="temp-hot-cup.png" alt="">';
+  }
+}
 
 function renderMenuArea(catKey){
   const area=document.getElementById('menuArea');
@@ -868,7 +892,7 @@ function makeMenuCard(item){
   const temp=getTemp(item);
   const mega=isMega(item.name);
   const imgWrap=document.createElement('div');imgWrap.className='menu-img-wrap';
-  imgWrap.textContent=item.cat==='디저트'?'🍰':item.cat==='에이드&주스'?'🧃':item.cat==='스무디&프라페'?'🧋':item.cat==='티(Tea)'?'🍵':'☕';
+  setMenuImage(imgWrap,item);
   div.appendChild(imgWrap);
 
   const nameEl=document.createElement('div');nameEl.className='menu-name';
