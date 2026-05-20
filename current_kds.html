@@ -58,10 +58,6 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .menu-name.mega-ricano{color:#B87900;font-weight:900;}
 .menu-name.matcha-parfait{color:#166534;font-weight:900;}
 .menu-qty{font-size:13px;font-weight:500;color:#111;margin-left:6px;white-space:nowrap;}
-.tag{font-size:9px;font-weight:500;padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;}
-.tag-hot{background:#FCEBEB;color:#A32D2D;}
-.tag-ice{background:#E6F1FB;color:#185FA5;}
-.tag-mega{background:#F5C800;color:#111;}
 .opt-list{margin-top:3px;display:flex;flex-direction:column;gap:2px;}
 .opt-row{display:flex;align-items:flex-start;gap:3px;}
 .opt-arrow{color:#B8860B;font-size:10px;margin-top:1px;flex-shrink:0;}
@@ -534,14 +530,6 @@ function toggleMade(orderId,itemIdx){
   renderOrders();
 }
 
-// 태그 HTML
-function tempTag(temp){
-  if(!temp)return'';
-  if(temp==='HOT')return'<span class="tag tag-hot">HOT</span>';
-  if(temp==='ICE')return'<span class="tag tag-ice">ICE</span>';
-  return'';
-}
-function isMega(name){return /메가|왕/.test(name);}
 function menuNameClass(name){
   const normalized=String(name||'').replace(/\s/g,'');
   if(normalized.includes('메가리카노'))return'mega-ricano';
@@ -550,7 +538,8 @@ function menuNameClass(name){
 }
 function optionRowsHtml(parts){
   if(!parts.length)return'';
-  return '<div class="opt-list">'+parts.map(name=>{
+  const sorted=[...parts].sort((a,b)=>(String(a)==='텀블러'?-1:0)+(String(b)==='텀블러'?1:0));
+  return '<div class="opt-list">'+sorted.map(name=>{
     const isTumbler=String(name)==='텀블러';
     return '<div class="opt-row"><span class="opt-arrow">▶</span><span class="opt-text '+(isTumbler?'tumbler':'')+'">'+esc(name)+'</span></div>';
   }).join('')+'</div>';
@@ -678,7 +667,6 @@ function renderOrders(){
       const body=document.createElement('div');
       body.className='card-body';
       (order.items||[]).forEach((item,idx)=>{
-        const mega=isMega(item.name);
         const optParts=(item.opts||[]).map(o=>o.name);
         if(item.tumbler)optParts.push('텀블러');
         const optHtml=optionRowsHtml(optParts);
@@ -693,7 +681,7 @@ function renderOrders(){
         }
         div.innerHTML=`
           <div class="menu-row">
-            <span class="menu-name ${nameCls}">${esc(item.displayName||item.name)}${mega?'<span class="tag tag-mega">MEGA</span>':''}${tempTag(item.temp)}</span>
+            <span class="menu-name ${nameCls}">${esc(item.displayName||item.name)}</span>
             <span class="menu-qty">${isMade?'✓':''}x${item.qty}</span>
           </div>
           ${optHtml}`;
@@ -881,7 +869,8 @@ function openDetail(order){
     const optsArr=(item.opts||item.options||[]).map(o=>esc(typeof o==='string'?o:o.name)).filter(Boolean);
     if(item.tumbler)optsArr.push('텀블러');
     const amount=(pn(item.unitPrice)||0)*qty;
-    const optsHtml=optsArr.length?'<div class="detail-opt-list">'+optsArr.map(opt=>{
+    const sortedOpts=[...optsArr].sort((a,b)=>(String(a)==='텀블러'?-1:0)+(String(b)==='텀블러'?1:0));
+    const optsHtml=sortedOpts.length?'<div class="detail-opt-list">'+sortedOpts.map(opt=>{
       const isTumbler=String(opt)==='텀블러';
       return '<div class="detail-opt '+(isTumbler?'tumbler':'')+'">▶ <span>'+opt+'</span></div>';
     }).join('')+'</div>':'';
