@@ -563,6 +563,8 @@ let popupItem=null,popupTemp=null,popupOpts=[],popupQty=1,popupTumbler=false;
 let pwdBuffer='';
 let backGuardReady=false;
 let suppressBackUntil=0;
+const INACTIVITY_RESET_MS=60000;
+let inactivityTimer=null;
 
 function keepOrderAppOpen(){
   if(backGuardReady)return;
@@ -783,15 +785,21 @@ function loadData(){
 // ── UI 초기화 ──
 function initUI(){
   keepOrderAppOpen();
+  setupInactivityReset();
   // menuDB 로드 후 카테고리바 렌더
   renderCatBar();
-  renderTypeScreen();
+  renderTypeScreen(true);
 }
 
 // ── 도입화면 ──
-function renderTypeScreen(){
+function showLedgerAlert(){
+  const alert=document.getElementById('ledgerAlert');
+  if(alert)alert.classList.remove('hidden');
+}
+function renderTypeScreen(showAlert=false){
   document.getElementById('waitScreen').classList.add('active');
   document.getElementById('introScreen').classList.remove('active');
+  if(showAlert)showLedgerAlert();
 }
 function closeLedgerAlert(){
   const alert=document.getElementById('ledgerAlert');
@@ -839,6 +847,36 @@ function selectType(type){
     document.getElementById('introScreen').classList.add('active');
     document.getElementById('waitScreen').classList.remove('active');
   },0);
+}
+
+function setupInactivityReset(){
+  if(inactivityTimer!==null)return;
+  ['pointerdown','touchstart','keydown'].forEach(evt=>{
+    document.addEventListener(evt,resetInactivityTimer,{passive:true});
+  });
+  resetInactivityTimer();
+}
+function resetInactivityTimer(){
+  clearTimeout(inactivityTimer);
+  inactivityTimer=setTimeout(resetOrderToStart,INACTIVITY_RESET_MS);
+}
+function resetOrderToStart(){
+  const complete=document.getElementById('completePopup');
+  if(complete)complete.classList.remove('open');
+  closePopup();
+  closePwdModal();
+  cart=[];
+  curDeptIdx=null;
+  curCat=null;
+  popupItem=null;popupTemp=null;popupOpts=[];popupQty=1;popupTumbler=false;
+  pwdBuffer='';
+  orderType='eat';
+  document.getElementById('deptBtn').textContent='부서 선택 ▾';
+  document.getElementById('waitDeptName').textContent='🍽️ 매장 주문';
+  renderCart();
+  renderCatBar();
+  renderTypeScreen(true);
+  resetInactivityTimer();
 }
 
 // ── 카테고리 탭 ──
@@ -1330,6 +1368,6 @@ function getAudioCtx(){if(!_audioCtx2)_audioCtx2=new(window.AudioContext||window
 document.addEventListener('click',function(){if(_audioCtx2&&_audioCtx2.state==='suspended')_audioCtx2.resume();});
 function playComplete(){try{var ctx=getAudioCtx();var notes=[{freq:440,start:0,dur:0.08,type:'triangle'},{freq:554,start:0.12,dur:0.08,type:'triangle'},{freq:659,start:0.24,dur:0.4,type:'sine'}];notes.forEach(function(n){var osc=ctx.createOscillator();var gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);osc.type=n.type;osc.frequency.setValueAtTime(n.freq,ctx.currentTime+n.start);gain.gain.setValueAtTime(0,ctx.currentTime+n.start);gain.gain.linearRampToValueAtTime(0.3,ctx.currentTime+n.start+0.01);gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+n.start+n.dur);osc.start(ctx.currentTime+n.start);osc.stop(ctx.currentTime+n.start+n.dur+0.05);});}catch(e){}}
 function showCompletePopup(orderNo,deptName){document.getElementById('completeSubText').textContent='#'+String(orderNo).padStart(3,'0')+' · '+deptName+' · 주방으로 전달됐어요';document.getElementById('completePopup').classList.add('open');playComplete();}
-function closeCompletePopup(){document.getElementById('completePopup').classList.remove('open');curDeptIdx=null;document.getElementById('deptBtn').textContent='부서 선택 ▾';goIntro();}
+function closeCompletePopup(){resetOrderToStart();}
 </script>
 
