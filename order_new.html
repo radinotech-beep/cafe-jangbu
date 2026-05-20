@@ -92,51 +92,56 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 /* 메뉴 팝업 */
 .popup-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.68);z-index:300;align-items:center;justify-content:center;}
 .popup-bg.open{display:flex;}
-.popup{background:#fff;border-radius:26px;width:min(620px,calc(100vw - 40px));max-height:calc(100dvh - 24px);border:4px solid #111;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;}
-.popup-head{background:#F5C800;padding:20px 24px;border-bottom:4px solid #111;display:flex;justify-content:space-between;align-items:center;}
-.popup-title{font-size:27px;font-weight:950;color:#111;line-height:1.15;}
-.popup-base-price{font-size:18px;color:#5F5100;margin-top:6px;font-weight:900;}
-.popup-close{background:#111;border:none;font-size:30px;cursor:pointer;color:#F5C800;width:50px;height:50px;border-radius:50%;font-weight:900;line-height:1;}
-.popup-body{padding:22px 24px;display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden;}
-.sec-label{font-size:17px;color:#111;font-weight:950;margin-bottom:12px;}
-.temp-row{display:flex;gap:12px;margin-bottom:14px;flex-shrink:0;}
-.temp-btn{flex:1;min-height:122px;padding:8px 12px 12px;border-radius:18px;border:3px solid #D7C000;background:#fff;cursor:pointer;text-align:center;font-family:inherit;box-shadow:0 5px 0 #D7C000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;}
+.popup{background:#fff;border-radius:22px;width:min(740px,calc(100vw - 28px));max-height:calc(100dvh - 18px);border:4px solid #111;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;}
+.popup-head{background:#F5C800;padding:12px 18px;border-bottom:4px solid #111;display:flex;justify-content:space-between;align-items:center;min-height:66px;}
+.popup-title{font-size:24px;font-weight:950;color:#111;line-height:1.08;}
+.popup-base-price{font-size:16px;color:#5F5100;margin-top:4px;font-weight:900;}
+.popup-close{background:#111;border:none;font-size:27px;cursor:pointer;color:#F5C800;width:44px;height:44px;border-radius:50%;font-weight:900;line-height:1;flex-shrink:0;}
+.popup-body{padding:14px 18px 10px;display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden;gap:10px;}
+.popup-section{display:grid;grid-template-columns:82px minmax(0,1fr);gap:12px;align-items:center;min-height:0;flex-shrink:0;}
+.popup-section.option-section{align-items:stretch;flex:1;min-height:86px;}
+.section-label{font-size:16px;color:#111;font-weight:950;line-height:1.15;padding-top:2px;}
+.section-label small{display:block;font-size:10px;color:#A32D2D;margin-top:3px;font-weight:950;}
+.section-control{min-width:0;}
+.option-section .section-control{height:100%;min-height:0;}
+.temp-row{display:flex;gap:10px;flex-shrink:0;}
+.temp-btn{flex:1;min-height:86px;padding:6px 10px 8px;border-radius:16px;border:3px solid #D7C000;background:#fff;cursor:pointer;text-align:center;font-family:inherit;box-shadow:0 4px 0 #D7C000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
 .temp-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #D7C000;}
 .temp-btn.sel-hot{border-color:#993C1D;background:#FFF0EB;box-shadow:0 5px 0 #993C1D;}
 .temp-btn.sel-ice{border-color:#185FA5;background:#EBF3FF;box-shadow:0 5px 0 #185FA5;}
-.temp-icon{width:118px;height:78px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.temp-icon{width:100px;height:50px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 .temp-icon img{width:130%;height:130%;object-fit:contain;display:block;mix-blend-mode:multiply;}
-.temp-label{display:inline-flex;align-items:center;justify-content:center;min-width:74px;height:32px;border-radius:12px;font-size:18px;font-weight:950;line-height:1;}
+.temp-label{display:inline-flex;align-items:center;justify-content:center;min-width:62px;height:25px;border-radius:10px;font-size:15px;font-weight:950;line-height:1;}
 .temp-label.hot{color:#993C1D;}
 .temp-label.ice{color:#185FA5;}
 .temp-label.hot{background:#FFE8E8;color:#C71919;}
 .temp-label.ice{background:#E8F2FF;color:#146DB8;}
 .tumbler-section{display:none;}
-.tumbler-card{width:100%;min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 14px;margin-bottom:14px;border:3px solid #E2C300;border-radius:16px;background:#FFFDF0;cursor:pointer;font-family:inherit;text-align:left;box-shadow:0 4px 0 #E9D25B;}
+.tumbler-card{width:100%;min-height:50px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:7px 12px;border:3px solid #E2C300;border-radius:14px;background:#FFFDF0;cursor:pointer;font-family:inherit;text-align:left;box-shadow:0 3px 0 #E9D25B;}
 .tumbler-card.on{border-color:#111;background:#FFF4B8;box-shadow:0 4px 0 #111;}
 .tumbler-main{display:flex;align-items:center;gap:10px;}
-.tumbler-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#111;color:#F5C800;font-size:19px;}
-.tumbler-title{font-size:18px;font-weight:950;line-height:1.1;color:#111;}
-.tumbler-sub{font-size:12px;color:#777;font-weight:800;margin-top:2px;}
-.tumbler-switch{width:58px;height:32px;border-radius:999px;padding:4px;background:#D8D8D8;flex-shrink:0;transition:.15s;}
-.tumbler-switch::before{content:'';display:block;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.25);transition:.15s;}
+.tumbler-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#111;color:#F5C800;font-size:17px;}
+.tumbler-title{font-size:16px;font-weight:950;line-height:1.1;color:#111;}
+.tumbler-sub{font-size:10px;color:#777;font-weight:800;margin-top:2px;}
+.tumbler-switch{width:50px;height:28px;border-radius:999px;padding:4px;background:#D8D8D8;flex-shrink:0;transition:.15s;}
+.tumbler-switch::before{content:'';display:block;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.25);transition:.15s;}
 .tumbler-card.on .tumbler-switch{background:#111;}
-.tumbler-card.on .tumbler-switch::before{transform:translateX(26px);background:#F5C800;}
-.opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;overflow-y:auto;padding-right:2px;min-height:72px;flex:1;align-content:start;}
-.opt-btn{min-height:62px;padding:12px 14px;border-radius:16px;border:3px solid #E2C300;background:#fff;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:inherit;box-shadow:0 4px 0 #EAD76B;}
+.tumbler-card.on .tumbler-switch::before{transform:translateX(22px);background:#F5C800;}
+.opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow-y:auto;padding-right:2px;min-height:0;max-height:none;height:100%;align-content:start;}
+.opt-btn{min-height:48px;padding:9px 12px;border-radius:13px;border:3px solid #E2C300;background:#fff;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:inherit;box-shadow:0 3px 0 #EAD76B;}
 .opt-btn:active{transform:translateY(2px);box-shadow:0 2px 0 #EAD76B;}
 .opt-btn.sel{border-color:#111;background:#FFF3A3;box-shadow:0 4px 0 #111;}
-.opt-name{font-size:16px;font-weight:900;color:#111;text-align:left;line-height:1.2;}
-.opt-price{font-size:16px;color:#B27300;font-weight:950;margin-left:8px;}
-.qty-row{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:#FFF3A3;border-radius:20px;margin-bottom:0;border:3px solid #111;flex-shrink:0;}
-.qty-label{font-size:19px;color:#111;font-weight:950;}
+.opt-name{font-size:15px;font-weight:900;color:#111;text-align:left;line-height:1.2;}
+.opt-price{font-size:15px;color:#B27300;font-weight:950;margin-left:8px;}
+.qty-row{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#FFF3A3;border-radius:16px;border:3px solid #111;}
+.qty-label{display:none;}
 .qty-ctrl{display:flex;align-items:center;gap:18px;}
-.qty-btn{width:48px;height:48px;border-radius:50%;border:3px solid #111;background:#fff;font-size:27px;font-weight:950;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#111;font-family:inherit;box-shadow:0 4px 0 #111;}
+.qty-btn{width:38px;height:38px;border-radius:50%;border:3px solid #111;background:#fff;font-size:22px;font-weight:950;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#111;font-family:inherit;box-shadow:0 3px 0 #111;}
 .qty-btn:active{background:#F5C800;border-color:#F5C800;}
-.qty-num{font-size:30px;font-weight:950;color:#111;min-width:32px;text-align:center;}
-.popup-foot{padding:14px 24px 24px;display:flex;gap:12px;flex-shrink:0;background:#fff;}
-.popup-cancel{flex:1;padding:18px;background:#fff;color:#777;border:3px solid #CFCFCF;border-radius:18px;font-size:19px;cursor:pointer;font-family:inherit;font-weight:950;}
-.popup-add{flex:2;padding:18px;background:#F5C800;color:#111;border:3px solid #111;border-radius:18px;font-size:21px;font-weight:950;cursor:pointer;font-family:inherit;box-shadow:0 6px 0 #111;}
+.qty-num{font-size:24px;font-weight:950;color:#111;min-width:32px;text-align:center;}
+.popup-foot{padding:10px 18px 16px;display:flex;gap:12px;flex-shrink:0;background:#fff;}
+.popup-cancel{flex:1;padding:13px 14px;background:#fff;color:#777;border:3px solid #CFCFCF;border-radius:16px;font-size:18px;cursor:pointer;font-family:inherit;font-weight:950;}
+.popup-add{flex:2;padding:13px 14px;background:#F5C800;color:#111;border:3px solid #111;border-radius:16px;font-size:19px;font-weight:950;cursor:pointer;font-family:inherit;box-shadow:0 5px 0 #111;}
 .popup-add:disabled{background:#E8D84A;color:#999;cursor:not-allowed;}
 
 /* 주문완료 토스트 */
@@ -230,12 +235,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   .cart-head{padding:13px 14px;font-size:17px;}
   .total-price{font-size:23px;}
   .order-btn{padding:15px;font-size:19px;}
-  .popup{width:min(560px,calc(100vw - 34px));}
+  .popup{width:min(720px,calc(100vw - 24px));max-height:calc(100dvh - 14px);}
   .popup-head{padding:12px 18px;}
   .popup-title{font-size:24px;}
   .popup-base-price{font-size:16px;margin-top:4px;}
   .popup-close{width:42px;height:42px;font-size:25px;}
   .popup-body{padding:12px 18px;}
+  .popup-section{grid-template-columns:72px minmax(0,1fr);gap:10px;}
+  .section-label{font-size:14px;}
+  .section-label small{font-size:9px;margin-top:2px;}
   .sec-label{font-size:15px;margin-bottom:7px;}
   .temp-row{gap:10px;margin-bottom:10px;}
   .temp-btn{min-height:86px;padding:6px 10px 8px;border-radius:15px;gap:4px;}
@@ -400,40 +408,49 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
       <button class="popup-close" onclick="closePopup()">✕</button>
     </div>
     <div class="popup-body">
-      <div id="tempSection">
-        <div class="sec-label">HOT/ICE 선택 (필수)</div>
-        <div class="temp-row">
-          <button class="temp-btn" id="btnHot" onclick="selectTemp('HOT')">
-            <div class="temp-icon"><img src="temp-hot-cup.png" alt=""></div>
-            <div class="temp-label hot">HOT</div>
-          </button>
-          <button class="temp-btn" id="btnIce" onclick="selectTemp('ICE')">
-            <div class="temp-icon"><img src="temp-ice-cup.png" alt=""></div>
-            <div class="temp-label ice">ICE</div>
+      <div class="popup-section" id="tempSection">
+        <div class="section-label">HOT/ICE<small>필수</small></div>
+        <div class="section-control">
+          <div class="temp-row">
+            <button class="temp-btn" id="btnHot" onclick="selectTemp('HOT')">
+              <div class="temp-icon"><img src="temp-hot-cup.png" alt=""></div>
+              <div class="temp-label hot">HOT</div>
+            </button>
+            <button class="temp-btn" id="btnIce" onclick="selectTemp('ICE')">
+              <div class="temp-icon"><img src="temp-ice-cup.png" alt=""></div>
+              <div class="temp-label ice">ICE</div>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="popup-section tumbler-section" id="tumblerSection">
+        <div class="section-label">텀블러<small>선택</small></div>
+        <div class="section-control">
+          <button class="tumbler-card" id="tumblerBtn" type="button" onclick="toggleTumbler()">
+            <span class="tumbler-main">
+              <span class="tumbler-icon">☕</span>
+              <span>
+                <span class="tumbler-title">텀블러 사용</span>
+                <span class="tumbler-sub">기본값: 사용 안함 · 금액 변동 없음</span>
+              </span>
+            </span>
+            <span class="tumbler-switch" aria-hidden="true"></span>
           </button>
         </div>
       </div>
-      <div class="tumbler-section" id="tumblerSection">
-        <div class="sec-label">텀블러 여부 (선택)</div>
-        <button class="tumbler-card" id="tumblerBtn" type="button" onclick="toggleTumbler()">
-          <span class="tumbler-main">
-            <span class="tumbler-icon">☕</span>
-            <span>
-              <span class="tumbler-title">텀블러 사용</span>
-              <span class="tumbler-sub">기본값: 사용 안함 · 금액 변동 없음</span>
-            </span>
-          </span>
-          <span class="tumbler-switch" aria-hidden="true"></span>
-        </button>
+      <div class="popup-section option-section">
+        <div class="section-label">옵션<small>선택</small></div>
+        <div class="section-control opt-grid" id="optGrid"></div>
       </div>
-      <div class="sec-label">옵션 선택 (선택)</div>
-      <div class="opt-grid" id="optGrid"></div>
-      <div class="qty-row">
-        <span class="qty-label">수량</span>
-        <div class="qty-ctrl">
-          <button class="qty-btn" onclick="changeQty(-1)">-</button>
-          <span class="qty-num" id="popupQty">1</span>
-          <button class="qty-btn" onclick="changeQty(1)">+</button>
+      <div class="popup-section qty-section">
+        <div class="section-label">수량</div>
+        <div class="section-control qty-row">
+          <span class="qty-label">수량</span>
+          <div class="qty-ctrl">
+            <button class="qty-btn" onclick="changeQty(-1)">-</button>
+            <span class="qty-num" id="popupQty">1</span>
+            <button class="qty-btn" onclick="changeQty(1)">+</button>
+          </div>
         </div>
       </div>
     </div>
@@ -958,7 +975,7 @@ function openPopup(item){
 
   const tempSec=document.getElementById('tempSection');
   if(item.needTemp){
-    tempSec.style.display='block';
+    tempSec.style.display='grid';
     document.getElementById('btnHot').className='temp-btn';
     document.getElementById('btnIce').className='temp-btn';
   } else {
@@ -968,7 +985,7 @@ function openPopup(item){
   const tumblerSec=document.getElementById('tumblerSection');
   const tumblerBtn=document.getElementById('tumblerBtn');
   if(supportsTumbler(item)){
-    tumblerSec.style.display='block';
+    tumblerSec.style.display='grid';
     tumblerBtn.className='tumbler-card';
   } else {
     tumblerSec.style.display='none';
