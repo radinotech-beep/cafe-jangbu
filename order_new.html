@@ -18,6 +18,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .top-right{display:flex;gap:8px;align-items:center;}
 .sync-dot{width:8px;height:8px;border-radius:50%;background:#3B6D11;}
 .sync-dot.err{background:#E24B4A;}
+.home-btn{background:#fff;color:#111;font-size:16px;font-weight:950;padding:10px 18px;border-radius:999px;border:2px solid #111;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.18);font-family:inherit;}
+.home-btn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.18);}
 .dept-btn{background:#111;color:#F5C800;font-size:16px;font-weight:900;padding:10px 22px;border-radius:999px;border:2px solid #111;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.18);}
 .dept-btn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.18);}
 
@@ -235,6 +237,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   .cart-head{padding:13px 14px;font-size:17px;}
   .total-price{font-size:23px;}
   .order-btn{padding:15px;font-size:19px;}
+  .home-btn,.dept-btn{font-size:14px;padding:8px 14px;}
   .popup{width:min(720px,calc(100vw - 24px));max-height:calc(100dvh - 14px);}
   .popup-head{padding:12px 18px;}
   .popup-title{font-size:24px;}
@@ -370,6 +373,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   <span class="top-logo">메가커피 인천역점</span>
   <div class="top-right">
     <span class="sync-dot" id="syncDot"></span>
+    <button class="home-btn" type="button" onclick="resetOrderToStart()">처음</button>
     <button class="dept-btn" id="deptBtn" onclick="openDeptModal()">부서 선택 ▾</button>
   </div>
 </div>
