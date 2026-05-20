@@ -13,10 +13,10 @@
 body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;color:#2C2C2A;}
 
 /* 탑바 */
-.topbar{background:#2C2C2A;padding:0 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;height:42px;}
-.topbar-title{color:#F1EFE8;font-size:15px;font-weight:500;}
+.topbar{background:#F5C800;padding:0 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;height:48px;margin-left:176px;border-bottom:3px solid #111;}
+.topbar-title{color:#111;font-size:15px;font-weight:900;}
 .topbar-right{display:flex;gap:6px;align-items:center;}
-.main-nav{display:flex;gap:4px;margin-left:16px;}
+.main-nav{display:none;}
 .main-tab{height:28px;padding:0 13px;border:0;background:transparent;color:#B4B2A9;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
 .main-tab:hover{background:#444441;color:#F1EFE8;}
 .main-tab.active{background:#F1EFE8;color:#2C2C2A;}
@@ -28,6 +28,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .tbtn:hover{background:#444441;}
 .logout-btn{color:#2C2C2A;background:#F5C800;border:0;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;}
 .logout-btn:hover{background:#FFD92E;}
+
+/* 사이드바 */
+.admin-sidebar{position:fixed;left:0;top:0;bottom:0;width:176px;background:#171A1D;color:#D8D8D8;z-index:300;display:flex;flex-direction:column;box-shadow:8px 0 20px rgba(0,0,0,.12);}
+.side-brand{height:48px;display:flex;align-items:center;padding:0 16px;background:#111;color:#F5C800;font-weight:950;border-bottom:1px solid rgba(255,255,255,.1);}
+.side-section{padding:14px 10px 8px;border-bottom:1px solid rgba(255,255,255,.08);}
+.side-section.grow{flex:1;}
+.side-title{font-size:11px;color:#8E949A;font-weight:900;margin:0 8px 8px;}
+.side-btn{width:100%;min-height:38px;border:0;background:transparent;color:#D8D8D8;border-radius:8px;padding:0 10px;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;text-align:left;}
+.side-btn:hover{background:#252A2E;color:#fff;}
+.side-btn.active{background:#F5C800;color:#111;}
+.side-ico{width:17px;text-align:center;font-size:13px;}
 
 /* 관리자 진입 */
 .admin-login{position:fixed;inset:0;z-index:2000;background:linear-gradient(180deg,#F6CB00 0%,#F5C800 100%);display:flex;align-items:center;justify-content:center;padding:18px;}
@@ -83,7 +94,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .mgmt-screen.active{display:block;}
 
 /* 서브 네비게이션 */
-.subnav{background:#fff;border-bottom:1px solid #e0dfd8;padding:4px 12px;display:flex;align-items:flex-start;flex-wrap:wrap;gap:2px;position:sticky;top:42px;z-index:99;}
+.subnav{display:none;}
 .snav-item{padding:9px 14px;font-size:13px;color:#888780;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;background:none;border-left:none;border-right:none;border-top:none;}
 .snav-item:hover{color:#2C2C2A;}
 .snav-item.active{color:#2C2C2A;border-bottom:2px solid #2C2C2A;font-weight:500;}
@@ -95,7 +106,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .mobile-dept-sheet{display:none;}
 
 /* 화면 */
-.screen{display:none;}
+.screen{display:none;margin-left:176px;}
 .screen.active{display:block;}
 
 /* 홈 */
@@ -110,7 +121,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .neg{color:#A32D2D;}.pos{color:#3B6D11;}.zero{color:#888780;}
 
 /* 장부 */
-.ledger-topbar{padding:9px 14px;background:#fff;border-bottom:1px solid #e0dfd8;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:87px;z-index:101;}
+.ledger-topbar{padding:9px 14px;background:#fff;border-bottom:1px solid #e0dfd8;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:48px;z-index:101;}
 .ledger-name{font-size:14px;font-weight:500;}
 .ledger-actions{display:flex;gap:6px;align-items:center;}
 .bal-badge{font-size:11px;padding:3px 10px;border-radius:6px;white-space:nowrap;}
@@ -126,12 +137,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 
 @media(max-width:640px){
   body{font-size:13px;}
-  .topbar{height:auto;min-height:48px;padding:8px 12px;flex-wrap:wrap;gap:6px;}
+  .admin-sidebar{display:none;}
+  .topbar{height:auto;min-height:48px;padding:8px 12px;flex-wrap:wrap;gap:6px;margin-left:0;}
   .topbar-title{font-size:17px;font-weight:700;}
-  .main-nav{order:3;width:100%;margin-left:0;}
+  .main-nav{display:flex;order:3;width:100%;margin-left:0;}
   .main-tab{flex:1;background:#3A3A37;}
   .topbar-right{margin-left:auto;}
   .subnav{top:82px;display:flex;align-items:stretch;padding:0;gap:0;overflow-x:auto;flex-wrap:nowrap;}
+  .screen{margin-left:0;}
   .subnav>.snav-item{padding:13px 12px;font-size:14px;text-align:center;border-bottom-width:3px;flex:0 0 auto;}
   .subnav>.snav-sep,.snav-dept-wrap{display:none;}
   .mobile-dept-btn{display:flex;align-items:center;justify-content:center;gap:5px;border:0;border-bottom:3px solid transparent;background:#fff;color:#777;font-size:14px;font-weight:800;font-family:inherit;min-width:110px;padding:0 10px;flex:0 0 auto;}
@@ -327,9 +340,30 @@ tr.cancel-ledger-row .cancel-note input{background:#F9DADA;color:#A32D2D;border-
   </div>
 </div>
 
+<!-- 좌측 사이드바 -->
+<aside class="admin-sidebar">
+  <div class="side-brand">메가커피 관리</div>
+  <div class="side-section">
+    <div class="side-title">장부관리</div>
+    <button class="side-btn active" id="side-home" onclick="goHome()"><span class="side-ico">⌂</span>관리 홈</button>
+    <button class="side-btn" id="side-ledger" onclick="goLedgerMain()"><span class="side-ico">▦</span>부서별 장부</button>
+    <button class="side-btn" id="side-summary" onclick="goSummary()"><span class="side-ico">Σ</span>결제/잔액 확인</button>
+    <button class="side-btn" id="side-dept" onclick="goDeptMgmt()"><span class="side-ico">⚙</span>장부 설정</button>
+  </div>
+  <div class="side-section grow">
+    <div class="side-title">메뉴관리</div>
+    <button class="side-btn" id="side-menu" onclick="goMenuMain()"><span class="side-ico">☰</span>메뉴 DB</button>
+    <button class="side-btn" id="side-opt" onclick="goMgmt();switchMgmtTab('opt')"><span class="side-ico">◇</span>옵션 설정</button>
+    <button class="side-btn" id="side-soldout" onclick="goMgmt();switchMgmtTab('soldout')"><span class="side-ico">!</span>품절/숨김</button>
+  </div>
+  <div class="side-section">
+    <button class="side-btn" onclick="adminLogout()"><span class="side-ico">↩</span>로그아웃</button>
+  </div>
+</aside>
+
 <!-- 탑바 -->
 <div class="topbar">
-  <span class="topbar-title">☕ 카페 장부</span>
+  <span class="topbar-title">메가커피 인천역점 관리</span>
   <div class="main-nav">
     <button class="main-tab active" id="main-ledger" onclick="goLedgerMain()">장부관리</button>
     <button class="main-tab" id="main-menu" onclick="goMenuMain()">메뉴관리</button>
@@ -1219,6 +1253,7 @@ function showScreen(id){
     btns.forEach((b,i)=>b.classList.toggle('active',i===curDeptIdx));
   }
   updateMainTabs(id);
+  updateSideNav();
 }
 
 function updateMainTabs(id){
@@ -1227,6 +1262,20 @@ function updateMainTabs(id){
   const ml=document.getElementById('main-ledger'),mm=document.getElementById('main-menu');
   if(ml)ml.classList.toggle('active',ledgerOn);
   if(mm)mm.classList.toggle('active',menuOn);
+}
+function updateSideNav(){
+  document.querySelectorAll('.side-btn[id]').forEach(b=>b.classList.remove('active'));
+  let id='side-home';
+  if(curScreen==='ledger')id='side-ledger';
+  else if(curScreen==='summary')id='side-summary';
+  else if(curScreen==='mgmt'){
+    if(curMgmtTab==='dept')id='side-dept';
+    else if(curMgmtTab==='opt')id='side-opt';
+    else if(curMgmtTab==='soldout')id='side-soldout';
+    else id='side-menu';
+  }
+  const btn=document.getElementById(id);
+  if(btn)btn.classList.add('active');
 }
 function goLedgerMain(){
   if(curDeptIdx!==null&&depts[curDeptIdx])openDept(curDeptIdx);
@@ -1275,6 +1324,7 @@ function switchMgmtTab(tab){
   if(tab==='opt')renderOptMgmt();
   if(tab==='soldout')renderSoldoutMgmt();
   updateMainTabs('mgmt');
+  updateSideNav();
 }
 
 // ── 메뉴 DB 탭 ──
