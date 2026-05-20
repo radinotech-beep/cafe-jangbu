@@ -55,14 +55,18 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .menu-item:last-child{border-bottom:none;}
 .menu-row{display:flex;justify-content:space-between;align-items:center;}
 .menu-name{font-size:12px;font-weight:500;color:#2C2C2A;flex:1;}
+.menu-name.mega-ricano{color:#B87900;font-weight:900;}
+.menu-name.matcha-parfait{color:#166534;font-weight:900;}
 .menu-qty{font-size:13px;font-weight:500;color:#111;margin-left:6px;white-space:nowrap;}
 .tag{font-size:9px;font-weight:500;padding:1px 4px;border-radius:3px;margin-left:3px;vertical-align:middle;}
 .tag-hot{background:#FCEBEB;color:#A32D2D;}
 .tag-ice{background:#E6F1FB;color:#185FA5;}
 .tag-mega{background:#F5C800;color:#111;}
-.opt-row{margin-top:2px;display:flex;align-items:flex-start;gap:3px;}
+.opt-list{margin-top:3px;display:flex;flex-direction:column;gap:2px;}
+.opt-row{display:flex;align-items:flex-start;gap:3px;}
 .opt-arrow{color:#B8860B;font-size:10px;margin-top:1px;flex-shrink:0;}
 .opt-text{font-size:10px;color:#888;line-height:1.4;}
+.opt-text.tumbler{display:inline-flex;align-items:center;width:max-content;background:#E6F1FB;color:#075985;border:1px solid #6BA7E8;border-radius:999px;padding:1px 7px;font-weight:900;}
 
 .card-foot{padding:7px 10px;border-top:1px solid #F0E87A;}
 .done-btn{width:100%;padding:8px;background:#F5C800;color:#111;border:none;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;}
@@ -136,7 +140,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .detail-items{display:flex;flex-direction:column;gap:10px;margin:12px 0;}
 .detail-item{border:2px solid #eee;border-radius:10px;padding:10px 12px;}
 .detail-item-name{font-size:16px;font-weight:900;color:#111;}
+.detail-item-name.mega-ricano{color:#B87900;}
+.detail-item-name.matcha-parfait{color:#166534;}
 .detail-item-sub{margin-top:4px;font-size:13px;color:#666;}
+.detail-opt-list{margin-top:7px;display:flex;flex-direction:column;gap:4px;}
+.detail-opt{font-size:13px;color:#666;}
+.detail-opt.tumbler span{display:inline-flex;background:#E6F1FB;color:#075985;border:1px solid #6BA7E8;border-radius:999px;padding:2px 8px;font-weight:900;}
 .detail-action{width:100%;height:48px;border:none;border-radius:12px;color:#fff;font-size:16px;font-weight:900;cursor:pointer;margin-top:12px;}
 .detail-action.cancel{background:#e74c3c;}
 .detail-action.restore{background:#2e7d32;}
@@ -533,6 +542,19 @@ function tempTag(temp){
   return'';
 }
 function isMega(name){return /메가|왕/.test(name);}
+function menuNameClass(name){
+  const normalized=String(name||'').replace(/\s/g,'');
+  if(normalized.includes('메가리카노'))return'mega-ricano';
+  if(normalized.includes('말차젤라또팥빙파르페'))return'matcha-parfait';
+  return'';
+}
+function optionRowsHtml(parts){
+  if(!parts.length)return'';
+  return '<div class="opt-list">'+parts.map(name=>{
+    const isTumbler=String(name)==='텀블러';
+    return '<div class="opt-row"><span class="opt-arrow">▶</span><span class="opt-text '+(isTumbler?'tumbler':'')+'">'+esc(name)+'</span></div>';
+  }).join('')+'</div>';
+}
 
 // 날짜 포맷
 function fmtDate(ts){
@@ -659,7 +681,8 @@ function renderOrders(){
         const mega=isMega(item.name);
         const optParts=(item.opts||[]).map(o=>o.name);
         if(item.tumbler)optParts.push('텀블러');
-        const optStr=optParts.join(', ');
+        const optHtml=optionRowsHtml(optParts);
+        const nameCls=menuNameClass(item.displayName||item.name);
         const madeKey=order.id+'_'+idx;
         const isMade=!!madeItems[madeKey];
         const div=document.createElement('div');
@@ -670,10 +693,10 @@ function renderOrders(){
         }
         div.innerHTML=`
           <div class="menu-row">
-            <span class="menu-name">${esc(item.displayName||item.name)}${mega?'<span class="tag tag-mega">MEGA</span>':''}${tempTag(item.temp)}</span>
+            <span class="menu-name ${nameCls}">${esc(item.displayName||item.name)}${mega?'<span class="tag tag-mega">MEGA</span>':''}${tempTag(item.temp)}</span>
             <span class="menu-qty">${isMade?'✓':''}x${item.qty}</span>
           </div>
-          ${optStr?`<div class="opt-row"><span class="opt-arrow">▶</span><span class="opt-text">${esc(optStr)}</span></div>`:''}`;
+          ${optHtml}`;
         body.appendChild(div);
       });
       card.appendChild(body);
@@ -852,14 +875,20 @@ function openDetail(order){
   html+='<div class="detail-items">';
   (order.items||[]).forEach(item=>{
     const name=esc(item.displayName||item.name||'메뉴');
+    const rawName=item.displayName||item.name||'메뉴';
+    const nameCls=menuNameClass(rawName);
     const qty=pn(item.qty)||1;
     const optsArr=(item.opts||item.options||[]).map(o=>esc(typeof o==='string'?o:o.name)).filter(Boolean);
     if(item.tumbler)optsArr.push('텀블러');
-    const opts=optsArr.join(', ');
     const amount=(pn(item.unitPrice)||0)*qty;
+    const optsHtml=optsArr.length?'<div class="detail-opt-list">'+optsArr.map(opt=>{
+      const isTumbler=String(opt)==='텀블러';
+      return '<div class="detail-opt '+(isTumbler?'tumbler':'')+'">▶ <span>'+opt+'</span></div>';
+    }).join('')+'</div>':'';
     html+='<div class="detail-item">'
-      +'<div class="detail-item-name">'+name+' × '+qty+'</div>'
-      +'<div class="detail-item-sub">'+(opts?opts+' · ':'')+fmt(amount)+'</div>'
+      +'<div class="detail-item-name '+nameCls+'">'+name+' × '+qty+'</div>'
+      +optsHtml
+      +'<div class="detail-item-sub">'+fmt(amount)+'</div>'
       +'</div>';
   });
   html+='</div>';
