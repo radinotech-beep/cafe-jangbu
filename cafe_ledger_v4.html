@@ -12,69 +12,38 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;color:#2C2C2A;}
 
+/* 입장 잠금 */
+.lock-screen{position:fixed;inset:0;z-index:2000;display:grid;place-items:center;padding:24px;background:linear-gradient(135deg,#F5C800 0%,#F5C800 40%,#FFF8DA 40%,#FFF8DA 100%);}
+.lock-screen.hidden{display:none;}
+.lock-card{width:min(420px,92vw);background:#fff;border:1px solid #e6dfc5;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.2);padding:30px;}
+.lock-badge{display:inline-flex;align-items:center;gap:8px;background:#111;color:#F5C800;border-radius:999px;padding:8px 14px;font-size:14px;font-weight:900;margin-bottom:22px;}
+.lock-title{font-size:30px;font-weight:900;margin-bottom:8px;color:#111;}
+.lock-sub{font-size:14px;color:#6b6250;line-height:1.55;margin-bottom:24px;}
+.pin-label{font-size:13px;font-weight:900;margin-bottom:8px;color:#111;}
+.pin-row{display:flex;gap:8px;}
+.pin-input{flex:1;height:48px;border:2px solid #111;border-radius:10px;padding:0 14px;font-size:22px;font-weight:900;letter-spacing:7px;text-align:center;}
+.pin-input.err{border-color:#E24B4A;background:#FFF0F0;}
+.pin-btn{height:48px;border:0;background:#111;color:#fff;border-radius:10px;padding:0 20px;font-weight:900;cursor:pointer;}
+.pin-msg{min-height:18px;margin-top:10px;font-size:12px;color:#A32D2D;font-weight:800;}
+.lock-note{margin-top:12px;background:#fff8dc;border:1px solid #e6d98e;border-radius:10px;padding:11px 12px;font-size:12px;color:#5b4b00;line-height:1.45;}
+
 /* 탑바 */
-.topbar{background:#F5C800;padding:0 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;height:48px;margin-left:176px;border-bottom:3px solid #111;}
-.topbar-title{color:#111;font-size:15px;font-weight:900;}
+.topbar{background:#2C2C2A;padding:0 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;height:42px;}
+.topbar-title{color:#F1EFE8;font-size:15px;font-weight:500;}
 .topbar-right{display:flex;gap:6px;align-items:center;}
-.main-nav{display:none;}
+.main-nav{display:flex;gap:4px;margin-left:16px;}
 .main-tab{height:28px;padding:0 13px;border:0;background:transparent;color:#B4B2A9;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;}
 .main-tab:hover{background:#444441;color:#F1EFE8;}
 .main-tab.active{background:#F1EFE8;color:#2C2C2A;}
+#main-ledger.active{background:#F1EFE8;color:#2C2C2A;}
+#main-menu.active{background:#FFF6C7;color:#9A3412;}
 .sync-status{font-size:11px;padding:2px 8px;border-radius:10px;}
 .sync-ok{background:#EAF3DE;color:#3B6D11;}
 .sync-ing{background:#FFF3CD;color:#856404;}
 .sync-err{background:#FCEBEB;color:#A32D2D;}
 .tbtn{color:#B4B2A9;font-size:12px;border:0.5px solid #5F5E5A;border-radius:6px;padding:4px 10px;cursor:pointer;background:none;white-space:nowrap;}
 .tbtn:hover{background:#444441;}
-.logout-btn{color:#2C2C2A;background:#F5C800;border:0;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;}
-.logout-btn:hover{background:#FFD92E;}
-
-/* 사이드바 */
-.admin-sidebar{position:fixed;left:0;top:0;bottom:0;width:176px;background:#171A1D;color:#D8D8D8;z-index:300;display:flex;flex-direction:column;box-shadow:8px 0 20px rgba(0,0,0,.12);}
-.side-brand{height:48px;display:flex;align-items:center;padding:0 16px;background:#111;color:#F5C800;font-weight:950;border-bottom:1px solid rgba(255,255,255,.1);}
-.side-section{padding:14px 10px 8px;border-bottom:1px solid rgba(255,255,255,.08);}
-.side-section.grow{flex:1;}
-.side-title{font-size:11px;color:#8E949A;font-weight:900;margin:0 8px 8px;}
-.side-btn{width:100%;min-height:38px;border:0;background:transparent;color:#D8D8D8;border-radius:8px;padding:0 10px;display:flex;align-items:center;gap:9px;font-size:13px;font-weight:800;font-family:inherit;cursor:pointer;text-align:left;}
-.side-btn:hover{background:#252A2E;color:#fff;}
-.side-btn.active{background:#F5C800;color:#111;}
-.side-ico{width:17px;text-align:center;font-size:13px;}
-
-/* 관리자 진입 */
-.admin-login{position:fixed;inset:0;z-index:2000;background:linear-gradient(180deg,#F6CB00 0%,#F5C800 100%);display:flex;align-items:center;justify-content:center;padding:18px;}
-.admin-login.hidden{display:none;}
-.admin-login-panel{width:min(420px,calc(100vw - 32px));background:#FFFDF0;border:4px solid #111;border-radius:22px;box-shadow:0 22px 55px rgba(0,0,0,.22);padding:28px 26px;text-align:center;}
-.admin-login-kicker{display:inline-flex;align-items:center;justify-content:center;min-height:30px;border-radius:999px;background:#111;color:#F5C800;font-size:12px;font-weight:900;padding:0 13px;margin-bottom:14px;}
-.admin-login-title{font-size:28px;font-weight:950;line-height:1.15;color:#111;margin-bottom:8px;}
-.admin-login-sub{font-size:13px;color:#5F5E5A;font-weight:750;margin-bottom:18px;}
-.admin-pin-dots{display:flex;justify-content:center;gap:10px;margin-bottom:18px;}
-.admin-pin-dot{width:14px;height:14px;border-radius:50%;background:#E1D9A5;border:2px solid #B8A92E;}
-.admin-pin-dot.on{background:#111;border-color:#111;}
-.admin-keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
-.admin-key{min-height:52px;border:2px solid #111;border-radius:12px;background:#fff;font-size:22px;font-weight:950;color:#111;cursor:pointer;font-family:inherit;box-shadow:0 4px 0 #111;}
-.admin-key:active{transform:translateY(2px);box-shadow:0 2px 0 #111;background:#FFF4B8;}
-.admin-key.sub{font-size:14px;color:#5F5E5A;}
-.admin-login-err{min-height:18px;color:#A32D2D;font-size:12px;font-weight:800;}
-
-/* 관리 허브 */
-.hub-wrap{padding:22px 24px 28px;max-width:1180px;margin:0 auto;}
-.hub-head{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;margin-bottom:18px;}
-.hub-title{font-size:24px;font-weight:950;color:#111;}
-.hub-sub{font-size:13px;color:#777;font-weight:700;margin-top:4px;}
-.hub-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
-.hub-card{background:#fff;border:2px solid #E2C300;border-radius:14px;padding:18px;box-shadow:0 7px 0 #E9D25B,0 12px 24px rgba(0,0,0,.06);min-height:220px;display:flex;flex-direction:column;}
-.hub-card.ledger{border-color:#111;box-shadow:0 7px 0 #111,0 12px 24px rgba(0,0,0,.08);}
-.hub-card.menu{border-color:#E2C300;}
-.hub-card-top{display:flex;align-items:center;gap:13px;margin-bottom:12px;}
-.hub-icon{width:50px;height:50px;border-radius:14px;background:#111;color:#F5C800;display:flex;align-items:center;justify-content:center;font-size:25px;font-weight:950;}
-.hub-card.menu .hub-icon{background:#F5C800;color:#111;border:2px solid #111;}
-.hub-card-title{font-size:22px;font-weight:950;color:#111;}
-.hub-card-desc{font-size:13px;color:#777;font-weight:700;line-height:1.45;margin-top:3px;}
-.hub-actions{display:grid;grid-template-columns:1fr;gap:8px;margin-top:auto;}
-.hub-action{min-height:42px;border:1px solid #e0dfd8;border-radius:10px;background:#FFFDF0;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:14px;font-weight:850;color:#111;cursor:pointer;font-family:inherit;text-align:left;}
-.hub-action:hover{border-color:#111;background:#FFF7C8;}
-.hub-action.primary{background:#111;color:#F5C800;border-color:#111;}
-.hub-action.primary:hover{background:#333;}
+.lock-top-btn{height:26px;border:1px solid #F1EFE8;background:#F1EFE8;color:#2C2C2A;border-radius:999px;padding:0 10px;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit;}
 
 /* 관리 탭 네비 */
 .mgmt-nav{display:flex;border-bottom:2px solid #e0dfd8;background:#fff;overflow-x:auto;flex-shrink:0;}
@@ -92,9 +61,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .mgmt-tab.t-soldout.active{color:#A32D2D;border-bottom-color:#E24B4A;background:#FFF0F0;}
 .mgmt-screen{display:none;padding:16px;overflow-y:auto;flex:1;}
 .mgmt-screen.active{display:block;}
+.menu-safety-banner{display:none;margin:12px 16px 0;background:#FFF7ED;border:1px solid #FED7AA;color:#9A3412;border-radius:10px;padding:10px 12px;font-size:12px;font-weight:800;line-height:1.45;}
+.menu-safety-banner.show{display:block;}
 
 /* 서브 네비게이션 */
-.subnav{display:none;}
+.subnav{background:#fff;border-bottom:1px solid #e0dfd8;padding:4px 12px;display:flex;align-items:flex-start;flex-wrap:wrap;gap:2px;position:sticky;top:42px;z-index:99;}
 .snav-item{padding:9px 14px;font-size:13px;color:#888780;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;background:none;border-left:none;border-right:none;border-top:none;}
 .snav-item:hover{color:#2C2C2A;}
 .snav-item.active{color:#2C2C2A;border-bottom:2px solid #2C2C2A;font-weight:500;}
@@ -106,7 +77,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .mobile-dept-sheet{display:none;}
 
 /* 화면 */
-.screen{display:none;margin-left:176px;}
+.screen{display:none;}
 .screen.active{display:block;}
 
 /* 홈 */
@@ -121,7 +92,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 .neg{color:#A32D2D;}.pos{color:#3B6D11;}.zero{color:#888780;}
 
 /* 장부 */
-.ledger-topbar{padding:9px 14px;background:#fff;border-bottom:1px solid #e0dfd8;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:48px;z-index:101;}
+.ledger-topbar{padding:9px 14px;background:#fff;border-bottom:1px solid #e0dfd8;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:87px;z-index:101;}
 .ledger-name{font-size:14px;font-weight:500;}
 .ledger-actions{display:flex;gap:6px;align-items:center;}
 .bal-badge{font-size:11px;padding:3px 10px;border-radius:6px;white-space:nowrap;}
@@ -137,14 +108,12 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
 
 @media(max-width:640px){
   body{font-size:13px;}
-  .admin-sidebar{display:none;}
-  .topbar{height:auto;min-height:48px;padding:8px 12px;flex-wrap:wrap;gap:6px;margin-left:0;}
+  .topbar{height:auto;min-height:48px;padding:8px 12px;flex-wrap:wrap;gap:6px;}
   .topbar-title{font-size:17px;font-weight:700;}
-  .main-nav{display:flex;order:3;width:100%;margin-left:0;}
+  .main-nav{order:3;width:100%;margin-left:0;}
   .main-tab{flex:1;background:#3A3A37;}
   .topbar-right{margin-left:auto;}
   .subnav{top:82px;display:flex;align-items:stretch;padding:0;gap:0;overflow-x:auto;flex-wrap:nowrap;}
-  .screen{margin-left:0;}
   .subnav>.snav-item{padding:13px 12px;font-size:14px;text-align:center;border-bottom-width:3px;flex:0 0 auto;}
   .subnav>.snav-sep,.snav-dept-wrap{display:none;}
   .mobile-dept-btn{display:flex;align-items:center;justify-content:center;gap:5px;border:0;border-bottom:3px solid transparent;background:#fff;color:#777;font-size:14px;font-weight:800;font-family:inherit;min-width:110px;padding:0 10px;flex:0 0 auto;}
@@ -154,12 +123,6 @@ body{font-family:'Noto Sans KR',sans-serif;background:#f5f4f0;font-size:13px;col
   .ledger-name{font-size:17px;font-weight:800;}
   .mgmt-nav{overflow-x:auto;}
   .mgmt-tab{padding:12px 16px;font-size:14px;}
-  .hub-wrap{padding:16px 12px 22px;}
-  .hub-head{align-items:flex-start;flex-direction:column;}
-  .hub-grid{grid-template-columns:1fr;}
-  .hub-card{min-height:0;}
-  .admin-login-panel{padding:22px 18px;}
-  .admin-login-title{font-size:24px;}
   .tbl-wrap{overflow:auto;max-height:calc(100vh - 250px);}
   .tbl-wrap thead th{top:0;}
   table{min-width:860px;}
@@ -315,68 +278,37 @@ tr.cancel-ledger-row .cancel-note input{background:#F9DADA;color:#A32D2D;border-
 </head>
 <body>
 
-<!-- 관리자 진입 -->
-<div class="admin-login" id="adminLogin">
-  <div class="admin-login-panel">
-    <div class="admin-login-kicker">관리자 전용</div>
-    <div class="admin-login-title">메가커피 인천역점 관리</div>
-    <div class="admin-login-sub">관리 비밀번호를 입력하세요<br>장부 · 메뉴 · 옵션 관리</div>
-    <div class="admin-pin-dots" id="adminPinDots"></div>
-    <div class="admin-keypad">
-      <button class="admin-key" onclick="adminPwdInput('1')">1</button>
-      <button class="admin-key" onclick="adminPwdInput('2')">2</button>
-      <button class="admin-key" onclick="adminPwdInput('3')">3</button>
-      <button class="admin-key" onclick="adminPwdInput('4')">4</button>
-      <button class="admin-key" onclick="adminPwdInput('5')">5</button>
-      <button class="admin-key" onclick="adminPwdInput('6')">6</button>
-      <button class="admin-key" onclick="adminPwdInput('7')">7</button>
-      <button class="admin-key" onclick="adminPwdInput('8')">8</button>
-      <button class="admin-key" onclick="adminPwdInput('9')">9</button>
-      <button class="admin-key sub" onclick="adminPwdClear()">지움</button>
-      <button class="admin-key" onclick="adminPwdInput('0')">0</button>
-      <button class="admin-key sub" onclick="adminPwdSubmit()">입장</button>
+<div class="lock-screen" id="lockScreen">
+  <div class="lock-card">
+    <div class="lock-badge">🔒 직원 전용</div>
+    <div class="lock-title">카페 장부 시스템</div>
+    <div class="lock-sub">장부와 메뉴 설정은 매장 운영에 직접 반영됩니다.<br>비밀번호 입력 후 필요한 영역만 선택해서 사용합니다.</div>
+    <div class="pin-label">비밀번호</div>
+    <div class="pin-row">
+      <input class="pin-input" id="ledgerPinInput" type="password" maxlength="6" inputmode="numeric" aria-label="비밀번호">
+      <button class="pin-btn" onclick="unlockLedgerApp()">입장</button>
     </div>
-    <div class="admin-login-err" id="adminLoginErr"></div>
+    <div class="pin-msg" id="ledgerPinMsg"></div>
+    <div class="lock-note">직원 실수 방지를 위한 잠금 화면입니다. 장부/메뉴 데이터 구조는 변경하지 않습니다.</div>
   </div>
 </div>
 
-<!-- 좌측 사이드바 -->
-<aside class="admin-sidebar">
-  <div class="side-brand">메가커피 관리</div>
-  <div class="side-section">
-    <div class="side-title">장부관리</div>
-    <button class="side-btn active" id="side-home" onclick="goHome()"><span class="side-ico">⌂</span>관리 홈</button>
-    <button class="side-btn" id="side-ledger" onclick="goLedgerMain()"><span class="side-ico">▦</span>부서별 장부</button>
-    <button class="side-btn" id="side-summary" onclick="goSummary()"><span class="side-ico">Σ</span>결제/잔액 확인</button>
-    <button class="side-btn" id="side-dept" onclick="goDeptMgmt()"><span class="side-ico">⚙</span>장부 설정</button>
-  </div>
-  <div class="side-section grow">
-    <div class="side-title">메뉴관리</div>
-    <button class="side-btn" id="side-menu" onclick="goMenuMain()"><span class="side-ico">☰</span>메뉴 DB</button>
-    <button class="side-btn" id="side-opt" onclick="goMgmt();switchMgmtTab('opt')"><span class="side-ico">◇</span>옵션 설정</button>
-    <button class="side-btn" id="side-soldout" onclick="goMgmt();switchMgmtTab('soldout')"><span class="side-ico">!</span>품절/숨김</button>
-  </div>
-  <div class="side-section">
-    <button class="side-btn" onclick="adminLogout()"><span class="side-ico">↩</span>로그아웃</button>
-  </div>
-</aside>
-
 <!-- 탑바 -->
 <div class="topbar">
-  <span class="topbar-title">메가커피 인천역점 관리</span>
+  <span class="topbar-title">☕ 카페 장부</span>
   <div class="main-nav">
-    <button class="main-tab active" id="main-ledger" onclick="goLedgerMain()">장부관리</button>
-    <button class="main-tab" id="main-menu" onclick="goMenuMain()">메뉴관리</button>
+    <button class="main-tab active" id="main-ledger" onclick="goLedgerMain()">장부 관리</button>
+    <button class="main-tab" id="main-menu" onclick="goMenuMain()">메뉴 관리</button>
   </div>
   <div class="topbar-right">
     <span class="sync-status sync-ing" id="syncStatus">연결 중...</span>
-    <button class="logout-btn" onclick="adminLogout()">로그아웃</button>
+    <button class="lock-top-btn" onclick="lockLedgerApp()">잠금</button>
   </div>
 </div>
 
 <!-- 서브 네비게이션 -->
 <div class="subnav" id="subnav">
-  <button class="snav-item active" id="snav-home" onclick="goHome()">관리 홈</button>
+  <button class="snav-item active" id="snav-home" onclick="goHome()">부서별 장부내역</button>
   <button class="mobile-dept-btn" id="mobileDeptBtn" onclick="openMobileDeptSheet()"><span class="mobile-dept-name">부서 선택</span><span>⌄</span></button>
   <button class="snav-item summary-btn" id="snav-summary" onclick="goSummary()">현황 요약</button>
   <div class="snav-sep"></div>
@@ -395,44 +327,8 @@ tr.cancel-ledger-row .cancel-note input{background:#F9DADA;color:#A32D2D;border-
 
 <!-- 홈 화면 -->
 <div class="screen active" id="screen-home">
-  <div class="hub-wrap">
-    <div class="hub-head">
-      <div>
-        <div class="hub-title">관리 작업 선택</div>
-        <div class="hub-sub">기존 장부·메뉴 데이터 구조는 그대로 사용합니다.</div>
-      </div>
-      <span class="sync-status sync-ok">장부 · 메뉴 · 옵션 관리</span>
-    </div>
-    <div class="hub-grid">
-      <section class="hub-card ledger">
-        <div class="hub-card-top">
-          <div class="hub-icon">帳</div>
-          <div>
-            <div class="hub-card-title">장부관리</div>
-            <div class="hub-card-desc">부서별 주문/결제 내역과 잔액을 확인하고 정리합니다.</div>
-          </div>
-        </div>
-        <div class="hub-actions">
-          <button class="hub-action primary" onclick="goLedgerMain()">부서별 장부 열기 <span>›</span></button>
-          <button class="hub-action" onclick="goSummary()">현황 요약 보기 <span>›</span></button>
-          <button class="hub-action" onclick="goDeptMgmt()">부서 DB 관리 <span>›</span></button>
-        </div>
-      </section>
-      <section class="hub-card menu">
-        <div class="hub-card-top">
-          <div class="hub-icon">☰</div>
-          <div>
-            <div class="hub-card-title">메뉴관리</div>
-            <div class="hub-card-desc">메뉴 DB, 옵션, 품절/숨김 상태를 관리합니다.</div>
-          </div>
-        </div>
-        <div class="hub-actions">
-          <button class="hub-action primary" onclick="goMenuMain()">메뉴 DB 열기 <span>›</span></button>
-          <button class="hub-action" onclick="goMgmt();switchMgmtTab('opt')">옵션 설정 <span>›</span></button>
-          <button class="hub-action" onclick="goMgmt();switchMgmtTab('soldout')">품절/숨김 관리 <span>›</span></button>
-        </div>
-      </section>
-    </div>
+  <div class="home-header">
+    <span class="home-title">상단 탭에서 부서를 선택하세요</span>
   </div>
 </div>
 
@@ -517,10 +413,11 @@ tr.cancel-ledger-row .cancel-note input{background:#F9DADA;color:#A32D2D;border-
   <!-- 관리 탭 네비 -->
   <div class="mgmt-nav">
     <button class="mgmt-tab t-menu active" id="mtab-menu" onclick="switchMgmtTab('menu')">📋 메뉴 DB</button>
-    <button class="mgmt-tab t-dept" id="mtab-dept" onclick="switchMgmtTab('dept')">🏢 부서 관리</button>
+    <button class="mgmt-tab t-dept" id="mtab-dept" onclick="switchMgmtTab('dept')">🏢 부서 DB 관리</button>
     <button class="mgmt-tab t-opt" id="mtab-opt" onclick="switchMgmtTab('opt')">⚙️ 옵션 관리</button>
-    <button class="mgmt-tab t-soldout" id="mtab-soldout" onclick="switchMgmtTab('soldout')">🚫 품절 관리</button>
+    <button class="mgmt-tab t-soldout" id="mtab-soldout" onclick="switchMgmtTab('soldout')">🚫 품절/숨김 관리</button>
   </div>
+  <div class="menu-safety-banner" id="menuSafetyBanner">메뉴 관리 변경사항은 주문 프로그램과 KDS 표시에도 영향을 줄 수 있습니다. 저장 전 변경 내용을 한 번 더 확인해주세요.</div>
 
   <!-- 메뉴 DB -->
   <div class="mgmt-screen active" id="mscreen-menu">
@@ -643,7 +540,7 @@ const db=firebase.database();
 const ROWS=80;
 const ROW_EXTEND_THRESHOLD=10;
 const ROW_EXTEND_COUNT=30;
-const ADMIN_PASSWORD='0000';
+const LEDGER_APP_PIN='1234';
 let depts=[],menuDB=[],optionDB=[],dessertDB=[];
 let curDeptIdx=null,curDeptId=null,curDBTab='menu';
 let acTarget=null,acIdx=-1,acList=[];
@@ -655,7 +552,6 @@ let ledgerUndoStack=[];
 let addingDept=false;
 let soldout={};  // {메뉴명: true}
 let hiddenMenus={};  // {메뉴명: true} — 주문창에서 아예 안 보임
-let adminPwdBuffer='';
 // catOptMap: { "대카>>중카ID": [옵션명] }
 // catSubMap: { "대카": [{id:"고유ID", name:"중카테고리명", menus:["대카::메뉴명"]}] }
 function makeDeptId(){
@@ -829,8 +725,8 @@ function setSyncStatus(s){
   const el=document.getElementById('syncStatus');
   if(s==='ok'){el.textContent='저장됨 ✓';el.className='sync-status sync-ok';}
   else if(s==='ing'){el.textContent='저장 중...';el.className='sync-status sync-ing';}
-  else if(s==='dirty'){el.textContent='저장 필요';el.className='sync-status sync-ing';}
-  else{el.textContent='오프라인';el.className='sync-status sync-err';}
+  else if(s==='dirty'){el.textContent='저장 대기';el.className='sync-status sync-ing';}
+  else{el.textContent='저장 실패 ⚠';el.className='sync-status sync-err';}
 }
 function today(){
   const d=new Date();
@@ -1105,9 +1001,20 @@ function saveDept(di,immediate){
   setSyncStatus('ing');
   const delay=immediate?0:1500;
   deptSaveTimers[di]=setTimeout(()=>{
+    const key=deptKey(di);
     db.ref('jangbu/depts/'+deptKey(di)).set(cleanDeptForSave(depts[di]))
-      .then(()=>{setSyncStatus('ok');setTimeout(()=>savingDepts.delete(di),800);})
-      .catch(()=>{setSyncStatus('err');savingDepts.delete(di);});
+      .then(()=>{
+        dirtyDeptKeys.delete(key);
+        setSyncStatus(dirtyDeptKeys.size>0?'dirty':'ok');
+        updateLedgerEditButtons();
+        setTimeout(()=>savingDepts.delete(di),800);
+      })
+      .catch(()=>{
+        dirtyDeptKeys.add(key);
+        setSyncStatus('err');
+        savingDepts.delete(di);
+        updateLedgerEditButtons();
+      });
   },delay);
 }
 function cloneRowsForUndo(rows){
@@ -1119,7 +1026,10 @@ function updateLedgerEditButtons(){
   const hasUndo=ledgerUndoStack.length>0;
   const dirty=curDeptIdx!==null&&depts[curDeptIdx]&&dirtyDeptKeys.has(deptKey(curDeptIdx));
   if(undoBtn)undoBtn.disabled=!hasUndo;
-  if(saveBtn)saveBtn.disabled=!dirty;
+  if(saveBtn){
+    saveBtn.disabled=!dirty;
+    saveBtn.textContent=dirty?'저장 재시도':'저장';
+  }
   if(dirty)setSyncStatus('dirty');
 }
 function pushLedgerUndo(di,label){
@@ -1139,11 +1049,10 @@ function markLedgerDirty(di){
   dirtyDeptKeys.add(deptKey(di));
   calcBal(di);
   updateLedgerEditButtons();
+  saveDept(di,false);
 }
 function saveCurrentLedger(){
   if(curDeptIdx===null||!depts[curDeptIdx])return;
-  const key=deptKey(curDeptIdx);
-  dirtyDeptKeys.delete(key);
   saveDept(curDeptIdx,true);
   updateLedgerEditButtons();
 }
@@ -1161,6 +1070,7 @@ function undoLedgerChange(){
   curDeptIdx=di;curDeptId=depts[di].id||curDeptId;
   renderLedger(di);
   updateLedgerEditButtons();
+  saveDept(di,false);
 }
 window.addEventListener('beforeunload',e=>{
   if(dirtyDeptKeys.size>0){
@@ -1168,6 +1078,13 @@ window.addEventListener('beforeunload',e=>{
     e.returnValue='';
   }
 });
+function hasPendingLedgerSave(){
+  return dirtyDeptKeys.size>0;
+}
+function confirmPendingLedgerSave(){
+  if(!hasPendingLedgerSave())return true;
+  return confirm('아직 서버에 저장 완료되지 않은 장부 변경사항이 있습니다.\n인터넷 연결 상태를 확인하거나 저장 재시도를 눌러주세요.\n그래도 이동하시겠습니까?');
+}
 function loadFromFirebase(){
   db.ref('jangbu').once('value').then(snap=>{
     const data=snap.val();
@@ -1253,7 +1170,6 @@ function showScreen(id){
     btns.forEach((b,i)=>b.classList.toggle('active',i===curDeptIdx));
   }
   updateMainTabs(id);
-  updateSideNav();
 }
 
 function updateMainTabs(id){
@@ -1263,33 +1179,27 @@ function updateMainTabs(id){
   if(ml)ml.classList.toggle('active',ledgerOn);
   if(mm)mm.classList.toggle('active',menuOn);
 }
-function updateSideNav(){
-  document.querySelectorAll('.side-btn[id]').forEach(b=>b.classList.remove('active'));
-  let id='side-home';
-  if(curScreen==='ledger')id='side-ledger';
-  else if(curScreen==='summary')id='side-summary';
-  else if(curScreen==='mgmt'){
-    if(curMgmtTab==='dept')id='side-dept';
-    else if(curMgmtTab==='opt')id='side-opt';
-    else if(curMgmtTab==='soldout')id='side-soldout';
-    else id='side-menu';
-  }
-  const btn=document.getElementById(id);
-  if(btn)btn.classList.add('active');
-}
 function goLedgerMain(){
+  if(!confirmPendingLedgerSave())return;
   if(curDeptIdx!==null&&depts[curDeptIdx])openDept(curDeptIdx);
   else if(depts.length>0)openDept(0);
-  else goHome();
+  else {showScreen('home');renderHome();}
 }
 function goMenuMain(){
-  goMgmt();
+  if(!confirmPendingLedgerSave())return;
+  showScreen('mgmt');
   switchMgmtTab(curMgmtTab==='dept'?'menu':curMgmtTab);
 }
 function goHome(){
+  if(!confirmPendingLedgerSave())return;
+  if(curDeptIdx!==null&&depts[curDeptIdx]){openDept(curDeptIdx);return;}
+  if(depts.length>0){openDept(0);return;}
   showScreen('home');renderHome();
 }
-function goSummary(){showScreen('summary');renderSummary();}
+function goSummary(){
+  if(!confirmPendingLedgerSave())return;
+  showScreen('summary');renderSummary();
+}
 function openMobileDeptSheet(){
   renderMobileDeptList();
   document.getElementById('mobileDeptSheet').classList.add('open');
@@ -1302,10 +1212,12 @@ function closeMobileDeptSheet(e){
 let curMgmtTab='menu',curMenuSub='drink',curOptSub='list';
 
 function goMgmt(){
+  if(!confirmPendingLedgerSave())return;
   showScreen('mgmt');
   switchMgmtTab(curMgmtTab);
 }
 function goDeptMgmt(){
+  if(!confirmPendingLedgerSave())return;
   showScreen('mgmt');
   switchMgmtTab('dept');
 }
@@ -1323,8 +1235,9 @@ function switchMgmtTab(tab){
   if(tab==='dept')renderDeptMgmt();
   if(tab==='opt')renderOptMgmt();
   if(tab==='soldout')renderSoldoutMgmt();
+  const banner=document.getElementById('menuSafetyBanner');
+  if(banner)banner.classList.toggle('show',tab!=='dept');
   updateMainTabs('mgmt');
-  updateSideNav();
 }
 
 // ── 메뉴 DB 탭 ──
@@ -1336,22 +1249,6 @@ function switchMenuSub(sub){
 }
 const MAIN_CATS=['커피','디카페인','콜드브루','티(Tea)','음료(논커피라떼)','에이드&주스','스무디&프라페','디저트'];
 let dragSrcIdx=null,dragSrcArr=null;
-const TEMP_MODE_OPTIONS=[
-  {value:'ICE',label:'ICE 전용'},
-  {value:'HOT',label:'HOT 전용'},
-  {value:'BOTH',label:'HOT/ICE'},
-  {value:'NONE',label:'온도 없음'}
-];
-function cleanMenuNameForTemp(name){return String(name||'').replace(/^[(]HOT[)]|^[(]ICE[)]/,'').trim();}
-function inferTempMode(item){
-  const mode=String(item&&item.tempMode||'').toUpperCase();
-  if(['ICE','HOT','BOTH','NONE'].includes(mode))return mode;
-  const name=String(item&&item.name||'');
-  if(name.startsWith('(HOT)'))return'HOT';
-  if(name.startsWith('(ICE)'))return'ICE';
-  if(cleanMenuNameForTemp(name)==='유자생강차')return'HOT';
-  return'ICE';
-}
 
 function renderMenuDb(){
   const isDesert=curMenuSub==='dessert';
@@ -1367,7 +1264,7 @@ function renderMenuDb(){
     </div>`;
     h+=`<table class="dbt" style="margin-bottom:0;"><thead><tr>
       <th style="width:20px;"></th><th>메뉴명</th><th>별칭</th>
-      <th style="width:65px;">금액</th><th style="width:82px;">온도</th><th style="width:60px;">카테고리</th><th style="width:24px;"></th>
+      <th style="width:65px;">금액</th><th style="width:60px;">카테고리</th><th style="width:24px;"></th>
     </tr></thead><tbody>`;
     items.forEach(({it,i})=>{
       h+=`<tr draggable="true"
@@ -1380,9 +1277,6 @@ function renderMenuDb(){
         <td><input value="${esc(it.name)}" onchange="dbcM(${i},'name',this.value)"></td>
         <td><input value="${esc(it.alias||'')}" onchange="dbcM(${i},'alias',this.value)"></td>
         <td><input value="${it.price}" onchange="dbcM(${i},'price',this.value)" style="text-align:right;width:60px;"></td>
-        <td><select onchange="dbcM(${i},'tempMode',this.value)" style="font-size:11px;width:100%;border:0.5px solid #e0dfd8;border-radius:4px;padding:2px;">
-          ${TEMP_MODE_OPTIONS.map(o=>`<option value="${o.value}"${inferTempMode(it)===o.value?' selected':''}>${o.label}</option>`).join('')}
-        </select></td>
         <td><select onchange="dbcM(${i},'cat',this.value)" style="font-size:11px;width:100%;border:0.5px solid #e0dfd8;border-radius:4px;padding:2px;">
           ${MAIN_CATS.map(c=>`<option value="${c}"${(it.cat||guessCat(it.name))===c?' selected':''}>${c}</option>`).join('')}
         </select></td>
@@ -1723,6 +1617,7 @@ function toggleHidden(name){
   renderSoldoutMgmt();
 }
 function openDept(i){
+  if(curDeptIdx!==null&&curDeptIdx!==i&&!confirmPendingLedgerSave())return;
   curDeptIdx=i;
   curDeptId=depts[i]&&depts[i].id?depts[i].id:null;
   // 즉시 이전 내용 초기화
@@ -2502,7 +2397,7 @@ function dbc(i,col,val){const dbArr=getDB();dbArr[i][col]=col==='price'?(parseIn
 function dbd(i){getDB().splice(i,1);renderDBTab();}
 function dba(){
   const cat=curMenuSub==='dessert'?'디저트':'커피';
-  (curMenuSub==='dessert'?dessertDB:menuDB).push({name:'',alias:'',price:0,cat:cat,tempMode:curMenuSub==='dessert'?'NONE':'ICE'});
+  (curMenuSub==='dessert'?dessertDB:menuDB).push({name:'',alias:'',price:0,cat:cat});
   renderMenuDb();
   const body=document.getElementById('menuDbBody');
   if(body)setTimeout(()=>body.scrollTop=body.scrollHeight,50);
@@ -2551,52 +2446,56 @@ window.addEventListener('scroll',e=>{
 },true);
 
 function initUI(){
-  renderSubnav();renderHome();showScreen('home');listenRealtime();renderAdminLogin();
+  renderSubnav();renderHome();showScreen('home');listenRealtime();
   // 관리 탭 초기화
   curMgmtTab='menu';curMenuSub='drink';curOptSub='list';
-}
-function renderAdminLogin(){
-  const wrap=document.getElementById('adminLogin');
-  const dots=document.getElementById('adminPinDots');
-  if(!wrap||!dots)return;
-  wrap.classList.toggle('hidden',sessionStorage.getItem('ledgerAdminUnlocked')==='1');
-  const len=ADMIN_PASSWORD.length||4;
-  let h='';
-  for(let i=0;i<len;i++)h+=`<span class="admin-pin-dot${i<adminPwdBuffer.length?' on':''}"></span>`;
-  dots.innerHTML=h;
-}
-function adminPwdInput(n){
-  const max=ADMIN_PASSWORD.length||4;
-  if(adminPwdBuffer.length>=max)return;
-  adminPwdBuffer+=String(n);
-  document.getElementById('adminLoginErr').textContent='';
-  renderAdminLogin();
-  if(adminPwdBuffer.length===max)adminPwdSubmit();
-}
-function adminPwdClear(){
-  adminPwdBuffer='';
-  document.getElementById('adminLoginErr').textContent='';
-  renderAdminLogin();
-}
-function adminPwdSubmit(){
-  if(adminPwdBuffer===ADMIN_PASSWORD){
-    sessionStorage.setItem('ledgerAdminUnlocked','1');
-    adminPwdBuffer='';
-    renderAdminLogin();
-    showScreen('home');
-    return;
-  }
-  document.getElementById('adminLoginErr').textContent='비밀번호가 맞지 않습니다';
-  adminPwdBuffer='';
-  renderAdminLogin();
-}
-function adminLogout(){
-  sessionStorage.removeItem('ledgerAdminUnlocked');
-  adminPwdBuffer='';
-  showScreen('home');
-  renderAdminLogin();
+  initLedgerLock();
 }
 loadFromFirebase();
+
+function initLedgerLock(){
+  const screen=document.getElementById('lockScreen');
+  const input=document.getElementById('ledgerPinInput');
+  if(sessionStorage.getItem('ledgerUnlocked')==='1'){
+    screen?.classList.add('hidden');
+  }else{
+    screen?.classList.remove('hidden');
+    setTimeout(()=>input?.focus(),50);
+  }
+  input?.addEventListener('keydown',e=>{
+    if(e.key==='Enter')unlockLedgerApp();
+  });
+}
+
+function unlockLedgerApp(){
+  const input=document.getElementById('ledgerPinInput');
+  const msg=document.getElementById('ledgerPinMsg');
+  const pin=(input?.value||'').trim();
+  if(pin===LEDGER_APP_PIN){
+    sessionStorage.setItem('ledgerUnlocked','1');
+    document.getElementById('lockScreen')?.classList.add('hidden');
+    if(input)input.value='';
+    if(msg)msg.textContent='';
+    input?.classList.remove('err');
+    return;
+  }
+  if(msg)msg.textContent='비밀번호를 확인해주세요.';
+  input?.classList.add('err');
+  input?.focus();
+  input?.select();
+}
+
+function lockLedgerApp(){
+  sessionStorage.removeItem('ledgerUnlocked');
+  const screen=document.getElementById('lockScreen');
+  const input=document.getElementById('ledgerPinInput');
+  const msg=document.getElementById('ledgerPinMsg');
+  screen?.classList.remove('hidden');
+  if(input)input.value='';
+  if(msg)msg.textContent='';
+  input?.classList.remove('err');
+  setTimeout(()=>input?.focus(),50);
+}
 </script>
 </body>
 </html>
