@@ -1715,7 +1715,7 @@ function renderDeptMgmt(){
       <td><input value="${esc(d.name)}" onchange="renameDept(${i},this)"></td>
       <td><input value="${esc((deptOpeningBalance(d)||0).toLocaleString())}" ${unlocked?'':'disabled'} 
         oninput="this.value=this.value.replace(/[^0-9,\\-]/g,'')"
-        onchange="setOpeningBalance(${i},this.value)"
+        onchange="setOpeningBalance(${i},this)"
         style="text-align:right;"></td>
       <td><input value="${esc(d.openingDate||'')}" ${unlocked?'':'disabled'} placeholder="예: 5/11"
         onchange="setOpeningDate(${i},this.value)"
@@ -1744,7 +1744,10 @@ function unlockOpeningBalance(i){
 }
 function setOpeningBalance(i,value){
   if(!depts[i])return;
-  depts[i].openingBalance=normalizeOpeningBalance(value);
+  const raw=value&&value.value!==undefined?value.value:value;
+  const amount=normalizeOpeningBalance(raw);
+  depts[i].openingBalance=amount;
+  if(value&&value.value!==undefined)value.value=amount.toLocaleString();
   saveDept(i,true);
   if(curDeptIdx===i&&curScreen==='ledger')calcBal(i);
 }
@@ -2167,7 +2170,7 @@ function appendLedgerRows(di,count=ROW_EXTEND_COUNT){
   if(curScreen==='ledger'&&curDeptIdx===di){
     const tb=document.getElementById('ledgerBody');
     if(tb){
-      for(let ri=start;ri<depts[di].rows.length;ri++)tb.appendChild(makeRow(di,ri));
+      renderLedger(di);
     }
   }
 }
@@ -2176,14 +2179,44 @@ function extendRowsIfNeeded(di,ri){
   if(!depts[di]||ri<depts[di].rows.length-ROW_EXTEND_THRESHOLD)return;
   appendLedgerRows(di);
 }
+function visibleLedgerRowIndexes(di){
+  ensureRows(di);
+  const idxs=[];
+  depts[di].rows.forEach((row,ri)=>{
+    if(rowInLedgerMonth(row))idxs.push(ri);
+  });
+  const visibleValues=idxs.filter(ri=>rowHasValue(depts[di].rows[ri]));
+  const blanks=idxs.filter(ri=>!rowHasValue(depts[di].rows[ri]));
+  const minBlank=20;
+  while(blanks.length<minBlank){
+    depts[di].rows.push(blankLedgerRow());
+    blanks.push(depts[di].rows.length-1);
+  }
+  return [...visibleValues,...blanks];
+}
+function visiblePositionForRow(di,ri){
+  const idxs=visibleLedgerRowIndexes(di);
+  const pos=idxs.indexOf(ri);
+  return pos>=0?pos+1:ri+1;
+}
+function rowIndexAtVisibleOffset(di,ri,delta){
+  const idxs=visibleLedgerRowIndexes(di);
+  const pos=idxs.indexOf(ri);
+  if(pos<0)return ri+delta;
+  const nextPos=pos+delta;
+  if(nextPos>=0&&nextPos<idxs.length)return idxs[nextPos];
+  return ri+delta;
+}
+function visibleRangeToRowIndexes(di,start,end){
+  const idxs=visibleLedgerRowIndexes(di);
+  return idxs.slice(start-1,end);
+}
 function renderLedger(di){
   const tb=document.getElementById('ledgerBody');
   activateLedgerMonth(di);
   ensureRows(di);tb.innerHTML='';
   renderLedgerMonthSelect(di);
-  depts[di].rows.forEach((row,ri)=>{
-    if(rowInLedgerMonth(row))tb.appendChild(makeRow(di,ri));
-  });
+  visibleLedgerRowIndexes(di).forEach((ri,idx)=>tb.appendChild(makeRow(di,ri,idx+1)));
   calcBal(di);
   updateLedgerEditButtons();
 }
@@ -2193,7 +2226,7 @@ function moneyDisplay(v){
   const n=pn(raw);
   return n?n.toLocaleString():raw;
 }
-function makeRow(di,ri){
+function makeRow(di,ri,displayNo){
   const row=depts[di].rows[ri];
   const tr=document.createElement('tr');
   const isCancel=!!(row.cancelRow||String(row.note||'').includes('주문취소'));
@@ -2203,7 +2236,7 @@ function makeRow(di,ri){
   const db2=document.createElement('button');db2.className='del-btn';db2.textContent='×';
   db2.onclick=()=>deleteRow(di,ri);tdD.appendChild(db2);tr.appendChild(tdD);
   // 행번호
-  const tdN=document.createElement('td');tdN.className='rn';tdN.textContent=ri+1;tr.appendChild(tdN);
+  const tdN=document.createElement('td');tdN.className='rn';tdN.textContent=displayNo||visiblePositionForRow(di,ri);tr.appendChild(tdN);
   tr.appendChild(mkInp(di,ri,'date',row.date,'center'));
   tr.appendChild(mkContent(di,ri,row.content));
   tr.appendChild(mkOptTd(di,ri,row.opts||[]));
@@ -2391,20 +2424,22 @@ function applyDeleteRows(){
   const start=parseInt(document.getElementById('deleteStartRow').value,10);
   const end=parseInt(document.getElementById('deleteEndRow').value,10);
   if(isNaN(start)||isNaN(end)||start<1||end<start){alert('행 범위를 확인해주세요.');return;}
-  ensureRows(di,end);
+  const targetIndexes=visibleRangeToRowIndexes(di,start,end);
+  if(targetIndexes.length===0){alert('삭제할 행이 없습니다.');return;}
   let removedManual=0,removedEmpty=0,skipped=0;
-  for(let ri=start-1;ri<=end-1;ri++){
+  targetIndexes.forEach(ri=>{
     const row=depts[di].rows[ri];
     if(isEmptyLedgerRow(row))removedEmpty++;
     else if(isManualLedgerRow(row))removedManual++;
     else skipped++;
-  }
+  });
   if(removedManual+removedEmpty===0){alert(skipped>0?'자동 주문 연동 행만 포함되어 삭제하지 않았습니다.':'삭제할 행이 없습니다.');return;}
   const msg=`${depts[di].name} ${start}~${end}행에서 수동 입력 ${removedManual}개${removedEmpty?`, 빈 행 ${removedEmpty}개`:''}를 삭제할까요?${skipped?`\n자동 주문 연동 행 ${skipped}개는 제외됩니다.`:''}`;
   if(!confirm(msg))return;
   pushLedgerUndo(di,'행 삭제');
+  const removeSet=new Set(targetIndexes);
   depts[di].rows=depts[di].rows.filter((row,idx)=>{
-    if(idx<start-1||idx>end-1)return true;
+    if(!removeSet.has(idx))return true;
     if(isEmptyLedgerRow(row))return false;
     if(isManualLedgerRow(row))return false;
     return true;
@@ -2421,10 +2456,15 @@ function applyInsertRows(){
   const count=parseInt(document.getElementById('insertRowCount').value,10);
   if(isNaN(after)||after<0){alert('행 번호를 확인해주세요.');return;}
   if(isNaN(count)||count<1){alert('추가할 줄 수를 확인해주세요.');return;}
-  ensureRows(di,after);
-  const insertAt=Math.min(after,depts[di].rows.length);
+  ensureRows(di);
+  const visible=visibleLedgerRowIndexes(di);
+  const insertAt=after<=0?0:(visible[Math.min(after-1,visible.length-1)]+1);
   const blanks=[];
-  for(let i=0;i<count;i++)blanks.push(blankLedgerRow());
+  for(let i=0;i<count;i++){
+    const row=blankLedgerRow();
+    row.date=defaultTradeDateForCurrentMonth();
+    blanks.push(row);
+  }
   pushLedgerUndo(di,'중간 행 추가');
   depts[di].rows.splice(insertAt,0,...blanks);
   renderLedger(di);
@@ -2444,18 +2484,20 @@ function applyMoveRows(){
   if(isNaN(to)||!depts[to]){alert('대상 부서를 선택해주세요.');return;}
   if(isFutureMonthKey(targetMonth)){alert('미래 월로는 이동/복사할 수 없습니다.');return;}
   if(isNaN(start)||isNaN(end)||start<1||end<start){alert('행 범위를 확인해주세요.');return;}
-  ensureRows(from,end);
+  const targetIndexes=visibleRangeToRowIndexes(from,start,end);
+  if(targetIndexes.length===0){alert('행 범위를 확인해주세요.');return;}
+  ensureRows(from);
   ensureRows(to);
   const picked=[];
   let skipped=0;
-  for(let ri=start-1;ri<=end-1;ri++){
+  targetIndexes.forEach(ri=>{
     const row=depts[from].rows[ri];
     if(isEmptyLedgerRow(row))continue;
     if(!isManualLedgerRow(row)){skipped++;continue;}
     const copy=cloneManualLedgerRow(row);
     moveLedgerRowDateToMonth(copy,targetMonth);
     picked.push({ri,row:copy});
-  }
+  });
   if(picked.length===0){alert(skipped>0?'자동 주문 연동 행만 포함되어 이동/복사하지 않았습니다.':'옮길 수동 입력 행이 없습니다.');return;}
   const sameDept=from===to;
   const msg=`${depts[from].name} ${start}~${end}행 중 수동 입력 ${picked.length}개를 ${depts[to].name} / ${monthLabel(targetMonth)}(으)로 ${mode==='move'?'이동':'복사'}할까요?${sameDept?'\n같은 부서 안에서도 첫 빈 줄로 옮겨집니다.':''}${skipped?`\n자동 주문 연동 행 ${skipped}개는 제외됩니다.`:''}`;
@@ -2512,7 +2554,7 @@ function cc(inp){
   extendRowsIfNeeded(di,ri);markLedgerDirty(di);
 }
 function deleteRow(di,ri){
-  if(!confirm((ri+1)+'행을 삭제할까요?'))return;
+  if(!confirm(visiblePositionForRow(di,ri)+'행을 삭제할까요?'))return;
   pushLedgerUndo(di,'행 삭제');
   const row=depts[di].rows[ri]||{};
   const key=deptKey(di);
@@ -2628,9 +2670,13 @@ function navKey(e,di,ri,col){
     if(col==='content')next=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="qty"]`);
     else if(col==='qty'){
       extendRowsIfNeeded(di,ri);
-      next=document.querySelector(`input[data-di="${di}"][data-ri="${ri+1}"][data-col="content"]`);
+      const nextRi=rowIndexAtVisibleOffset(di,ri,1);
+      next=document.querySelector(`input[data-di="${di}"][data-ri="${nextRi}"][data-col="content"]`);
     }
-    else next=document.querySelector(`input[data-di="${di}"][data-ri="${ri+1}"][data-col="${col}"]`);
+    else {
+      const nextRi=rowIndexAtVisibleOffset(di,ri,1);
+      next=document.querySelector(`input[data-di="${di}"][data-ri="${nextRi}"][data-col="${col}"]`);
+    }
     if(next){next.focus();next.select&&next.select();}
   }
 }
@@ -2655,6 +2701,9 @@ function handlePaste(e,di,ri,col){
       }else{
         depts[di].rows[tRi][tCol]=v;
       }
+      if(rowHasValue(depts[di].rows[tRi])&&!String(depts[di].rows[tRi].date||'').trim()){
+        depts[di].rows[tRi].date=defaultTradeDateForCurrentMonth();
+      }
       const inp=document.querySelector(`input[data-di="${di}"][data-ri="${tRi}"][data-col="${tCol}"]`);
       if(inp)inp.value=depts[di].rows[tRi][tCol];
     });
@@ -2667,8 +2716,8 @@ function handlePaste(e,di,ri,col){
 function calcBal(di){
   const d=depts[di];let tp=0,to=0;
   let carry=carryoverBeforeMonth(di,curLedgerMonth),run=carry,mp=0,mo=0;
-  d.rows.forEach((row,ri)=>{
-    if(!rowInLedgerMonth(row))return;
+  visibleLedgerRowIndexes(di).forEach(ri=>{
+    const row=d.rows[ri];
     const payInp=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="pay"]`);
     const orderInp=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="order"]`);
     const contentInp=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="content"]`);
