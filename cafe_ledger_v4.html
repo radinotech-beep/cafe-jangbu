@@ -2496,8 +2496,8 @@ function applyMoveRows(){
   let skipped=0;
   targetIndexes.forEach(ri=>{
     const row=depts[from].rows[ri];
-    if(isEmptyLedgerRow(row))continue;
-    if(!isManualLedgerRow(row)){skipped++;continue;}
+    if(isEmptyLedgerRow(row))return;
+    if(!isManualLedgerRow(row)){skipped++;return;}
     const copy=cloneManualLedgerRow(row);
     moveLedgerRowDateToMonth(copy,targetMonth);
     picked.push({ri,row:copy});
