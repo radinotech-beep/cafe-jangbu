@@ -1748,8 +1748,10 @@ function setOpeningBalance(i,value){
   const amount=normalizeOpeningBalance(raw);
   depts[i].openingBalance=amount;
   if(value&&value.value!==undefined)value.value=amount.toLocaleString();
+  openingBalanceUnlocked.delete(deptKey(i));
   saveDept(i,true);
   if(curDeptIdx===i&&curScreen==='ledger')calcBal(i);
+  renderDeptMgmt();
 }
 function setOpeningDate(i,value){
   if(!depts[i])return;
@@ -1761,7 +1763,9 @@ function setOpeningDate(i,value){
   }else{
     depts[i].openingDate='';
   }
+  openingBalanceUnlocked.delete(deptKey(i));
   saveDept(i,true);
+  renderDeptMgmt();
 }
 function renameDept(i,input){
   const next=input.value.trim();
@@ -3069,12 +3073,12 @@ function initLedgerLock(){
   const screen=document.getElementById('lockScreen');
   const input=document.getElementById('ledgerPinInput');
   if(sessionStorage.getItem('ledgerUnlocked')==='1'){
-    screen?.classList.add('hidden');
+    if(screen)screen.classList.add('hidden');
   }else{
-    screen?.classList.remove('hidden');
-    setTimeout(()=>input?.focus(),50);
+    if(screen)screen.classList.remove('hidden');
+    setTimeout(function(){if(input)input.focus();},50);
   }
-  input?.addEventListener('keydown',e=>{
+  if(input)input.addEventListener('keydown',function(e){
     if(e.key==='Enter')unlockLedgerApp();
   });
 }
@@ -3082,19 +3086,21 @@ function initLedgerLock(){
 function unlockLedgerApp(){
   const input=document.getElementById('ledgerPinInput');
   const msg=document.getElementById('ledgerPinMsg');
-  const pin=(input?.value||'').trim();
+  let pin=(input&&input.value?input.value:'').trim();
+  pin=pin.replace(/[０-９]/g,function(ch){return String(ch.charCodeAt(0)-65296);});
   if(pin===LEDGER_APP_PIN){
     sessionStorage.setItem('ledgerUnlocked','1');
-    document.getElementById('lockScreen')?.classList.add('hidden');
+    const screen=document.getElementById('lockScreen');
+    if(screen)screen.classList.add('hidden');
     if(input)input.value='';
     if(msg)msg.textContent='';
-    input?.classList.remove('err');
+    if(input)input.classList.remove('err');
     return;
   }
   if(msg)msg.textContent='비밀번호를 확인해주세요.';
-  input?.classList.add('err');
-  input?.focus();
-  input?.select();
+  if(input)input.classList.add('err');
+  if(input)input.focus();
+  if(input&&input.select)input.select();
 }
 
 function lockLedgerApp(){
@@ -3102,11 +3108,11 @@ function lockLedgerApp(){
   const screen=document.getElementById('lockScreen');
   const input=document.getElementById('ledgerPinInput');
   const msg=document.getElementById('ledgerPinMsg');
-  screen?.classList.remove('hidden');
+  if(screen)screen.classList.remove('hidden');
   if(input)input.value='';
   if(msg)msg.textContent='';
-  input?.classList.remove('err');
-  setTimeout(()=>input?.focus(),50);
+  if(input)input.classList.remove('err');
+  setTimeout(function(){if(input)input.focus();},50);
 }
 </script>
 </body>
