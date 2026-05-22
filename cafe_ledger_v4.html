@@ -730,6 +730,7 @@ function cleanDeptForSave(dept){
   copy.openingDate=String(copy.openingDate||'').trim();
   delete copy._key;
   delete copy._legacyRows;
+  delete copy.months;
   return copy;
 }
 function blankLedgerRow(){
@@ -937,20 +938,9 @@ function mergeLegacyRowsIntoMonth(di,key){
 }
 function mergeMonthsIntoRootRows(di){
   const dept=depts[di];if(!dept)return;
-  const root=normalizeLedgerRows(dept.rows||dept._legacyRows||[]);
-  const seen=new Set(root.filter(rowHasValue).map(ledgerRowSignature));
-  Object.keys(dept.months||{}).sort().forEach(key=>{
-    ((dept.months[key]&&dept.months[key].rows)||[]).forEach(row=>{
-      if(!rowHasValue(row))return;
-      const copy=cloneLedgerRow(row);
-      const sig=ledgerRowSignature(copy);
-      if(!seen.has(sig)){
-        root.push(copy);
-        seen.add(sig);
-      }
-    });
-  });
-  dept.rows=root;
+  // rows is the live ledger source. Old months snapshots are reference only.
+  // Do not merge months back into rows, or deleted rows can reappear.
+  dept.rows=normalizeLedgerRows(dept.rows||dept._legacyRows||[]);
   dept._legacyRows=dept.rows;
 }
 function activateLedgerMonth(di){
