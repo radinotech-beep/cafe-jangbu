@@ -566,10 +566,11 @@ tr.cancel-ledger-row .cancel-note input{background:#F9DADA;color:#A32D2D;border-
   <div class="modal dm">
     <div class="mhead"><h2>행 이동/복사</h2><button class="mclose" onclick="closeMoveRowsModal()">&#10005;</button></div>
     <div style="padding:14px;">
-      <div style="font-size:12px;color:#888780;margin-bottom:10px;">현재 부서의 지정 행 범위를 다른 부서 첫 빈 줄로 옮깁니다. 자동 주문 연동 행은 제외됩니다.</div>
+      <div style="font-size:12px;color:#888780;margin-bottom:10px;">현재 부서의 지정 행 범위를 선택한 부서/월의 첫 빈 줄로 옮깁니다. 자동 주문 연동 행은 제외됩니다.</div>
       <div class="set-row"><label>시작 행</label><input type="number" id="moveStartRow" min="1" value="1"></div>
       <div class="set-row"><label>끝 행</label><input type="number" id="moveEndRow" min="1" value="1"></div>
       <div class="set-row"><label>대상 부서</label><select id="moveTargetDept" style="flex:1;padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:5px;font-size:12px;font-family:inherit;"></select></div>
+      <div class="set-row"><label>대상 월</label><select id="moveTargetMonth" style="flex:1;padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:5px;font-size:12px;font-family:inherit;"></select></div>
       <div class="set-row"><label>작업</label><select id="moveMode" style="flex:1;padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:5px;font-size:12px;font-family:inherit;"><option value="move">이동</option><option value="copy">복사</option></select></div>
     </div>
     <div class="mfoot">
@@ -642,6 +643,7 @@ let savingDepts=new Set();
 let dirtyDeptKeys=new Set();
 let ledgerUndoStack=[];
 let ledgerMonthWarnedRows=new Set();
+let openingBalanceUnlocked=new Set();
 let addingDept=false;
 let curLedgerMonth=monthKeyFromDate(new Date());
 let curSummaryMonth=monthKeyFromDate(new Date());
@@ -723,13 +725,18 @@ function ensureCatSubMapShape(){
 }
 function cleanDeptForSave(dept){
   const copy={...dept};
-  if(copy._legacyRows)copy.rows=copy._legacyRows;
+  copy.rows=normalizeLedgerRows(copy.rows||copy._legacyRows||[]);
+  copy.openingBalance=normalizeOpeningBalance(copy.openingBalance);
+  copy.openingDate=String(copy.openingDate||'').trim();
   delete copy._key;
   delete copy._legacyRows;
   return copy;
 }
 function blankLedgerRow(){
   return {date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''};
+}
+function normalizeOpeningBalance(v){
+  return pn(String(v||'').replace(/,/g,''));
 }
 function monthKeyFromDate(d){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
@@ -743,6 +750,21 @@ function currentMonthKey(){
 }
 function isFutureMonthKey(key){
   return String(key||'')>currentMonthKey();
+}
+function deptOpeningBalance(dept){
+  return normalizeOpeningBalance(dept&&dept.openingBalance);
+}
+function deptOpeningMonth(dept){
+  return monthKeyFromLedgerDate(dept&&dept.openingDate);
+}
+function openingBalanceForMonth(di,key){
+  const dept=depts[di];
+  if(!dept)return 0;
+  const bal=deptOpeningBalance(dept);
+  if(!bal)return 0;
+  const openMonth=deptOpeningMonth(dept);
+  if(openMonth&&key&&openMonth>key)return 0;
+  return bal;
 }
 function prevMonthLabel(key){
   const m=String(key||'').match(/^(\d{4})-(\d{2})$/);
@@ -821,10 +843,10 @@ function legacyRowBelongsToMonth(row,key){
   return key===currentMonthKey();
 }
 function rowInLedgerMonth(row){
-  return true; // 월별 필터는 데이터 숨김 위험이 있어 이월 구조 확정 전까지 비활성화
   if(!curLedgerMonth)return true;
   if(!rowHasValue(row))return true;
-  return monthKeyFromLedgerDate(row.date)===curLedgerMonth;
+  const key=monthKeyFromLedgerDate(row.date);
+  return key?key===curLedgerMonth:curLedgerMonth===currentMonthKey();
 }
 function rowWarnKey(di,ri,row){
   return deptKey(di)+'_'+ri+'_'+String(row.date||'')+'_'+String(row.createdAt||'');
@@ -837,17 +859,13 @@ function ensureTransactionDate(di,ri){
   if(input)input.value=row.date;
 }
 function syncActiveMonthRows(di){
-  const dept=depts[di];if(!dept||!curLedgerMonth)return;
-  if(!dept.months)dept.months={};
-  if(!dept.months[curLedgerMonth])dept.months[curLedgerMonth]={rows:[]};
-  dept.months[curLedgerMonth].rows=normalizeLedgerRows(dept.rows||[]);
-  dept.rows=dept.months[curLedgerMonth].rows;
+  const dept=depts[di];if(!dept)return;
+  dept.rows=normalizeLedgerRows(dept.rows||dept._legacyRows||[]);
+  dept._legacyRows=dept.rows;
 }
 function commitActiveRowsToMonth(di){
-  const dept=depts[di];if(!dept||!curLedgerMonth)return;
-  if(!dept.months)dept.months={};
-  if(!dept.months[curLedgerMonth])dept.months[curLedgerMonth]={rows:[]};
-  dept.months[curLedgerMonth].rows=dept.rows||[];
+  const dept=depts[di];if(!dept)return;
+  dept._legacyRows=dept.rows||dept._legacyRows||[];
 }
 function confirmMonthMismatch(di,ri){
   const row=depts[di]&&depts[di].rows&&depts[di].rows[ri];
@@ -917,34 +935,38 @@ function mergeLegacyRowsIntoMonth(di,key){
   });
   dept.months[key].rows=rows;
 }
+function mergeMonthsIntoRootRows(di){
+  const dept=depts[di];if(!dept)return;
+  const root=normalizeLedgerRows(dept.rows||dept._legacyRows||[]);
+  const seen=new Set(root.filter(rowHasValue).map(ledgerRowSignature));
+  Object.keys(dept.months||{}).sort().forEach(key=>{
+    ((dept.months[key]&&dept.months[key].rows)||[]).forEach(row=>{
+      if(!rowHasValue(row))return;
+      const copy=cloneLedgerRow(row);
+      const sig=ledgerRowSignature(copy);
+      if(!seen.has(sig)){
+        root.push(copy);
+        seen.add(sig);
+      }
+    });
+  });
+  dept.rows=root;
+  dept._legacyRows=dept.rows;
+}
 function activateLedgerMonth(di){
   const dept=depts[di];if(!dept)return;
   if(isFutureMonthKey(curLedgerMonth)){
     curLedgerMonth=currentMonthKey();
   }
-  if(!dept.months)dept.months={};
-  if(!dept.months[curLedgerMonth]){
-    const migrated=monthRowsFromLegacy(di,curLedgerMonth);
-    dept.months[curLedgerMonth]={rows:migrated.length?migrated:[],_legacyMerged:true};
-  }
-  if(!dept.months[curLedgerMonth]._legacyMerged){
-    mergeLegacyRowsIntoMonth(di,curLedgerMonth);
-    dept.months[curLedgerMonth]._legacyMerged=true;
-  }
-  dept.months[curLedgerMonth].rows=normalizeLedgerRows(dept.months[curLedgerMonth].rows);
-  dept.rows=dept.months[curLedgerMonth].rows;
+  mergeMonthsIntoRootRows(di);
 }
 function carryoverBeforeMonth(di,key){
   const dept=depts[di];if(!dept||!key)return 0;
-  let total=0;const counted=new Set();
-  Object.keys(dept.months||{}).forEach(m=>{
-    if(m>=key)return;
-    counted.add(m);
-    (dept.months[m].rows||[]).forEach(row=>{if(rowHasValue(row))total+=pn(row.pay)-pn(row.order);});
-  });
-  (dept._legacyRows||[]).forEach(row=>{
+  mergeMonthsIntoRootRows(di);
+  let total=openingBalanceForMonth(di,key);
+  (dept.rows||[]).forEach(row=>{
     const m=monthKeyFromLedgerDate(row.date);
-    if(m&&m<key&&!counted.has(m))total+=pn(row.pay)-pn(row.order);
+    if(m&&m<key)total+=pn(row.pay)-pn(row.order);
   });
   return total;
 }
@@ -1016,6 +1038,8 @@ function normalizeDeptData(data,persistMissingIds){
     dept._legacyRows=normalizeLedgerRows(dept.rows);
     dept.months=normalizeMonthLedgers(dept.months);
     dept.rows=dept._legacyRows;
+    dept.openingBalance=normalizeOpeningBalance(dept.openingBalance);
+    dept.openingDate=String(dept.openingDate||'').trim();
     if(!dept.id){
       dept.id=makeDeptId();
       if(persistMissingIds)db.ref('jangbu/depts/'+k+'/id').set(dept.id);
@@ -1684,10 +1708,18 @@ function dropOnCat(cat,e){
 
 // ── 부서 관리 탭 ──
 function renderDeptMgmt(){
-  let h=`<table class="dbt"><thead><tr><th>부서명</th><th style="width:130px;">비밀번호 (숫자)</th><th style="width:30px;"></th></tr></thead><tbody>`;
+  let h=`<table class="dbt"><thead><tr><th>부서명</th><th style="width:130px;">시작잔액</th><th style="width:120px;">기준일</th><th style="width:130px;">비밀번호 (숫자)</th><th style="width:56px;">잔액수정</th><th style="width:30px;"></th></tr></thead><tbody>`;
   depts.forEach((d,i)=>{
+    const unlocked=openingBalanceUnlocked.has(deptKey(i));
     h+=`<tr>
       <td><input value="${esc(d.name)}" onchange="renameDept(${i},this)"></td>
+      <td><input value="${esc((deptOpeningBalance(d)||0).toLocaleString())}" ${unlocked?'':'disabled'} 
+        oninput="this.value=this.value.replace(/[^0-9,\\-]/g,'')"
+        onchange="setOpeningBalance(${i},this.value)"
+        style="text-align:right;"></td>
+      <td><input value="${esc(d.openingDate||'')}" ${unlocked?'':'disabled'} placeholder="예: 5/11"
+        onchange="setOpeningDate(${i},this.value)"
+        style="text-align:center;"></td>
       <td style="display:flex;align-items:center;gap:4px;">
         <input type="text" id="pwd-${i}" maxlength="6" placeholder="4~6자리" value="${esc(d.password||'')}" 
           oninput="depts[${i}].password=this.value"
@@ -1695,10 +1727,38 @@ function renderDeptMgmt(){
           style="letter-spacing:3px;text-align:center;flex:1;">
         <button onclick="togglePwdVis(${i})" style="background:none;border:none;cursor:pointer;font-size:14px;" title="숨기기/보이기">👁</button>
       </td>
+      <td><button class="abtn" onclick="unlockOpeningBalance(${i})" style="padding:4px 8px;font-size:11px;">${unlocked?'열림':'수정'}</button></td>
       <td><button class="bdel" onclick="delDept(${i})">✕</button></td></tr>`;
   });
   h+=`</tbody></table>`;
   document.getElementById('deptMgmtBody').innerHTML=h;
+}
+function unlockOpeningBalance(i){
+  if(!depts[i])return;
+  const pin=prompt(`${depts[i].name} 시작잔액을 수정하려면 비밀번호를 입력해주세요.`);
+  if(pin===null)return;
+  const deptPin=String(depts[i].password||'');
+  if(pin!==deptPin&&pin!==LEDGER_APP_PIN){alert('비밀번호가 맞지 않습니다.');return;}
+  openingBalanceUnlocked.add(deptKey(i));
+  renderDeptMgmt();
+}
+function setOpeningBalance(i,value){
+  if(!depts[i])return;
+  depts[i].openingBalance=normalizeOpeningBalance(value);
+  saveDept(i,true);
+  if(curDeptIdx===i&&curScreen==='ledger')calcBal(i);
+}
+function setOpeningDate(i,value){
+  if(!depts[i])return;
+  const raw=String(value||'').trim();
+  if(raw){
+    const n=normalizeTradeDateInput(raw);
+    if(!n.ok){alert('기준일은 5/11 또는 2026-05-11 형식으로 입력해주세요.');renderDeptMgmt();return;}
+    depts[i].openingDate=n.value;
+  }else{
+    depts[i].openingDate='';
+  }
+  saveDept(i,true);
 }
 function renameDept(i,input){
   const next=input.value.trim();
@@ -2067,7 +2127,7 @@ function renderHome(){
   grid.innerHTML='';
 }
 function calcDeptBal(i){
-  let bal=0;(depts[i].rows||[]).forEach(r=>{bal+=pn(r.pay)-pn(r.order);});return bal;
+  let bal=deptOpeningBalance(depts[i]);(depts[i].rows||[]).forEach(r=>{bal+=pn(r.pay)-pn(r.order);});return bal;
 }
 
 // ── 장부 ──
@@ -2258,12 +2318,43 @@ function firstEmptyRowIndex(di){
   const idx=depts[di].rows.findIndex(isEmptyLedgerRow);
   return idx>=0?idx:depts[di].rows.length;
 }
+function ledgerMoveMonthOptions(){
+  const keys=new Set([currentMonthKey(),curLedgerMonth]);
+  depts.forEach((d,i)=>ledgerMonthKeys(i).forEach(k=>keys.add(k)));
+  return Array.from(keys).filter(k=>k&&!isFutureMonthKey(k)).sort().reverse();
+}
+function daysInLedgerMonth(key){
+  const m=String(key||'').match(/^(\d{4})-(\d{2})$/);
+  if(!m)return 31;
+  return new Date(+m[1],+m[2],0).getDate();
+}
+function moveLedgerRowDateToMonth(row,targetKey){
+  if(!targetKey||!row)return;
+  const m=String(targetKey).match(/^(\d{4})-(\d{2})$/);
+  if(!m)return;
+  const src=String(row.date||'').trim();
+  let day=1;
+  let found=src.match(/^\d{4}-(\d{1,2})-(\d{1,2})$/);
+  if(found)day=parseInt(found[2],10);
+  if(!found){
+    found=src.match(/^(\d{1,2})[\/-](\d{1,2})$/);
+    if(found)day=parseInt(found[2],10);
+  }
+  if(!found&&targetKey===currentMonthKey())day=new Date().getDate();
+  day=Math.max(1,Math.min(day,daysInLedgerMonth(targetKey)));
+  row.date=`${parseInt(m[2],10)}/${day}`;
+}
 function openMoveRowsModal(){
   if(curDeptIdx===null)return;
   const sel=document.getElementById('moveTargetDept');
-  sel.innerHTML=depts.map((d,i)=>`<option value="${i}"${i===curDeptIdx?' disabled':''}>${esc(d.name)}</option>`).join('');
-  const firstTarget=depts.findIndex((d,i)=>i!==curDeptIdx);
-  if(firstTarget>=0)sel.value=String(firstTarget);
+  sel.innerHTML=depts.map((d,i)=>`<option value="${i}">${esc(d.name)}</option>`).join('');
+  sel.value=String(curDeptIdx);
+  const monthSel=document.getElementById('moveTargetMonth');
+  if(monthSel){
+    const keys=ledgerMoveMonthOptions();
+    monthSel.innerHTML=keys.map(k=>`<option value="${k}">${monthLabel(k)}</option>`).join('');
+    monthSel.value=keys.includes(curLedgerMonth)?curLedgerMonth:(keys[0]||currentMonthKey());
+  }
   document.getElementById('moveStartRow').value=1;
   document.getElementById('moveEndRow').value=1;
   document.getElementById('moveMode').value='move';
@@ -2346,10 +2437,12 @@ function applyMoveRows(){
   if(curDeptIdx===null)return;
   const from=curDeptIdx;
   const to=parseInt(document.getElementById('moveTargetDept').value,10);
+  const targetMonth=(document.getElementById('moveTargetMonth')||{}).value||curLedgerMonth;
   const start=parseInt(document.getElementById('moveStartRow').value,10);
   const end=parseInt(document.getElementById('moveEndRow').value,10);
   const mode=document.getElementById('moveMode').value;
-  if(isNaN(to)||to===from){alert('대상 부서를 선택해주세요.');return;}
+  if(isNaN(to)||!depts[to]){alert('대상 부서를 선택해주세요.');return;}
+  if(isFutureMonthKey(targetMonth)){alert('미래 월로는 이동/복사할 수 없습니다.');return;}
   if(isNaN(start)||isNaN(end)||start<1||end<start){alert('행 범위를 확인해주세요.');return;}
   ensureRows(from,end);
   ensureRows(to);
@@ -2359,24 +2452,29 @@ function applyMoveRows(){
     const row=depts[from].rows[ri];
     if(isEmptyLedgerRow(row))continue;
     if(!isManualLedgerRow(row)){skipped++;continue;}
-    picked.push({ri,row:cloneManualLedgerRow(row)});
+    const copy=cloneManualLedgerRow(row);
+    moveLedgerRowDateToMonth(copy,targetMonth);
+    picked.push({ri,row:copy});
   }
   if(picked.length===0){alert(skipped>0?'자동 주문 연동 행만 포함되어 이동/복사하지 않았습니다.':'옮길 수동 입력 행이 없습니다.');return;}
-  const msg=`${depts[from].name} ${start}~${end}행 중 수동 입력 ${picked.length}개를 ${depts[to].name}(으)로 ${mode==='move'?'이동':'복사'}할까요?${skipped?`\n자동 주문 연동 행 ${skipped}개는 제외됩니다.`:''}`;
+  const sameDept=from===to;
+  const msg=`${depts[from].name} ${start}~${end}행 중 수동 입력 ${picked.length}개를 ${depts[to].name} / ${monthLabel(targetMonth)}(으)로 ${mode==='move'?'이동':'복사'}할까요?${sameDept?'\n같은 부서 안에서도 첫 빈 줄로 옮겨집니다.':''}${skipped?`\n자동 주문 연동 행 ${skipped}개는 제외됩니다.`:''}`;
   if(!confirm(msg))return;
   pushLedgerUndo(from,mode==='move'?'행 이동':'행 복사');
-  pushLedgerUndo(to,mode==='move'?'행 이동 받기':'행 복사 받기');
+  if(!sameDept)pushLedgerUndo(to,mode==='move'?'행 이동 받기':'행 복사 받기');
+  if(mode==='move'){
+    picked.forEach(p=>clearManualLedgerRow(depts[from].rows[p.ri]));
+  }
   let insertAt=firstEmptyRowIndex(to);
   ensureRows(to,insertAt+picked.length+ROW_EXTEND_THRESHOLD);
   picked.forEach((p,idx)=>{
     depts[to].rows[insertAt+idx]=p.row;
-    if(mode==='move')clearManualLedgerRow(depts[from].rows[p.ri]);
   });
   ensureRows(from);ensureRows(to);
   if(mode==='move')markLedgerDirty(from);
-  markLedgerDirty(to);
+  if(!sameDept||mode==='copy')markLedgerDirty(to);
   renderLedger(from);
-  calcBal(to);
+  if(!sameDept)calcBal(to);
   closeMoveRowsModal();
 }
 
@@ -2660,8 +2758,8 @@ function moveSummaryMonth(delta){
 function rowsForSummaryMonth(di,key){
   const dept=depts[di];
   if(!dept)return[];
-  const monthRows=dept.months&&dept.months[key]&&Array.isArray(dept.months[key].rows)?dept.months[key].rows:null;
-  return (monthRows?monthRows:monthRowsFromLegacy(di,key)).filter(rowHasValue);
+  mergeMonthsIntoRootRows(di);
+  return (dept.rows||[]).filter(row=>rowHasValue(row)&&legacyRowBelongsToMonth(row,key));
 }
 function summaryRowForDept(di,key){
   const rows=rowsForSummaryMonth(di,key);
@@ -2887,7 +2985,7 @@ function addDept(){
     if(sameName){alert('이미 사용 중인 부서명입니다.');return null;}
     if(snaps[1].exists()){alert('삭제 이력이 있는 부서명은 다시 추가할 수 없습니다. 새 부서명을 사용해주세요.');return null;}
     const key=nextDeptKey(existing);
-    const dept={id:makeDeptId(),name:nm,rows:emptyRows,password:''};
+    const dept={id:makeDeptId(),name:nm,rows:emptyRows,password:'',openingBalance:0,openingDate:''};
     return db.ref('jangbu/depts/'+key).set(dept).then(()=>{
       const merged={...existing,[key]:dept};
       depts=normalizeDeptData(merged,false);
