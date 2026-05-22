@@ -644,6 +644,7 @@ let dirtyDeptKeys=new Set();
 let ledgerUndoStack=[];
 let ledgerMonthWarnedRows=new Set();
 let openingBalanceUnlocked=new Set();
+let ledgerVisibleRows={};
 let addingDept=false;
 let curLedgerMonth=monthKeyFromDate(new Date());
 let curSummaryMonth=monthKeyFromDate(new Date());
@@ -2189,12 +2190,12 @@ function visibleLedgerRowIndexes(di){
   return [...visibleValues,...blanks];
 }
 function visiblePositionForRow(di,ri){
-  const idxs=visibleLedgerRowIndexes(di);
+  const idxs=ledgerVisibleRows[di]||visibleLedgerRowIndexes(di);
   const pos=idxs.indexOf(ri);
   return pos>=0?pos+1:ri+1;
 }
 function rowIndexAtVisibleOffset(di,ri,delta){
-  const idxs=visibleLedgerRowIndexes(di);
+  const idxs=ledgerVisibleRows[di]||visibleLedgerRowIndexes(di);
   const pos=idxs.indexOf(ri);
   if(pos<0)return ri+delta;
   const nextPos=pos+delta;
@@ -2202,7 +2203,7 @@ function rowIndexAtVisibleOffset(di,ri,delta){
   return ri+delta;
 }
 function visibleRangeToRowIndexes(di,start,end){
-  const idxs=visibleLedgerRowIndexes(di);
+  const idxs=ledgerVisibleRows[di]||visibleLedgerRowIndexes(di);
   return idxs.slice(start-1,end);
 }
 function renderLedger(di){
@@ -2210,7 +2211,9 @@ function renderLedger(di){
   activateLedgerMonth(di);
   ensureRows(di);tb.innerHTML='';
   renderLedgerMonthSelect(di);
-  visibleLedgerRowIndexes(di).forEach((ri,idx)=>tb.appendChild(makeRow(di,ri,idx+1)));
+  const visible=visibleLedgerRowIndexes(di);
+  ledgerVisibleRows[di]=visible;
+  visible.forEach((ri,idx)=>tb.appendChild(makeRow(di,ri,idx+1)));
   calcBal(di);
   updateLedgerEditButtons();
 }
@@ -2660,6 +2663,12 @@ function hideOpt(){document.getElementById('optPop').style.display='none';optTar
 function navKey(e,di,ri,col){
   if(e.key==='Enter'&&document.getElementById('acPop').style.display==='none'){
     e.preventDefault();
+    const row=depts[di]&&depts[di].rows&&depts[di].rows[ri];
+    if(row&&rowHasValue(row)&&!String(row.date||'').trim()){
+      row.date=defaultTradeDateForCurrentMonth();
+      const dateInp=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="date"]`);
+      if(dateInp)dateInp.value=row.date;
+    }
     let next;
     if(col==='content')next=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="qty"]`);
     else if(col==='qty'){
