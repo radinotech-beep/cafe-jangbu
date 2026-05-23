@@ -247,8 +247,9 @@ tr.payment-cancel-ledger-row input{color:#A32D2D;font-weight:700;}
 .st tr.tot td.neg{color:#A32D2D;}
 .st tr.tot td.pos{color:#3B6D11;}
 .summary-actions{display:flex;gap:5px;justify-content:center;align-items:center;}
-.summary-pay-btn{height:28px;border:0;border-radius:7px;background:#111;color:#F5C800;padding:0 9px;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;}
-.summary-pay-cancel-btn{height:28px;border:1px solid #D9A0A0;border-radius:7px;background:#FFF3F3;color:#A32D2D;padding:0 9px;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.summary-pay-btn{height:31px;border:2px solid #111;border-radius:9px;background:#111;color:#F5C800;padding:0 11px;font-size:12px;font-weight:950;cursor:pointer;font-family:inherit;white-space:nowrap;box-shadow:0 2px 0 #D5B000;}
+.summary-pay-btn:hover{background:#2A2A2A;transform:translateY(-1px);}
+.summary-pay-cancel-btn{height:29px;border:1px solid #D9A0A0;border-radius:8px;background:#FFF3F3;color:#A32D2D;padding:0 9px;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;}
 .summary-pay-cancel-btn:disabled{opacity:.35;cursor:not-allowed;}
 .export-row{padding:10px 14px;background:#fff;border-top:1px solid #e0dfd8;display:flex;justify-content:space-between;align-items:center;}
 .period-info{font-size:11px;color:#888780;}
@@ -3102,7 +3103,7 @@ function renderSummary(){
       <td class="${balCellClass(s.bal)}">${s.bal.toLocaleString()}</td>
       <td class="nt">${formatPayDates(s.payDates)||'-'}</td>
       <td class="nt"></td>
-      <td><div class="summary-actions"><button class="summary-pay-btn" onclick="openPaymentModal(${i},'pay')">결제 등록</button><button class="summary-pay-cancel-btn" ${latestPay?'':'disabled'} onclick="openPaymentModal(${i},'cancel')">결제 취소</button></div></td>`;
+      <td><div class="summary-actions"><button class="summary-pay-btn" onclick="openPaymentModal(${i},'pay')">💳 결제 등록</button><button class="summary-pay-cancel-btn" ${latestPay?'':'disabled'} onclick="openPaymentModal(${i},'cancel')">결제 취소</button></div></td>`;
     tr.cells[0].onclick=()=>openDept(i);
     tb.appendChild(tr);
   });
@@ -3319,7 +3320,7 @@ window.addEventListener('scroll',e=>{
 },true);
 
 function initUI(){
-  renderSubnav();renderHome();showScreen('home');listenRealtime();
+  renderSubnav();renderHome();showScreen('summary');renderSummary();listenRealtime();
   // 관리 탭 초기화
   curMgmtTab='menu';curMenuSub='drink';curOptSub='list';
   initLedgerLock();
