@@ -901,7 +901,7 @@ function rowHasValue(row){
   ));
 }
 function ledgerEventTs(row){
-  return Number(row&&row.ledgerEventTs)||Number(row&&row.ledgerWriteTs)||0;
+  return Number(row&&row.registeredAt)||Number(row&&row.ledgerEventTs)||0;
 }
 function ledgerEventTime(row){
   if(row&&row.ledgerEventTime)return row.ledgerEventTime;
@@ -2280,19 +2280,21 @@ function visibleLedgerRowIndexes(di){
     if(rowInLedgerMonth(row))idxs.push(ri);
   });
   const visibleValues=idxs.filter(ri=>rowHasValue(depts[di].rows[ri]));
-  visibleValues.sort((a,b)=>{
-    const ta=ledgerEventTs(depts[di].rows[a]);
-    const tb=ledgerEventTs(depts[di].rows[b]);
-    if(ta&&tb&&ta!==tb)return ta-tb;
-    return a-b;
-  });
+  const timedRows=visibleValues
+    .filter(ri=>ledgerEventTs(depts[di].rows[ri]))
+    .sort((a,b)=>{
+      const ta=ledgerEventTs(depts[di].rows[a]);
+      const tb=ledgerEventTs(depts[di].rows[b]);
+      return ta===tb?a-b:ta-tb;
+    });
+  const orderedValues=visibleValues.map(ri=>ledgerEventTs(depts[di].rows[ri])?timedRows.shift():ri);
   const blanks=idxs.filter(ri=>!rowHasValue(depts[di].rows[ri]));
   const minBlank=20;
   while(blanks.length<minBlank){
     depts[di].rows.push(blankLedgerRow());
     blanks.push(depts[di].rows.length-1);
   }
-  return [...visibleValues,...blanks];
+  return [...orderedValues,...blanks];
 }
 function visiblePositionForRow(di,ri){
   const idxs=ledgerVisibleRows[di]||visibleLedgerRowIndexes(di);
@@ -3095,6 +3097,7 @@ function submitPaymentRegistration(){
     note,
     createdAt:todayDisplay(),
     updatedAt:todayDisplay(),
+    registeredAt:eventTs,
     ledgerEventTs:eventTs,
     ledgerEventTime:eventTime,
     paymentRow:true,

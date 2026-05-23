@@ -1207,7 +1207,7 @@ function doSubmitOrder(){
     const optTotal=(item.opts||[]).reduce((s,o)=>s+(parseInt(o.price,10)||0),0);
     const basePrice=parseInt(item.basePrice,10)||Math.max(0,(parseInt(item.unitPrice,10)||0)-optTotal);
     const ledgerEventTs=orderEventTs+idx;
-    return {date:dateStr,content,opts:item.opts||[],qty,order:amount,pay:'',note:'',createdAt:dateStr,updatedAt:dateStr,basePrice,orderId:String(order.id),deptId:dept.id,ledgerEventTs,ledgerEventTime:ledgerTimeFromTs(ledgerEventTs),ledgerWriteTs:Date.now()};
+    return {date:dateStr,content,opts:item.opts||[],qty,order:amount,pay:'',note:'',createdAt:dateStr,updatedAt:dateStr,basePrice,orderId:String(order.id),deptId:dept.id,registeredAt:ledgerEventTs,ledgerEventTs,ledgerEventTime:ledgerTimeFromTs(ledgerEventTs),ledgerWriteTs:Date.now()};
   });
 
   db.ref('jangbu/depts/'+deptKey+'/rows').transaction(current=>{

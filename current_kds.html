@@ -393,6 +393,7 @@ function writeCancelRows(deptKey,order,dept){
       rows=rows.filter(row=>!(row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr))));
       cancelRows.forEach((row,idx)=>{
         const ledgerEventTs=cancelEventTs+idx;
+        row.registeredAt=ledgerEventTs;
         row.ledgerEventTs=ledgerEventTs;
         row.ledgerEventTime=ledgerTimeFromTs(ledgerEventTs);
         row.ledgerWriteTs=Date.now();
