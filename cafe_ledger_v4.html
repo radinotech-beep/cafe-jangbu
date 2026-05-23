@@ -214,6 +214,7 @@ tr.payment-cancel-ledger-row input{color:#A32D2D;font-weight:700;}
 .summary-tabs{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
 .summary-chip{border:1px solid #e0dfd8;background:#fff;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:800;color:#5F5E5A;}
 .summary-chip.active{background:#111;color:#F5C800;border-color:#111;}
+.summary-capture-time{border:1px solid #E7DFAE;background:#FFFBE7;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900;color:#5A4B00;}
 .summary-month-select{height:31px;border:1px solid #e0dfd8;border-radius:7px;background:#FFF8DA;padding:0 10px;font-size:12px;font-weight:900;font-family:inherit;color:#111;}
 .period-row input[type=date]{padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:6px;font-size:12px;font-family:inherit;color:#2C2C2A;}
 .period-row span{font-size:12px;color:#888780;}
@@ -262,9 +263,10 @@ tr.payment-cancel-ledger-row input{color:#A32D2D;font-weight:700;}
 .pay-info-value.neg{color:#A32D2D;}
 .pay-field{margin-top:11px;}
 .pay-field label{display:block;font-size:12px;font-weight:900;color:#2C2C2A;margin-bottom:5px;}
-.pay-field input,.pay-field textarea{width:100%;border:1.5px solid #d8d1bd;border-radius:8px;background:#fff;padding:9px 10px;font-family:inherit;font-size:14px;font-weight:800;}
+.pay-field input,.pay-field textarea,.pay-field select{width:100%;border:1.5px solid #d8d1bd;border-radius:8px;background:#fff;padding:9px 10px;font-family:inherit;font-size:14px;font-weight:800;}
 .pay-field input[type=date]{min-height:39px;}
 .pay-field textarea{min-height:58px;resize:none;font-weight:700;}
+.pay-field select{min-height:42px;}
 .pay-help{font-size:11px;color:#888780;margin-top:5px;}
 .pay-warn{margin-top:12px;background:#FFF5CC;border:1px solid #E5CF72;border-radius:9px;padding:9px 10px;font-size:12px;font-weight:800;color:#5A4300;line-height:1.45;}
 .pay-modal-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:14px;}
@@ -500,6 +502,7 @@ tr.payment-cancel-ledger-row input{color:#A32D2D;font-weight:700;}
       <span class="summary-title">사용 현황 요약</span>
       <span class="summary-chip active">당월 현황</span>
       <span class="summary-chip">월별 보관/추이</span>
+      <span class="summary-capture-time" id="summaryCaptureTime">기준시각 -</span>
     </div>
     <div class="period-row">
       <button class="period-reset" onclick="moveSummaryMonth(-1)">‹ 이전월</button>
@@ -546,6 +549,11 @@ tr.payment-cancel-ledger-row input{color:#A32D2D;font-weight:700;}
           <div class="pay-info-value neg" id="paymentDeptBalance">0원</div>
         </div>
       </div>
+      <div class="pay-field" id="paymentCancelSelectWrap" style="display:none;">
+        <label>취소할 결제 내역</label>
+        <select id="paymentCancelSelect" onchange="updateSelectedPaymentCancel()"></select>
+        <div class="pay-help">이번 달에 등록된 결제 내역만 선택할 수 있습니다.</div>
+      </div>
       <div class="pay-field">
         <label>결제금액</label>
         <input id="paymentAmountInput" type="text" inputmode="numeric" placeholder="예: 45000">
@@ -563,7 +571,7 @@ tr.payment-cancel-ledger-row input{color:#A32D2D;font-weight:700;}
       <div class="pay-warn" id="paymentWarn">저장하면 해당 부서 장부 마지막 줄에 결제 행이 추가됩니다.</div>
       <div class="pay-modal-actions">
         <button class="pay-cancel" onclick="closePaymentModal()">취소</button>
-        <button class="pay-save" onclick="submitPaymentRegistration()">결제 등록</button>
+        <button class="pay-save" onclick="submitPaymentRegistration()">등록</button>
       </div>
     </div>
   </div>
@@ -1147,6 +1155,10 @@ function today(){
 function todayDisplay(){
   const d=new Date();
   return (d.getMonth()+1)+'/'+d.getDate();
+}
+function nowMinuteDisplay(){
+  const d=new Date();
+  return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
 function defaultTradeDateForCurrentMonth(){
   const today=new Date();
@@ -2930,16 +2942,45 @@ function balCellClass(v){
   return 'bal-cell '+(v>0?'pos-bal':v===0?'zero-bal':'');
 }
 let paymentModalState=null;
-function findLatestPaymentRow(di,key){
+function paymentCancelToken(ri,row){
+  return String(ri)+'|'+String(row&&row.date||'')+'|'+pn(row&&row.pay)+'|'+String(row&&row.note||'');
+}
+function paymentRowsForCancel(di,key){
   const rows=depts[di]&&depts[di].rows?depts[di].rows:[];
-  let found=null;
+  const cancelled=new Set();
+  rows.forEach(row=>{
+    if(!rowHasValue(row)||!legacyRowBelongsToMonth(row,key))return;
+    if(row.paymentCancel&&row.sourcePaymentToken)cancelled.add(String(row.sourcePaymentToken));
+    if(row.paymentCancel&&row.sourcePaymentRow!=='')cancelled.add(String(row.sourcePaymentRow));
+  });
+  const list=[];
   rows.forEach((row,ri)=>{
     if(!rowHasValue(row)||!legacyRowBelongsToMonth(row,key))return;
-    if(pn(row.pay)>0&&String(row.content||'').includes('★결제')){
-      found={ri,row};
+    const token=paymentCancelToken(ri,row);
+    if(pn(row.pay)>0&&String(row.content||'').includes('★결제')&&!String(row.content||'').includes('★결제취소')&&!row.paymentCancel&&!cancelled.has(String(ri))&&!cancelled.has(token)){
+      list.push({ri,row,token});
     }
   });
-  return found;
+  return list;
+}
+function findLatestPaymentRow(di,key){
+  const list=paymentRowsForCancel(di,key);
+  return list.length?list[list.length-1]:null;
+}
+function selectedPaymentCancelSource(){
+  const sel=document.getElementById('paymentCancelSelect');
+  if(!paymentModalState||!paymentModalState.cancelList)return null;
+  const idx=parseInt(sel&&sel.value,10);
+  return paymentModalState.cancelList[idx]||null;
+}
+function updateSelectedPaymentCancel(){
+  const source=selectedPaymentCancelSource();
+  if(!source)return;
+  paymentModalState.source=source;
+  const amount=document.getElementById('paymentAmountInput');
+  const note=document.getElementById('paymentNoteInput');
+  if(amount)amount.value=Math.abs(pn(source.row.pay)).toLocaleString();
+  if(note)note.value=`결제취소 ${source.row.date||''} ${Math.abs(pn(source.row.pay)).toLocaleString()}원`;
 }
 function appendLedgerRowAtEnd(di,row){
   ensureRows(di);
@@ -2955,14 +2996,20 @@ function appendLedgerRowAtEnd(di,row){
 function openPaymentModal(di,mode){
   if(!depts[di])return;
   const isCancel=mode==='cancel';
-  const latest=isCancel?findLatestPaymentRow(di,curSummaryMonth):null;
-  if(isCancel&&!latest){alert('취소할 결제 등록 내역이 없습니다.');return;}
-  if(curSummaryMonth!==currentMonthKey()){
+  const cancelWrap=document.getElementById('paymentCancelSelectWrap');
+  const cancelSelect=document.getElementById('paymentCancelSelect');
+  const cancelList=isCancel?paymentRowsForCancel(di,curSummaryMonth):[];
+  if(isCancel&&curSummaryMonth!==currentMonthKey()){
+    alert('결제 취소는 이번 달 결제건만 가능합니다.\n전월 결제건은 취소할 수 없습니다.');
+    return;
+  }
+  if(isCancel&&cancelList.length===0){alert('이번 달에 취소할 결제 등록 내역이 없습니다.');return;}
+  if(!isCancel&&curSummaryMonth!==currentMonthKey()){
     const ok=confirm(`${monthLabel(curSummaryMonth)} 화면입니다.\n과거 월에 결제를 등록/취소할까요?`);
     if(!ok)return;
   }
   const s=summaryRowForDept(di,curSummaryMonth);
-  paymentModalState={di,mode,source:latest};
+  paymentModalState={di,mode,source:cancelList[0]||null,cancelList};
   const title=document.getElementById('paymentModalTitle');
   const deptName=document.getElementById('paymentDeptName');
   const bal=document.getElementById('paymentDeptBalance');
@@ -2975,15 +3022,23 @@ function openPaymentModal(di,mode){
   bal.textContent=s.bal.toLocaleString()+'원';
   bal.className='pay-info-value '+(s.bal<0?'neg':'');
   amount.disabled=isCancel;
-  amount.value=isCancel?Math.abs(pn(latest.row.pay)).toLocaleString():'';
+  amount.value=isCancel?Math.abs(pn(cancelList[0].row.pay)).toLocaleString():'';
   date.value=dateInputForMonth(curSummaryMonth);
   date.max=today();
-  note.value=isCancel?`결제취소 ${latest.row.date||''}`:'결제';
+  if(cancelWrap)cancelWrap.style.display=isCancel?'block':'none';
+  if(cancelSelect&&isCancel){
+    cancelSelect.innerHTML=cancelList.map((p,idx)=>{
+      const label=`${p.row.date||'-'} · ${Math.abs(pn(p.row.pay)).toLocaleString()}원 · ${String(p.row.note||'결제').replace(/"/g,'&quot;')}`;
+      return `<option value="${idx}">${label}</option>`;
+    }).join('');
+    cancelSelect.value='0';
+  }
+  note.value=isCancel?`결제취소 ${cancelList[0].row.date||''} ${Math.abs(pn(cancelList[0].row.pay)).toLocaleString()}원`:'결제';
   warn.textContent=isCancel
     ?'저장하면 원 결제행을 지우지 않고, 장부 마지막 줄에 결제취소 행이 추가됩니다.'
     :'저장하면 해당 부서 장부 마지막 줄에 결제 행이 추가됩니다.';
   document.getElementById('paymentModalBg').classList.add('open');
-  setTimeout(()=>amount.focus(),50);
+  setTimeout(()=>isCancel&&cancelSelect?cancelSelect.focus():amount.focus(),50);
 }
 function closePaymentModal(){
   paymentModalState=null;
@@ -2992,13 +3047,16 @@ function closePaymentModal(){
 }
 function submitPaymentRegistration(){
   if(!paymentModalState)return;
-  const {di,mode,source}=paymentModalState;
+  let {di,mode,source}=paymentModalState;
+  if(mode==='cancel')source=selectedPaymentCancelSource();
+  if(mode==='cancel'&&!source){alert('취소할 결제 내역을 선택해주세요.');return;}
   const dateCheck=dateInputToLedgerDate(document.getElementById('paymentDateInput').value);
   if(!dateCheck.ok){alert(dateCheck.message);return;}
   const rawAmount=pn(document.getElementById('paymentAmountInput').value);
   if(rawAmount<=0){alert('결제금액을 확인해주세요.');return;}
   const amount=mode==='cancel'?-Math.abs(rawAmount):Math.abs(rawAmount);
-  const note=String(document.getElementById('paymentNoteInput').value||'').trim()||(mode==='cancel'?'결제취소':'결제');
+  const baseNote=String(document.getElementById('paymentNoteInput').value||'').trim()||(mode==='cancel'?'결제취소':'결제');
+  const note=`${baseNote} / 등록 ${nowMinuteDisplay()}`;
   const msg=`${depts[di].name}에 ${Math.abs(amount).toLocaleString()}원 ${mode==='cancel'?'결제취소':'결제'}를 등록할까요?`;
   if(!confirm(msg))return;
   pushLedgerUndo(di,mode==='cancel'?'결제 취소 등록':'결제 등록');
@@ -3015,7 +3073,8 @@ function submitPaymentRegistration(){
     updatedAt:todayDisplay(),
     paymentRow:true,
     paymentCancel:mode==='cancel',
-    sourcePaymentRow:source?source.ri:''
+    sourcePaymentRow:source?source.ri:'',
+    sourcePaymentToken:source?source.token:''
   };
   appendLedgerRowAtEnd(di,row);
   markLedgerDirty(di);
@@ -3026,12 +3085,14 @@ function submitPaymentRegistration(){
 function renderSummary(){
   renderSummaryMonthSelect();
   const infoEl=document.getElementById('periodInfo');
+  const timeEl=document.getElementById('summaryCaptureTime');
+  if(timeEl)timeEl.textContent='기준시각 '+nowMinuteDisplay();
   if(infoEl)infoEl.textContent=`${monthLabel(curSummaryMonth)} 당월 현황 · 표시 전용`;
   const tb=document.getElementById('summaryBody');tb.innerHTML='';
   let tCarry=0,tOrd=0,tPay=0,tBal=0;
   depts.forEach((d,i)=>{
     const s=summaryRowForDept(i,curSummaryMonth);
-    const latestPay=findLatestPaymentRow(i,curSummaryMonth);
+    const latestPay=curSummaryMonth===currentMonthKey()?findLatestPaymentRow(i,curSummaryMonth):null;
     tCarry+=s.carry;tOrd+=s.order;tPay+=s.pay;tBal+=s.bal;
     const tr=document.createElement('tr');
     tr.innerHTML=`<td class="nm">${esc(s.name)}</td>
