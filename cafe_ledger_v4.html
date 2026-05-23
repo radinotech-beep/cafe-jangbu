@@ -171,6 +171,12 @@ tr.cancel-ledger-row td:first-child{box-shadow:inset 3px 0 0 #E24B4A;}
 tr.cancel-ledger-row input{color:#8F2424;font-weight:600;}
 tr.cancel-ledger-row .opt-trigger{color:#A32D2D;font-weight:700;}
 tr.cancel-ledger-row .cancel-note input{background:#F9DADA;color:#A32D2D;border-radius:4px;text-align:center;font-weight:800;}
+tr.payment-ledger-row td{background:#F1FAEC!important;border-bottom-color:#D7EACB;}
+tr.payment-ledger-row td:first-child{box-shadow:inset 3px 0 0 #5A8B2F;}
+tr.payment-ledger-row input{color:#2F6F14;font-weight:700;}
+tr.payment-cancel-ledger-row td{background:#FFF0F0!important;border-bottom-color:#F0C9C9;}
+tr.payment-cancel-ledger-row td:first-child{box-shadow:inset 3px 0 0 #B72B2B;}
+tr.payment-cancel-ledger-row input{color:#A32D2D;font-weight:700;}
 
 /* 합계 */
 .sum-bar{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:8px;width:100%;}
@@ -239,8 +245,32 @@ tr.cancel-ledger-row .cancel-note input{background:#F9DADA;color:#A32D2D;border-
 .st tr.tot td{background:#f5f4f0;font-weight:500;border-top:1px solid #e0dfd8;color:#2C2C2A;}
 .st tr.tot td.neg{color:#A32D2D;}
 .st tr.tot td.pos{color:#3B6D11;}
+.summary-actions{display:flex;gap:5px;justify-content:center;align-items:center;}
+.summary-pay-btn{height:28px;border:0;border-radius:7px;background:#111;color:#F5C800;padding:0 9px;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.summary-pay-cancel-btn{height:28px;border:1px solid #D9A0A0;border-radius:7px;background:#FFF3F3;color:#A32D2D;padding:0 9px;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.summary-pay-cancel-btn:disabled{opacity:.35;cursor:not-allowed;}
 .export-row{padding:10px 14px;background:#fff;border-top:1px solid #e0dfd8;display:flex;justify-content:space-between;align-items:center;}
 .period-info{font-size:11px;color:#888780;}
+
+.pay-modal{max-width:470px;border:3px solid #111;border-radius:14px;}
+.pay-modal .mhead{background:#F5C800;border-bottom:2px solid #111;}
+.pay-modal .mhead h2{font-size:16px;font-weight:900;}
+.pay-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.pay-info{background:#F7F4E8;border:1px solid #DDD4B9;border-radius:9px;padding:10px;}
+.pay-info-label{font-size:11px;color:#888780;font-weight:800;margin-bottom:5px;}
+.pay-info-value{font-size:17px;font-weight:900;color:#2C2C2A;}
+.pay-info-value.neg{color:#A32D2D;}
+.pay-field{margin-top:11px;}
+.pay-field label{display:block;font-size:12px;font-weight:900;color:#2C2C2A;margin-bottom:5px;}
+.pay-field input,.pay-field textarea{width:100%;border:1.5px solid #d8d1bd;border-radius:8px;background:#fff;padding:9px 10px;font-family:inherit;font-size:14px;font-weight:800;}
+.pay-field input[type=date]{min-height:39px;}
+.pay-field textarea{min-height:58px;resize:none;font-weight:700;}
+.pay-help{font-size:11px;color:#888780;margin-top:5px;}
+.pay-warn{margin-top:12px;background:#FFF5CC;border:1px solid #E5CF72;border-radius:9px;padding:9px 10px;font-size:12px;font-weight:800;color:#5A4300;line-height:1.45;}
+.pay-modal-actions{display:grid;grid-template-columns:1fr 1.4fr;gap:8px;margin-top:14px;}
+.pay-modal-actions button{height:44px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:900;cursor:pointer;}
+.pay-cancel{border:1.5px solid #d8d1bd;background:#fff;color:#5F5E5A;}
+.pay-save{border:0;background:#111;color:#F5C800;}
 
 /* 모달 */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:500;align-items:center;justify-content:center;}
@@ -487,6 +517,7 @@ tr.cancel-ledger-row .cancel-note input{background:#F9DADA;color:#A32D2D;border-
         <th style="width:95px;">잔액</th>
         <th style="width:100px;text-align:left;">결제일</th>
         <th class="tl">비고</th>
+        <th style="width:150px;text-align:center;">결제 등록</th>
       </tr></thead>
       <tbody id="summaryBody"></tbody>
     </table>
@@ -494,6 +525,47 @@ tr.cancel-ledger-row .cancel-note input{background:#F9DADA;color:#A32D2D;border-
   <div class="export-row">
     <span class="period-info" id="periodInfo">전체 기간</span>
     <button class="abtn primary" onclick="exportSummaryExcel()">엑셀 저장</button>
+  </div>
+</div>
+
+<!-- 결제 등록 모달 -->
+<div class="modal-bg" id="paymentModalBg">
+  <div class="modal pay-modal">
+    <div class="mhead">
+      <h2 id="paymentModalTitle">결제 등록</h2>
+      <button class="mclose" onclick="closePaymentModal()">×</button>
+    </div>
+    <div class="mbody">
+      <div class="pay-info-grid">
+        <div class="pay-info">
+          <div class="pay-info-label">부서</div>
+          <div class="pay-info-value" id="paymentDeptName">-</div>
+        </div>
+        <div class="pay-info">
+          <div class="pay-info-label">현재잔액</div>
+          <div class="pay-info-value neg" id="paymentDeptBalance">0원</div>
+        </div>
+      </div>
+      <div class="pay-field">
+        <label>결제금액</label>
+        <input id="paymentAmountInput" type="text" inputmode="numeric" placeholder="예: 45000">
+        <div class="pay-help">결제금액 칸에만 기록됩니다. 주문금액에는 영향을 주지 않습니다.</div>
+      </div>
+      <div class="pay-field">
+        <label>거래일</label>
+        <input id="paymentDateInput" type="date">
+        <div class="pay-help" id="paymentDateHelp">선택한 월 안의 날짜만 등록할 수 있습니다.</div>
+      </div>
+      <div class="pay-field">
+        <label>비고</label>
+        <textarea id="paymentNoteInput">결제</textarea>
+      </div>
+      <div class="pay-warn" id="paymentWarn">저장하면 해당 부서 장부 마지막 줄에 결제 행이 추가됩니다.</div>
+      <div class="pay-modal-actions">
+        <button class="pay-cancel" onclick="closePaymentModal()">취소</button>
+        <button class="pay-save" onclick="submitPaymentRegistration()">결제 등록</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2227,7 +2299,11 @@ function makeRow(di,ri,displayNo){
   const row=depts[di].rows[ri];
   const tr=document.createElement('tr');
   const isCancel=!!(row.cancelRow||String(row.note||'').includes('주문취소'));
+  const isPaymentCancel=String(row.content||'').includes('★결제취소')||!!row.paymentCancel;
+  const isPayment=String(row.content||'').includes('★결제')||!!row.paymentRow;
   if(isCancel)tr.className='cancel-ledger-row';
+  else if(isPaymentCancel)tr.className='payment-cancel-ledger-row';
+  else if(isPayment)tr.className='payment-ledger-row';
   // 삭제
   const tdD=document.createElement('td');tdD.className='del-cell';
   const db2=document.createElement('button');db2.className='del-btn';db2.textContent='×';
@@ -2813,6 +2889,31 @@ function rowsForSummaryMonth(di,key){
   mergeMonthsIntoRootRows(di);
   return (dept.rows||[]).filter(row=>rowHasValue(row)&&legacyRowBelongsToMonth(row,key));
 }
+function dateInputForMonth(key){
+  const m=String(key||currentMonthKey()).match(/^(\d{4})-(\d{2})$/);
+  const now=new Date();
+  if(!m)return today();
+  const yy=+m[1],mm=+m[2];
+  if(key===currentMonthKey())return today();
+  const day=Math.min(now.getDate(),new Date(yy,mm,0).getDate());
+  return `${yy}-${String(mm).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+}
+function dateInputToLedgerDate(value){
+  const s=String(value||'').trim();
+  const m=s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m)return {ok:false,message:'거래일을 선택해주세요.'};
+  const d=new Date(+m[1],+m[2]-1,+m[3]);
+  const td=new Date();td.setHours(0,0,0,0);
+  if(d>td)return {ok:false,message:'미래 날짜는 결제 거래일로 등록할 수 없습니다.'};
+  const key=`${m[1]}-${m[2]}`;
+  if(key!==curSummaryMonth)return {ok:false,message:`현재 ${monthLabel(curSummaryMonth)} 화면입니다.\n결제 거래일도 같은 월 안에서 선택해주세요.`};
+  return {ok:true,value:(+m[2])+'/'+(+m[3]),key};
+}
+function formatPayDates(dates){
+  const counts={};
+  dates.forEach(d=>{counts[d]=(counts[d]||0)+1;});
+  return Object.keys(counts).map(d=>counts[d]>1?`${d} (${counts[d]})`:d).join(', ');
+}
 function summaryRowForDept(di,key){
   const rows=rowsForSummaryMonth(di,key);
   const carry=carryoverBeforeMonth(di,key);
@@ -2823,10 +2924,104 @@ function summaryRowForDept(di,key){
     if(pn(row.pay)>0&&row.date)payDates.push(String(row.date).trim());
   });
   const bal=carry+pay-order;
-  return {name:depts[di].name,carry,order,pay,bal,payDates:Array.from(new Set(payDates))};
+  return {name:depts[di].name,carry,order,pay,bal,payDates};
 }
 function balCellClass(v){
   return 'bal-cell '+(v>0?'pos-bal':v===0?'zero-bal':'');
+}
+let paymentModalState=null;
+function findLatestPaymentRow(di,key){
+  const rows=depts[di]&&depts[di].rows?depts[di].rows:[];
+  let found=null;
+  rows.forEach((row,ri)=>{
+    if(!rowHasValue(row)||!legacyRowBelongsToMonth(row,key))return;
+    if(pn(row.pay)>0&&String(row.content||'').includes('★결제')){
+      found={ri,row};
+    }
+  });
+  return found;
+}
+function appendLedgerRowAtEnd(di,row){
+  ensureRows(di);
+  let last=-1;
+  for(let i=depts[di].rows.length-1;i>=0;i--){
+    if(rowHasValue(depts[di].rows[i])){last=i;break;}
+  }
+  const target=last+1;
+  while(depts[di].rows.length<=target)depts[di].rows.push(blankLedgerRow());
+  depts[di].rows[target]=row;
+  return target;
+}
+function openPaymentModal(di,mode){
+  if(!depts[di])return;
+  const isCancel=mode==='cancel';
+  const latest=isCancel?findLatestPaymentRow(di,curSummaryMonth):null;
+  if(isCancel&&!latest){alert('취소할 결제 등록 내역이 없습니다.');return;}
+  if(curSummaryMonth!==currentMonthKey()){
+    const ok=confirm(`${monthLabel(curSummaryMonth)} 화면입니다.\n과거 월에 결제를 등록/취소할까요?`);
+    if(!ok)return;
+  }
+  const s=summaryRowForDept(di,curSummaryMonth);
+  paymentModalState={di,mode,source:latest};
+  const title=document.getElementById('paymentModalTitle');
+  const deptName=document.getElementById('paymentDeptName');
+  const bal=document.getElementById('paymentDeptBalance');
+  const amount=document.getElementById('paymentAmountInput');
+  const date=document.getElementById('paymentDateInput');
+  const note=document.getElementById('paymentNoteInput');
+  const warn=document.getElementById('paymentWarn');
+  title.textContent=isCancel?'결제 취소':'결제 등록';
+  deptName.textContent=depts[di].name;
+  bal.textContent=s.bal.toLocaleString()+'원';
+  bal.className='pay-info-value '+(s.bal<0?'neg':'');
+  amount.disabled=isCancel;
+  amount.value=isCancel?Math.abs(pn(latest.row.pay)).toLocaleString():'';
+  date.value=dateInputForMonth(curSummaryMonth);
+  date.max=today();
+  note.value=isCancel?`결제취소 ${latest.row.date||''}`:'결제';
+  warn.textContent=isCancel
+    ?'저장하면 원 결제행을 지우지 않고, 장부 마지막 줄에 결제취소 행이 추가됩니다.'
+    :'저장하면 해당 부서 장부 마지막 줄에 결제 행이 추가됩니다.';
+  document.getElementById('paymentModalBg').classList.add('open');
+  setTimeout(()=>amount.focus(),50);
+}
+function closePaymentModal(){
+  paymentModalState=null;
+  const bg=document.getElementById('paymentModalBg');
+  if(bg)bg.classList.remove('open');
+}
+function submitPaymentRegistration(){
+  if(!paymentModalState)return;
+  const {di,mode,source}=paymentModalState;
+  const dateCheck=dateInputToLedgerDate(document.getElementById('paymentDateInput').value);
+  if(!dateCheck.ok){alert(dateCheck.message);return;}
+  const rawAmount=pn(document.getElementById('paymentAmountInput').value);
+  if(rawAmount<=0){alert('결제금액을 확인해주세요.');return;}
+  const amount=mode==='cancel'?-Math.abs(rawAmount):Math.abs(rawAmount);
+  const note=String(document.getElementById('paymentNoteInput').value||'').trim()||(mode==='cancel'?'결제취소':'결제');
+  const msg=`${depts[di].name}에 ${Math.abs(amount).toLocaleString()}원 ${mode==='cancel'?'결제취소':'결제'}를 등록할까요?`;
+  if(!confirm(msg))return;
+  pushLedgerUndo(di,mode==='cancel'?'결제 취소 등록':'결제 등록');
+  const row={
+    ...blankLedgerRow(),
+    date:dateCheck.value,
+    content:mode==='cancel'?'★결제취소':'★결제',
+    opts:[],
+    qty:'',
+    pay:amount,
+    order:'',
+    note,
+    createdAt:todayDisplay(),
+    updatedAt:todayDisplay(),
+    paymentRow:true,
+    paymentCancel:mode==='cancel',
+    sourcePaymentRow:source?source.ri:''
+  };
+  appendLedgerRowAtEnd(di,row);
+  markLedgerDirty(di);
+  if(curScreen==='ledger'&&curDeptIdx===di)renderLedger(di);
+  renderSummary();
+  closePaymentModal();
 }
 function renderSummary(){
   renderSummaryMonthSelect();
@@ -2836,6 +3031,7 @@ function renderSummary(){
   let tCarry=0,tOrd=0,tPay=0,tBal=0;
   depts.forEach((d,i)=>{
     const s=summaryRowForDept(i,curSummaryMonth);
+    const latestPay=findLatestPaymentRow(i,curSummaryMonth);
     tCarry+=s.carry;tOrd+=s.order;tPay+=s.pay;tBal+=s.bal;
     const tr=document.createElement('tr');
     tr.innerHTML=`<td class="nm">${esc(s.name)}</td>
@@ -2843,8 +3039,9 @@ function renderSummary(){
       <td>${s.order.toLocaleString()}</td>
       <td>${s.pay.toLocaleString()}</td>
       <td class="${balCellClass(s.bal)}">${s.bal.toLocaleString()}</td>
-      <td class="nt">${s.payDates.join(', ')||'-'}</td>
-      <td class="nt"></td>`;
+      <td class="nt">${formatPayDates(s.payDates)||'-'}</td>
+      <td class="nt"></td>
+      <td><div class="summary-actions"><button class="summary-pay-btn" onclick="openPaymentModal(${i},'pay')">결제 등록</button><button class="summary-pay-cancel-btn" ${latestPay?'':'disabled'} onclick="openPaymentModal(${i},'cancel')">결제 취소</button></div></td>`;
     tr.cells[0].onclick=()=>openDept(i);
     tb.appendChild(tr);
   });
@@ -2854,7 +3051,7 @@ function renderSummary(){
     <td>${tOrd.toLocaleString()}</td>
     <td>${tPay.toLocaleString()}</td>
     <td class="${balCellClass(tBal)}">${tBal.toLocaleString()}</td>
-    <td></td><td></td>`;
+    <td></td><td></td><td></td>`;
   tb.appendChild(tr);
 }
 
