@@ -900,6 +900,16 @@ function rowHasValue(row){
     String(row.note||'').trim()
   ));
 }
+function ledgerEventTs(row){
+  return Number(row&&row.ledgerEventTs)||Number(row&&row.ledgerWriteTs)||0;
+}
+function ledgerEventTime(row){
+  if(row&&row.ledgerEventTime)return row.ledgerEventTime;
+  const ts=ledgerEventTs(row);
+  if(!ts)return '';
+  const d=new Date(ts);
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
 function ledgerRowSignature(row){
   const opts=normalizeOpts(row&&row.opts).map(o=>({name:String(o.name||''),price:pn(o.price)}));
   return JSON.stringify({
@@ -2270,6 +2280,12 @@ function visibleLedgerRowIndexes(di){
     if(rowInLedgerMonth(row))idxs.push(ri);
   });
   const visibleValues=idxs.filter(ri=>rowHasValue(depts[di].rows[ri]));
+  visibleValues.sort((a,b)=>{
+    const ta=ledgerEventTs(depts[di].rows[a]);
+    const tb=ledgerEventTs(depts[di].rows[b]);
+    if(ta&&tb&&ta!==tb)return ta-tb;
+    return a-b;
+  });
   const blanks=idxs.filter(ri=>!rowHasValue(depts[di].rows[ri]));
   const minBlank=20;
   while(blanks.length<minBlank){
@@ -2339,7 +2355,8 @@ function makeRow(di,ri,displayNo){
   const noteTd=mkInp(di,ri,'note',row.note,'left');
   if(isCancel)noteTd.classList.add('cancel-note');
   tr.appendChild(noteTd);
-  const tdCA=document.createElement('td');tdCA.className='auto-cell';tdCA.id=`ca-${di}-${ri}`;tdCA.textContent=row.createdAt||'';tr.appendChild(tdCA);
+  const eventTime=ledgerEventTime(row);
+  const tdCA=document.createElement('td');tdCA.className='auto-cell';tdCA.id=`ca-${di}-${ri}`;tdCA.textContent=(row.createdAt||'')+(eventTime?' '+eventTime:'');tr.appendChild(tdCA);
   const tdUA=document.createElement('td');tdUA.className='auto-cell';tdUA.id=`ua-${di}-${ri}`;tdUA.textContent=row.updatedAt||'';tr.appendChild(tdUA);
   return tr;
 }
@@ -3060,8 +3077,10 @@ function submitPaymentRegistration(){
   const rawAmount=pn(document.getElementById('paymentAmountInput').value);
   if(rawAmount<=0){alert('결제금액을 확인해주세요.');return;}
   const amount=mode==='cancel'?-Math.abs(rawAmount):Math.abs(rawAmount);
+  const eventTs=Date.now();
+  const eventTime=nowTimeDisplay();
   const baseNote=String(document.getElementById('paymentNoteInput').value||'').trim()||(mode==='cancel'?'결제취소':'결제');
-  const note=`${baseNote} ${nowTimeDisplay()}`;
+  const note=`${baseNote} ${eventTime}`;
   const msg=`${depts[di].name}에 ${Math.abs(amount).toLocaleString()}원 ${mode==='cancel'?'결제취소':'결제'}를 등록할까요?`;
   if(!confirm(msg))return;
   pushLedgerUndo(di,mode==='cancel'?'결제 취소 등록':'결제 등록');
@@ -3076,6 +3095,8 @@ function submitPaymentRegistration(){
     note,
     createdAt:todayDisplay(),
     updatedAt:todayDisplay(),
+    ledgerEventTs:eventTs,
+    ledgerEventTime:eventTime,
     paymentRow:true,
     paymentCancel:mode==='cancel',
     sourcePaymentRow:source?source.ri:'',

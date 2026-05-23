@@ -331,6 +331,10 @@ function rowHasLedgerValue(row){
     (Array.isArray(row.opts)&&row.opts.length>0)
   ));
 }
+function ledgerTimeFromTs(ts){
+  const d=new Date(Number(ts)||Date.now());
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
 function normalizeRowsForAppend(value){
   if(Array.isArray(value))return value;
   if(value&&typeof value==='object')return Object.keys(value).sort((a,b)=>parseInt(a,10)-parseInt(b,10)).map(k=>value[k]);
@@ -369,6 +373,7 @@ function writeCancelRows(deptKey,order,dept){
   const orderId=String(order.id);
   const sourceKey=sourceOrderKey(order);
   const dateStr=orderDateStr(order);
+  const cancelEventTs=Number(order.cancelledAt)||Date.now();
   const cancelRows=makeCancelRows(order,dateStr);
   if(cancelRows.length===0)return Promise.resolve({ok:false,reason:'주문 금액이 0원으로 저장되어 있음'});
   const deptId=order.deptId||(dept&&dept.id)||deptKey;
@@ -386,7 +391,12 @@ function writeCancelRows(deptKey,order,dept){
       let rows=normalizeRowsForAppend(current);
       while(rows.length<80)rows.push(emptyRow());
       rows=rows.filter(row=>!(row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr))));
-      cancelRows.forEach(row=>row.ledgerWriteTs=Date.now());
+      cancelRows.forEach((row,idx)=>{
+        const ledgerEventTs=cancelEventTs+idx;
+        row.ledgerEventTs=ledgerEventTs;
+        row.ledgerEventTime=ledgerTimeFromTs(ledgerEventTs);
+        row.ledgerWriteTs=Date.now();
+      });
       appendLedgerRows(rows,cancelRows);
       return rows;
     }).then(()=>({ok:true,reason:'취소 줄 추가 완료'}));
@@ -504,6 +514,7 @@ function completeOrder(id){
 function cancelOrder(id){
   if(!confirm('주문을 취소할까요? 장부 금액도 함께 복구됩니다.'))return;
   const order=Object.values(orders).find(o=>String(o.id)===String(id));
+  if(order)order.cancelledAt=Date.now();
   const finish=()=>db.ref('orders/'+id+'/status').set('cancelled');
   if(order)markCancelledInLedger(order).then(result=>{
     if(!result||!result.ok)alert('장부 취소 반영 실패: '+(result&&result.reason?result.reason:'원인 확인 불가'));
@@ -513,6 +524,7 @@ function cancelOrder(id){
 function cancelCompletedOrder(id){
   if(!confirm('완료된 주문을 취소 처리할까요? 장부 금액도 함께 복구됩니다.'))return;
   const order=Object.values(orders).find(o=>String(o.id)===String(id));
+  if(order)order.cancelledAt=Date.now();
   const finish=()=>{
     document.getElementById('detailOverlay').style.display='none';
     return db.ref('orders/'+id+'/status').set('cancelled');
