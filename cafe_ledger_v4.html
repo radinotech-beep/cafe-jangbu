@@ -246,10 +246,10 @@ tr.payment-cancel-ledger-row input{color:#A32D2D;font-weight:700;}
 .st tr.tot td{background:#f5f4f0;font-weight:500;border-top:1px solid #e0dfd8;color:#2C2C2A;}
 .st tr.tot td.neg{color:#A32D2D;}
 .st tr.tot td.pos{color:#3B6D11;}
-.summary-actions{display:flex;gap:5px;justify-content:center;align-items:center;}
-.summary-pay-btn{height:31px;border:2px solid #111;border-radius:9px;background:#111;color:#F5C800;padding:0 11px;font-size:12px;font-weight:950;cursor:pointer;font-family:inherit;white-space:nowrap;box-shadow:0 2px 0 #D5B000;}
+.summary-actions{display:flex;gap:4px;justify-content:center;align-items:center;}
+.summary-pay-btn{height:29px;border:2px solid #111;border-radius:8px;background:#111;color:#F5C800;padding:0 8px;font-size:11px;font-weight:950;cursor:pointer;font-family:inherit;white-space:nowrap;box-shadow:0 2px 0 #D5B000;}
 .summary-pay-btn:hover{background:#2A2A2A;transform:translateY(-1px);}
-.summary-pay-cancel-btn{height:29px;border:1px solid #D9A0A0;border-radius:8px;background:#FFF3F3;color:#A32D2D;padding:0 9px;font-size:11px;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.summary-pay-cancel-btn{height:27px;border:1px solid #D9A0A0;border-radius:7px;background:#FFF3F3;color:#A32D2D;padding:0 7px;font-size:10px;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;}
 .summary-pay-cancel-btn:disabled{opacity:.35;cursor:not-allowed;}
 .export-row{padding:10px 14px;background:#fff;border-top:1px solid #e0dfd8;display:flex;justify-content:space-between;align-items:center;}
 .period-info{font-size:11px;color:#888780;}
@@ -520,8 +520,8 @@ tr.payment-cancel-ledger-row input{color:#A32D2D;font-weight:700;}
         <th style="width:105px;">당월 결제금액</th>
         <th style="width:95px;">잔액</th>
         <th style="width:100px;text-align:left;">결제일</th>
-        <th class="tl">비고</th>
-        <th style="width:150px;text-align:center;">결제 등록</th>
+        <th class="tl" style="width:120px;">비고</th>
+        <th style="width:124px;text-align:center;">결제 등록</th>
       </tr></thead>
       <tbody id="summaryBody"></tbody>
     </table>
@@ -1160,6 +1160,10 @@ function todayDisplay(){
 function nowMinuteDisplay(){
   const d=new Date();
   return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+function nowTimeDisplay(){
+  const d=new Date();
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
 function defaultTradeDateForCurrentMonth(){
   const today=new Date();
@@ -3057,7 +3061,7 @@ function submitPaymentRegistration(){
   if(rawAmount<=0){alert('결제금액을 확인해주세요.');return;}
   const amount=mode==='cancel'?-Math.abs(rawAmount):Math.abs(rawAmount);
   const baseNote=String(document.getElementById('paymentNoteInput').value||'').trim()||(mode==='cancel'?'결제취소':'결제');
-  const note=`${baseNote} / 등록 ${nowMinuteDisplay()}`;
+  const note=`${baseNote} ${nowTimeDisplay()}`;
   const msg=`${depts[di].name}에 ${Math.abs(amount).toLocaleString()}원 ${mode==='cancel'?'결제취소':'결제'}를 등록할까요?`;
   if(!confirm(msg))return;
   pushLedgerUndo(di,mode==='cancel'?'결제 취소 등록':'결제 등록');
@@ -3103,7 +3107,7 @@ function renderSummary(){
       <td class="${balCellClass(s.bal)}">${s.bal.toLocaleString()}</td>
       <td class="nt">${formatPayDates(s.payDates)||'-'}</td>
       <td class="nt"></td>
-      <td><div class="summary-actions"><button class="summary-pay-btn" onclick="openPaymentModal(${i},'pay')">💳 결제 등록</button><button class="summary-pay-cancel-btn" ${latestPay?'':'disabled'} onclick="openPaymentModal(${i},'cancel')">결제 취소</button></div></td>`;
+      <td><div class="summary-actions"><button class="summary-pay-btn" title="결제 등록" onclick="openPaymentModal(${i},'pay')">💳 등록</button><button class="summary-pay-cancel-btn" ${latestPay?'':'disabled'} onclick="openPaymentModal(${i},'cancel')">취소</button></div></td>`;
     tr.cells[0].onclick=()=>openDept(i);
     tb.appendChild(tr);
   });
