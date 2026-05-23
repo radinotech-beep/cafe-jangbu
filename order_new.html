@@ -18,8 +18,6 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .top-right{display:flex;gap:8px;align-items:center;}
 .sync-dot{width:8px;height:8px;border-radius:50%;background:#3B6D11;}
 .sync-dot.err{background:#E24B4A;}
-.home-btn{background:#fff;color:#111;font-size:16px;font-weight:950;padding:10px 18px;border-radius:999px;border:2px solid #111;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.18);font-family:inherit;}
-.home-btn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.18);}
 .dept-btn{background:#111;color:#F5C800;font-size:16px;font-weight:900;padding:10px 22px;border-radius:999px;border:2px solid #111;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.18);}
 .dept-btn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.18);}
 
@@ -94,56 +92,51 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 /* 메뉴 팝업 */
 .popup-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.68);z-index:300;align-items:center;justify-content:center;}
 .popup-bg.open{display:flex;}
-.popup{background:#fff;border-radius:22px;width:min(740px,calc(100vw - 28px));max-height:calc(100dvh - 18px);border:4px solid #111;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;}
-.popup-head{background:#F5C800;padding:12px 18px;border-bottom:4px solid #111;display:flex;justify-content:space-between;align-items:center;min-height:66px;}
-.popup-title{font-size:24px;font-weight:950;color:#111;line-height:1.08;}
-.popup-base-price{font-size:16px;color:#5F5100;margin-top:4px;font-weight:900;}
-.popup-close{background:#111;border:none;font-size:27px;cursor:pointer;color:#F5C800;width:44px;height:44px;border-radius:50%;font-weight:900;line-height:1;flex-shrink:0;}
-.popup-body{padding:14px 18px 10px;display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden;gap:10px;}
-.popup-section{display:grid;grid-template-columns:82px minmax(0,1fr);gap:12px;align-items:center;min-height:0;flex-shrink:0;}
-.popup-section.option-section{align-items:stretch;flex:1;min-height:86px;}
-.section-label{font-size:16px;color:#111;font-weight:950;line-height:1.15;padding-top:2px;}
-.section-label small{display:block;font-size:10px;color:#A32D2D;margin-top:3px;font-weight:950;}
-.section-control{min-width:0;}
-.option-section .section-control{height:100%;min-height:0;}
-.temp-row{display:flex;gap:10px;flex-shrink:0;}
-.temp-btn{flex:1;min-height:86px;padding:6px 10px 8px;border-radius:16px;border:3px solid #D7C000;background:#fff;cursor:pointer;text-align:center;font-family:inherit;box-shadow:0 4px 0 #D7C000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
+.popup{background:#fff;border-radius:26px;width:min(620px,calc(100vw - 40px));border:4px solid #111;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.35);}
+.popup-head{background:#F5C800;padding:20px 24px;border-bottom:4px solid #111;display:flex;justify-content:space-between;align-items:center;}
+.popup-title{font-size:27px;font-weight:950;color:#111;line-height:1.15;}
+.popup-base-price{font-size:18px;color:#5F5100;margin-top:6px;font-weight:900;}
+.popup-close{background:#111;border:none;font-size:30px;cursor:pointer;color:#F5C800;width:50px;height:50px;border-radius:50%;font-weight:900;line-height:1;}
+.popup-body{padding:22px 24px;}
+.sec-label{font-size:17px;color:#111;font-weight:950;margin-bottom:12px;}
+.temp-row{display:flex;gap:12px;margin-bottom:18px;}
+.temp-btn{flex:1;min-height:122px;padding:8px 12px 12px;border-radius:18px;border:3px solid #D7C000;background:#fff;cursor:pointer;text-align:center;font-family:inherit;box-shadow:0 5px 0 #D7C000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;}
 .temp-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #D7C000;}
 .temp-btn.sel-hot{border-color:#993C1D;background:#FFF0EB;box-shadow:0 5px 0 #993C1D;}
 .temp-btn.sel-ice{border-color:#185FA5;background:#EBF3FF;box-shadow:0 5px 0 #185FA5;}
-.temp-icon{width:100px;height:50px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
+.temp-icon{width:118px;height:78px;display:flex;align-items:center;justify-content:center;overflow:hidden;}
 .temp-icon img{width:130%;height:130%;object-fit:contain;display:block;mix-blend-mode:multiply;}
-.temp-label{display:inline-flex;align-items:center;justify-content:center;min-width:62px;height:25px;border-radius:10px;font-size:15px;font-weight:950;line-height:1;}
+.temp-label{display:inline-flex;align-items:center;justify-content:center;min-width:74px;height:32px;border-radius:12px;font-size:18px;font-weight:950;line-height:1;}
 .temp-label.hot{color:#993C1D;}
 .temp-label.ice{color:#185FA5;}
 .temp-label.hot{background:#FFE8E8;color:#C71919;}
 .temp-label.ice{background:#E8F2FF;color:#146DB8;}
 .tumbler-section{display:none;}
-.tumbler-card{width:100%;min-height:50px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:7px 12px;border:3px solid #E2C300;border-radius:14px;background:#FFFDF0;cursor:pointer;font-family:inherit;text-align:left;box-shadow:0 3px 0 #E9D25B;}
+.tumbler-card{width:100%;min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 14px;margin-bottom:18px;border:3px solid #E2C300;border-radius:16px;background:#FFFDF0;cursor:pointer;font-family:inherit;text-align:left;box-shadow:0 4px 0 #E9D25B;}
 .tumbler-card.on{border-color:#111;background:#FFF4B8;box-shadow:0 4px 0 #111;}
 .tumbler-main{display:flex;align-items:center;gap:10px;}
-.tumbler-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#111;color:#F5C800;font-size:17px;}
-.tumbler-title{font-size:16px;font-weight:950;line-height:1.1;color:#111;}
-.tumbler-sub{font-size:10px;color:#777;font-weight:800;margin-top:2px;}
-.tumbler-switch{width:50px;height:28px;border-radius:999px;padding:4px;background:#D8D8D8;flex-shrink:0;transition:.15s;}
-.tumbler-switch::before{content:'';display:block;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.25);transition:.15s;}
+.tumbler-icon{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#111;color:#F5C800;font-size:19px;}
+.tumbler-title{font-size:18px;font-weight:950;line-height:1.1;color:#111;}
+.tumbler-sub{font-size:12px;color:#777;font-weight:800;margin-top:2px;}
+.tumbler-switch{width:58px;height:32px;border-radius:999px;padding:4px;background:#D8D8D8;flex-shrink:0;transition:.15s;}
+.tumbler-switch::before{content:'';display:block;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.25);transition:.15s;}
 .tumbler-card.on .tumbler-switch{background:#111;}
-.tumbler-card.on .tumbler-switch::before{transform:translateX(22px);background:#F5C800;}
-.opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow-y:auto;padding-right:2px;min-height:0;max-height:none;height:100%;align-content:start;}
-.opt-btn{min-height:48px;padding:9px 12px;border-radius:13px;border:3px solid #E2C300;background:#fff;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:inherit;box-shadow:0 3px 0 #EAD76B;}
+.tumbler-card.on .tumbler-switch::before{transform:translateX(26px);background:#F5C800;}
+.opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;max-height:280px;overflow-y:auto;padding-right:2px;}
+.opt-btn{min-height:62px;padding:12px 14px;border-radius:16px;border:3px solid #E2C300;background:#fff;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-family:inherit;box-shadow:0 4px 0 #EAD76B;}
 .opt-btn:active{transform:translateY(2px);box-shadow:0 2px 0 #EAD76B;}
 .opt-btn.sel{border-color:#111;background:#FFF3A3;box-shadow:0 4px 0 #111;}
-.opt-name{font-size:15px;font-weight:900;color:#111;text-align:left;line-height:1.2;}
-.opt-price{font-size:15px;color:#B27300;font-weight:950;margin-left:8px;}
-.qty-row{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#FFF3A3;border-radius:16px;border:3px solid #111;}
-.qty-label{display:none;}
+.opt-name{font-size:16px;font-weight:900;color:#111;text-align:left;line-height:1.2;}
+.opt-price{font-size:16px;color:#B27300;font-weight:950;margin-left:8px;}
+.qty-row{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:#FFF3A3;border-radius:20px;margin-bottom:18px;border:3px solid #111;}
+.qty-label{font-size:19px;color:#111;font-weight:950;}
 .qty-ctrl{display:flex;align-items:center;gap:18px;}
-.qty-btn{width:38px;height:38px;border-radius:50%;border:3px solid #111;background:#fff;font-size:22px;font-weight:950;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#111;font-family:inherit;box-shadow:0 3px 0 #111;}
+.qty-btn{width:48px;height:48px;border-radius:50%;border:3px solid #111;background:#fff;font-size:27px;font-weight:950;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#111;font-family:inherit;box-shadow:0 4px 0 #111;}
 .qty-btn:active{background:#F5C800;border-color:#F5C800;}
-.qty-num{font-size:24px;font-weight:950;color:#111;min-width:32px;text-align:center;}
-.popup-foot{padding:10px 18px 16px;display:flex;gap:12px;flex-shrink:0;background:#fff;}
-.popup-cancel{flex:1;padding:13px 14px;background:#fff;color:#777;border:3px solid #CFCFCF;border-radius:16px;font-size:18px;cursor:pointer;font-family:inherit;font-weight:950;}
-.popup-add{flex:2;padding:13px 14px;background:#F5C800;color:#111;border:3px solid #111;border-radius:16px;font-size:19px;font-weight:950;cursor:pointer;font-family:inherit;box-shadow:0 5px 0 #111;}
+.qty-num{font-size:30px;font-weight:950;color:#111;min-width:32px;text-align:center;}
+.popup-foot{padding:0 24px 24px;display:flex;gap:12px;}
+.popup-cancel{flex:1;padding:18px;background:#fff;color:#777;border:3px solid #CFCFCF;border-radius:18px;font-size:19px;cursor:pointer;font-family:inherit;font-weight:950;}
+.popup-add{flex:2;padding:18px;background:#F5C800;color:#111;border:3px solid #111;border-radius:18px;font-size:21px;font-weight:950;cursor:pointer;font-family:inherit;box-shadow:0 6px 0 #111;}
 .popup-add:disabled{background:#E8D84A;color:#999;cursor:not-allowed;}
 
 /* 주문완료 토스트 */
@@ -237,36 +230,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   .cart-head{padding:13px 14px;font-size:17px;}
   .total-price{font-size:23px;}
   .order-btn{padding:15px;font-size:19px;}
-  .home-btn,.dept-btn{font-size:14px;padding:8px 14px;}
-  .popup{width:min(720px,calc(100vw - 24px));max-height:calc(100dvh - 14px);}
-  .popup-head{padding:12px 18px;}
+  .popup{width:min(560px,calc(100vw - 34px));}
   .popup-title{font-size:24px;}
-  .popup-base-price{font-size:16px;margin-top:4px;}
-  .popup-close{width:42px;height:42px;font-size:25px;}
-  .popup-body{padding:12px 18px;}
-  .popup-section{grid-template-columns:72px minmax(0,1fr);gap:10px;}
-  .section-label{font-size:14px;}
-  .section-label small{font-size:9px;margin-top:2px;}
-  .sec-label{font-size:15px;margin-bottom:7px;}
-  .temp-row{gap:10px;margin-bottom:10px;}
-  .temp-btn{min-height:86px;padding:6px 10px 8px;border-radius:15px;gap:4px;}
-  .temp-icon{width:92px;height:52px;}
-  .temp-label{min-width:58px;height:24px;border-radius:9px;font-size:14px;}
-  .tumbler-card{min-height:48px;padding:7px 12px;margin-bottom:10px;border-radius:14px;}
-  .tumbler-title{font-size:15px;}
-  .tumbler-sub{font-size:10px;}
-  .tumbler-icon{width:30px;height:30px;font-size:16px;}
-  .tumbler-switch{width:50px;height:28px;padding:4px;}
-  .tumbler-switch::before{width:20px;height:20px;}
-  .tumbler-card.on .tumbler-switch::before{transform:translateX(22px);}
-  .opt-grid{gap:8px;margin-bottom:10px;min-height:60px;}
+  .opt-grid{max-height:220px;}
   .opt-btn{min-height:54px;}
-  .qty-row{padding:9px 16px;border-radius:16px;}
-  .qty-label{font-size:17px;}
-  .qty-btn{width:38px;height:38px;font-size:22px;}
-  .qty-num{font-size:24px;}
-  .popup-foot{padding:12px 18px 16px;}
-  .popup-cancel,.popup-add{padding:12px 14px;font-size:18px;border-radius:16px;}
 }
 
 /* 비밀번호 모달 */
@@ -373,7 +340,6 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   <span class="top-logo">메가커피 인천역점</span>
   <div class="top-right">
     <span class="sync-dot" id="syncDot"></span>
-    <button class="home-btn" type="button" onclick="resetOrderToStart()">처음</button>
     <button class="dept-btn" id="deptBtn" onclick="openDeptModal()">부서 선택 ▾</button>
   </div>
 </div>
@@ -412,49 +378,40 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
       <button class="popup-close" onclick="closePopup()">✕</button>
     </div>
     <div class="popup-body">
-      <div class="popup-section" id="tempSection">
-        <div class="section-label">HOT/ICE<small>필수</small></div>
-        <div class="section-control">
-          <div class="temp-row">
-            <button class="temp-btn" id="btnHot" onclick="selectTemp('HOT')">
-              <div class="temp-icon"><img src="temp-hot-cup.png" alt=""></div>
-              <div class="temp-label hot">HOT</div>
-            </button>
-            <button class="temp-btn" id="btnIce" onclick="selectTemp('ICE')">
-              <div class="temp-icon"><img src="temp-ice-cup.png" alt=""></div>
-              <div class="temp-label ice">ICE</div>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="popup-section tumbler-section" id="tumblerSection">
-        <div class="section-label">텀블러<small>선택</small></div>
-        <div class="section-control">
-          <button class="tumbler-card" id="tumblerBtn" type="button" onclick="toggleTumbler()">
-            <span class="tumbler-main">
-              <span class="tumbler-icon">☕</span>
-              <span>
-                <span class="tumbler-title">텀블러 사용</span>
-                <span class="tumbler-sub">기본값: 사용 안함 · 금액 변동 없음</span>
-              </span>
-            </span>
-            <span class="tumbler-switch" aria-hidden="true"></span>
+      <div id="tempSection">
+        <div class="sec-label">HOT/ICE 선택 (필수)</div>
+        <div class="temp-row">
+          <button class="temp-btn" id="btnHot" onclick="selectTemp('HOT')">
+            <div class="temp-icon"><img src="temp-hot-cup.png" alt=""></div>
+            <div class="temp-label hot">HOT</div>
+          </button>
+          <button class="temp-btn" id="btnIce" onclick="selectTemp('ICE')">
+            <div class="temp-icon"><img src="temp-ice-cup.png" alt=""></div>
+            <div class="temp-label ice">ICE</div>
           </button>
         </div>
       </div>
-      <div class="popup-section option-section">
-        <div class="section-label">옵션<small>선택</small></div>
-        <div class="section-control opt-grid" id="optGrid"></div>
+      <div class="tumbler-section" id="tumblerSection">
+        <div class="sec-label">텀블러 여부 (선택)</div>
+        <button class="tumbler-card" id="tumblerBtn" type="button" onclick="toggleTumbler()">
+          <span class="tumbler-main">
+            <span class="tumbler-icon">☕</span>
+            <span>
+              <span class="tumbler-title">텀블러 사용</span>
+              <span class="tumbler-sub">기본값: 사용 안함 · 금액 변동 없음</span>
+            </span>
+          </span>
+          <span class="tumbler-switch" aria-hidden="true"></span>
+        </button>
       </div>
-      <div class="popup-section qty-section">
-        <div class="section-label">수량</div>
-        <div class="section-control qty-row">
-          <span class="qty-label">수량</span>
-          <div class="qty-ctrl">
-            <button class="qty-btn" onclick="changeQty(-1)">-</button>
-            <span class="qty-num" id="popupQty">1</span>
-            <button class="qty-btn" onclick="changeQty(1)">+</button>
-          </div>
+      <div class="sec-label">옵션 선택 (선택)</div>
+      <div class="opt-grid" id="optGrid"></div>
+      <div class="qty-row">
+        <span class="qty-label">수량</span>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="changeQty(-1)">-</button>
+          <span class="qty-num" id="popupQty">1</span>
+          <button class="qty-btn" onclick="changeQty(1)">+</button>
         </div>
       </div>
     </div>
@@ -567,8 +524,6 @@ let popupItem=null,popupTemp=null,popupOpts=[],popupQty=1,popupTumbler=false;
 let pwdBuffer='';
 let backGuardReady=false;
 let suppressBackUntil=0;
-const INACTIVITY_RESET_MS=60000;
-let inactivityTimer=null;
 
 function keepOrderAppOpen(){
   if(backGuardReady)return;
@@ -789,21 +744,15 @@ function loadData(){
 // ── UI 초기화 ──
 function initUI(){
   keepOrderAppOpen();
-  setupInactivityReset();
   // menuDB 로드 후 카테고리바 렌더
   renderCatBar();
-  renderTypeScreen(true);
+  renderTypeScreen();
 }
 
 // ── 도입화면 ──
-function showLedgerAlert(){
-  const alert=document.getElementById('ledgerAlert');
-  if(alert)alert.classList.remove('hidden');
-}
-function renderTypeScreen(showAlert=false){
+function renderTypeScreen(){
   document.getElementById('waitScreen').classList.add('active');
   document.getElementById('introScreen').classList.remove('active');
-  if(showAlert)showLedgerAlert();
 }
 function closeLedgerAlert(){
   const alert=document.getElementById('ledgerAlert');
@@ -851,36 +800,6 @@ function selectType(type){
     document.getElementById('introScreen').classList.add('active');
     document.getElementById('waitScreen').classList.remove('active');
   },0);
-}
-
-function setupInactivityReset(){
-  if(inactivityTimer!==null)return;
-  ['pointerdown','touchstart','keydown'].forEach(evt=>{
-    document.addEventListener(evt,resetInactivityTimer,{passive:true});
-  });
-  resetInactivityTimer();
-}
-function resetInactivityTimer(){
-  clearTimeout(inactivityTimer);
-  inactivityTimer=setTimeout(resetOrderToStart,INACTIVITY_RESET_MS);
-}
-function resetOrderToStart(){
-  const complete=document.getElementById('completePopup');
-  if(complete)complete.classList.remove('open');
-  closePopup();
-  closePwdModal();
-  cart=[];
-  curDeptIdx=null;
-  curCat=null;
-  popupItem=null;popupTemp=null;popupOpts=[];popupQty=1;popupTumbler=false;
-  pwdBuffer='';
-  orderType='eat';
-  document.getElementById('deptBtn').textContent='부서 선택 ▾';
-  document.getElementById('waitDeptName').textContent='🍽️ 매장 주문';
-  renderCart();
-  renderCatBar();
-  renderTypeScreen(true);
-  resetInactivityTimer();
 }
 
 // ── 카테고리 탭 ──
@@ -1017,7 +936,7 @@ function openPopup(item){
 
   const tempSec=document.getElementById('tempSection');
   if(item.needTemp){
-    tempSec.style.display='grid';
+    tempSec.style.display='block';
     document.getElementById('btnHot').className='temp-btn';
     document.getElementById('btnIce').className='temp-btn';
   } else {
@@ -1027,7 +946,7 @@ function openPopup(item){
   const tumblerSec=document.getElementById('tumblerSection');
   const tumblerBtn=document.getElementById('tumblerBtn');
   if(supportsTumbler(item)){
-    tumblerSec.style.display='grid';
+    tumblerSec.style.display='block';
     tumblerBtn.className='tumbler-card';
   } else {
     tumblerSec.style.display='none';
@@ -1256,6 +1175,25 @@ function doSubmitOrder(){
     // 80행 보장
     while(rows.length<80)rows.push({date:'',content:'',opts:[],order:'',pay:'',note:'',createdAt:'',updatedAt:''});
 
+    const rowHasValue=r=>!!(r&&(
+      String(r.date||'').trim()||
+      String(r.content||'').trim()||
+      String(r.qty||'').trim()||
+      String(r.order||'').trim()||
+      String(r.pay||'').trim()||
+      String(r.note||'').trim()||
+      (Array.isArray(r.opts)&&r.opts.length>0)
+    ));
+    const appendLedgerRow=row=>{
+      let last=-1;
+      for(let i=rows.length-1;i>=0;i--){
+        if(rowHasValue(rows[i])){last=i;break;}
+      }
+      const target=last+1;
+      while(rows.length<=target)rows.push({date:'',content:'',opts:[],order:'',pay:'',note:'',createdAt:'',updatedAt:''});
+      rows[target]=row;
+    };
+
     cartSnapshot.forEach(item=>{
       // 장부 기록명은 originalName 사용 (장부 menuDB와 일치)
       const ledgerName=item.originalName||item.displayName;
@@ -1265,9 +1203,7 @@ function doSubmitOrder(){
       const optTotal=(item.opts||[]).reduce((s,o)=>s+(parseInt(o.price,10)||0),0);
       const basePrice=parseInt(item.basePrice,10)||Math.max(0,(parseInt(item.unitPrice,10)||0)-optTotal);
       const newRow={date:dateStr,content,opts:item.opts||[],qty,order:amount,pay:'',note:'',createdAt:dateStr,updatedAt:dateStr,basePrice,orderId:String(order.id),deptId:dept.id};
-      const emptyIdx=rows.findIndex(r=>!r.content&&!r.date&&!r.pay&&!r.order);
-      if(emptyIdx>=0)rows[emptyIdx]=newRow;
-      else rows.push(newRow);
+      appendLedgerRow(newRow);
     });
 
     // 해당 부서의 rows 경로만 업데이트 → 다른 부서/삭제내역 절대 안 건드림
@@ -1372,6 +1308,6 @@ function getAudioCtx(){if(!_audioCtx2)_audioCtx2=new(window.AudioContext||window
 document.addEventListener('click',function(){if(_audioCtx2&&_audioCtx2.state==='suspended')_audioCtx2.resume();});
 function playComplete(){try{var ctx=getAudioCtx();var notes=[{freq:440,start:0,dur:0.08,type:'triangle'},{freq:554,start:0.12,dur:0.08,type:'triangle'},{freq:659,start:0.24,dur:0.4,type:'sine'}];notes.forEach(function(n){var osc=ctx.createOscillator();var gain=ctx.createGain();osc.connect(gain);gain.connect(ctx.destination);osc.type=n.type;osc.frequency.setValueAtTime(n.freq,ctx.currentTime+n.start);gain.gain.setValueAtTime(0,ctx.currentTime+n.start);gain.gain.linearRampToValueAtTime(0.3,ctx.currentTime+n.start+0.01);gain.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+n.start+n.dur);osc.start(ctx.currentTime+n.start);osc.stop(ctx.currentTime+n.start+n.dur+0.05);});}catch(e){}}
 function showCompletePopup(orderNo,deptName){document.getElementById('completeSubText').textContent='#'+String(orderNo).padStart(3,'0')+' · '+deptName+' · 주방으로 전달됐어요';document.getElementById('completePopup').classList.add('open');playComplete();}
-function closeCompletePopup(){resetOrderToStart();}
+function closeCompletePopup(){document.getElementById('completePopup').classList.remove('open');curDeptIdx=null;document.getElementById('deptBtn').textContent='부서 선택 ▾';goIntro();}
 </script>
 
