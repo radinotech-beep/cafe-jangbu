@@ -1167,47 +1167,50 @@ function doSubmitOrder(){
   const dateStr=(today.getMonth()+1)+'/'+(today.getDate());
   const cartSnapshot=[...cart]; // 클리어 전에 복사
 
-  db.ref('jangbu/depts/'+deptKey+'/rows').once('value').then(snap=>{
-    // Firebase 최신 rows 가져오기
-    let rows=snap.val()||[];
-    // Firebase가 객체로 저장한 경우 배열 변환
-    if(!Array.isArray(rows))rows=Object.values(rows);
+  const normalizeRowsForAppend=value=>{
+    if(Array.isArray(value))return value;
+    if(value&&typeof value==='object'){
+      return Object.keys(value).sort((a,b)=>parseInt(a,10)-parseInt(b,10)).map(k=>value[k]);
+    }
+    return [];
+  };
+  const blankLedgerRow=()=>({date:'',content:'',opts:[],order:'',pay:'',note:'',createdAt:'',updatedAt:''});
+  const rowHasValue=r=>!!(r&&(
+    String(r.date||'').trim()||
+    String(r.content||'').trim()||
+    String(r.qty||'').trim()||
+    String(r.order||'').trim()||
+    String(r.pay||'').trim()||
+    String(r.note||'').trim()||
+    (Array.isArray(r.opts)&&r.opts.length>0)
+  ));
+  const appendLedgerRow=(rows,row)=>{
+    let last=-1;
+    for(let i=rows.length-1;i>=0;i--){
+      if(rowHasValue(rows[i])){last=i;break;}
+    }
+    const target=last+1;
+    while(rows.length<=target)rows.push(blankLedgerRow());
+    rows[target]=row;
+  };
+  const newRows=cartSnapshot.map(item=>{
+    // 장부 기록명은 originalName 사용 (장부 menuDB와 일치)
+    const ledgerName=item.originalName||item.displayName;
+    const content=ledgerName;
+    const qty=parseInt(item.qty,10)||1;
+    const amount=item.unitPrice*item.qty;
+    const optTotal=(item.opts||[]).reduce((s,o)=>s+(parseInt(o.price,10)||0),0);
+    const basePrice=parseInt(item.basePrice,10)||Math.max(0,(parseInt(item.unitPrice,10)||0)-optTotal);
+    return {date:dateStr,content,opts:item.opts||[],qty,order:amount,pay:'',note:'',createdAt:dateStr,updatedAt:dateStr,basePrice,orderId:String(order.id),deptId:dept.id,ledgerWriteTs:Date.now()};
+  });
+
+  db.ref('jangbu/depts/'+deptKey+'/rows').transaction(current=>{
+    let rows=normalizeRowsForAppend(current);
     // 80행 보장
-    while(rows.length<80)rows.push({date:'',content:'',opts:[],order:'',pay:'',note:'',createdAt:'',updatedAt:''});
-
-    const rowHasValue=r=>!!(r&&(
-      String(r.date||'').trim()||
-      String(r.content||'').trim()||
-      String(r.qty||'').trim()||
-      String(r.order||'').trim()||
-      String(r.pay||'').trim()||
-      String(r.note||'').trim()||
-      (Array.isArray(r.opts)&&r.opts.length>0)
-    ));
-    const appendLedgerRow=row=>{
-      let last=-1;
-      for(let i=rows.length-1;i>=0;i--){
-        if(rowHasValue(rows[i])){last=i;break;}
-      }
-      const target=last+1;
-      while(rows.length<=target)rows.push({date:'',content:'',opts:[],order:'',pay:'',note:'',createdAt:'',updatedAt:''});
-      rows[target]=row;
-    };
-
-    cartSnapshot.forEach(item=>{
-      // 장부 기록명은 originalName 사용 (장부 menuDB와 일치)
-      const ledgerName=item.originalName||item.displayName;
-      const content=ledgerName;
-      const qty=parseInt(item.qty,10)||1;
-      const amount=item.unitPrice*item.qty;
-      const optTotal=(item.opts||[]).reduce((s,o)=>s+(parseInt(o.price,10)||0),0);
-      const basePrice=parseInt(item.basePrice,10)||Math.max(0,(parseInt(item.unitPrice,10)||0)-optTotal);
-      const newRow={date:dateStr,content,opts:item.opts||[],qty,order:amount,pay:'',note:'',createdAt:dateStr,updatedAt:dateStr,basePrice,orderId:String(order.id),deptId:dept.id};
-      appendLedgerRow(newRow);
-    });
-
-    // 해당 부서의 rows 경로만 업데이트 → 다른 부서/삭제내역 절대 안 건드림
-    return db.ref('jangbu/depts/'+deptKey+'/rows').set(rows);
+    while(rows.length<80)rows.push(blankLedgerRow());
+    const already=rows.some(r=>r&&String(r.orderId||'')===String(order.id));
+    if(!already)newRows.forEach(row=>appendLedgerRow(rows,row));
+    return rows;
   }).catch(err=>{
     console.error('장부 기록 실패:', err);
   });

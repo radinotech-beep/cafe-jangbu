@@ -331,6 +331,11 @@ function rowHasLedgerValue(row){
     (Array.isArray(row.opts)&&row.opts.length>0)
   ));
 }
+function normalizeRowsForAppend(value){
+  if(Array.isArray(value))return value;
+  if(value&&typeof value==='object')return Object.keys(value).sort((a,b)=>parseInt(a,10)-parseInt(b,10)).map(k=>value[k]);
+  return [];
+}
 function appendLedgerRows(rows,newRows){
   newRows.forEach(newRow=>{
     let last=-1;
@@ -366,26 +371,26 @@ function writeCancelRows(deptKey,order,dept){
   const dateStr=orderDateStr(order);
   const cancelRows=makeCancelRows(order,dateStr);
   if(cancelRows.length===0)return Promise.resolve({ok:false,reason:'주문 금액이 0원으로 저장되어 있음'});
-  return db.ref('jangbu/depts/'+deptKey+'/rows').once('value').then(snap=>{
-    let rows=snap.val()||[];
-    if(!Array.isArray(rows))rows=Object.values(rows);
-    while(rows.length<80)rows.push(emptyRow());
-    const deptId=order.deptId||(dept&&dept.id)||deptKey;
-    const globalPath='jangbu/deletedLedgerRows/'+firebaseSafeKey(deptId);
-    return Promise.all([
-      db.ref(globalPath).once('value'),
-      db.ref('jangbu/depts/'+deptKey+'/deletedRows').once('value')
-    ]).then(snaps=>{
-      const deleted={...(snaps[0].val()||{}),...(snaps[1].val()||{})};
-      const tokens=deletedLedgerTokenList(order);
-      if(tokens.some(t=>deleted[t])||deleted['cancel:'+sourceKey]||deleted['cancelId:'+orderId+':'+dateStr]||deleted['order:'+orderId]){
-        return {ok:true,reason:'사용자가 삭제한 취소 줄이라 재생성하지 않음'};
-      }
-    rows=rows.filter(row=>!(row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr))));
-    appendLedgerRows(rows,cancelRows);
-      return db.ref('jangbu/depts/'+deptKey+'/rows').set(rows).then(()=>({ok:true,reason:'취소 줄 추가 완료'}));
+  const deptId=order.deptId||(dept&&dept.id)||deptKey;
+  const globalPath='jangbu/deletedLedgerRows/'+firebaseSafeKey(deptId);
+  return Promise.all([
+    db.ref(globalPath).once('value'),
+    db.ref('jangbu/depts/'+deptKey+'/deletedRows').once('value')
+  ]).then(snaps=>{
+    const deleted={...(snaps[0].val()||{}),...(snaps[1].val()||{})};
+    const tokens=deletedLedgerTokenList(order);
+    if(tokens.some(t=>deleted[t])||deleted['cancel:'+sourceKey]||deleted['cancelId:'+orderId+':'+dateStr]||deleted['order:'+orderId]){
+      return {ok:true,reason:'사용자가 삭제한 취소 줄이라 재생성하지 않음'};
+    }
+    return db.ref('jangbu/depts/'+deptKey+'/rows').transaction(current=>{
+      let rows=normalizeRowsForAppend(current);
+      while(rows.length<80)rows.push(emptyRow());
+      rows=rows.filter(row=>!(row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr))));
+      cancelRows.forEach(row=>row.ledgerWriteTs=Date.now());
+      appendLedgerRows(rows,cancelRows);
+      return rows;
+    }).then(()=>({ok:true,reason:'취소 줄 추가 완료'}));
     });
-  });
 }
 function markCancelledInLedger(order){
   return db.ref('jangbu/depts').once('value').then(snap=>{
