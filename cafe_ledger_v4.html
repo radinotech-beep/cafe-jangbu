@@ -815,6 +815,50 @@ function cleanDeptForSave(dept){
   delete copy.months;
   return copy;
 }
+function isAutoLedgerRow(row){
+  return !!(row&&(row.orderId||row.sourceOrderId||row.sourceOrderKey||row.cancelRow));
+}
+function autoLedgerRowKey(row){
+  if(!isAutoLedgerRow(row))return '';
+  const opts=normalizeOpts(row&&row.opts).map(o=>String(o&&o.name||'')+':'+pn(o&&o.price)).join('|');
+  return [
+    String(row.orderId||''),
+    String(row.sourceOrderId||''),
+    String(row.sourceOrderKey||''),
+    String(row.content||''),
+    String(row.qty||''),
+    pn(row.order),
+    pn(row.pay),
+    String(row.note||''),
+    row.cancelRow?'cancel':'order',
+    opts
+  ].join('::');
+}
+function mergeServerAutoRowsForSave(localDept,serverDept){
+  const local=cleanDeptForSave(localDept);
+  const server=serverDept||{};
+  const deleted={...(server.deletedRows||{}),...(local.deletedRows||{})};
+  local.deletedRows=deleted;
+  local.rows=normalizeLedgerRows(local.rows);
+  const localAuto=new Map();
+  local.rows.forEach((row,idx)=>{
+    const key=autoLedgerRowKey(row);
+    if(key)localAuto.set(key,idx);
+  });
+  normalizeLedgerRows(server.rows).forEach(serverRow=>{
+    if(!isAutoLedgerRow(serverRow))return;
+    const tokens=deletedLedgerTokensForRow(serverRow);
+    if(Object.keys(tokens).some(t=>deleted[t]))return;
+    const key=autoLedgerRowKey(serverRow);
+    if(!key)return;
+    if(localAuto.has(key)){
+      local.rows[localAuto.get(key)]={...cloneLedgerRow(serverRow)};
+    }else{
+      local.rows.push(cloneLedgerRow(serverRow));
+    }
+  });
+  return local;
+}
 function blankLedgerRow(){
   return {date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''};
 }
@@ -910,6 +954,11 @@ function ledgerEventTime(row){
   const d=new Date(ts);
   return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
+function registeredMonthKey(row){
+  const ts=Number(row&&row.registeredAt)||Number(row&&row.ledgerEventTs)||0;
+  if(ts)return monthKeyFromDate(new Date(ts));
+  return monthKeyFromLedgerDate(row&&row.date)||monthKeyFromLedgerDate(row&&row.createdAt);
+}
 function ledgerRowSignature(row){
   const opts=normalizeOpts(row&&row.opts).map(o=>({name:String(o.name||''),price:pn(o.price)}));
   return JSON.stringify({
@@ -931,14 +980,14 @@ function cloneLedgerRow(row){
 }
 function legacyRowBelongsToMonth(row,key){
   if(!rowHasValue(row))return false;
-  const m=monthKeyFromLedgerDate(row.date);
+  const m=registeredMonthKey(row);
   if(m)return m===key;
   return key===currentMonthKey();
 }
 function rowInLedgerMonth(row){
   if(!curLedgerMonth)return true;
   if(!rowHasValue(row))return true;
-  const key=monthKeyFromLedgerDate(row.date);
+  const key=registeredMonthKey(row);
   return key?key===curLedgerMonth:curLedgerMonth===currentMonthKey();
 }
 function rowWarnKey(di,ri,row){
@@ -964,26 +1013,18 @@ function confirmMonthMismatch(di,ri){
   const row=depts[di]&&depts[di].rows&&depts[di].rows[ri];
   if(!row||!row.date||!row.createdAt)return true;
   const tradeMonth=monthKeyFromLedgerDate(row.date);
-  const inputMonth=monthKeyFromLedgerDate(row.createdAt);
   if(tradeMonth&&curLedgerMonth&&tradeMonth!==curLedgerMonth){
-    alert(`${monthLabel(curLedgerMonth)} 장부에는 ${monthLabel(tradeMonth)} 거래일을 입력할 수 없습니다.\n거래일을 현재 장부 월에 맞게 수정해주세요.`);
-    row.date=defaultTradeDateForCurrentMonth();
-    const input=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="date"]`);
-    if(input){input.value=row.date;input.focus();}
-    return false;
-  }
-  if(!tradeMonth||!inputMonth||tradeMonth===inputMonth)return true;
-  const key=rowWarnKey(di,ri,row);
-  if(ledgerMonthWarnedRows.has(key))return true;
-  const ok=confirm(`거래일과 입력일의 월이 다릅니다.\n\n거래일: ${row.date}\n입력일: ${row.createdAt}\n\n이 행은 ${monthLabel(tradeMonth)} 장부 기준으로 계산됩니다.\n이대로 저장할까요?`);
-  if(ok){
+    const key=rowWarnKey(di,ri,row)+'_'+curLedgerMonth;
+    if(ledgerMonthWarnedRows.has(key))return true;
+    const ok=confirm(`거래일이 현재 보고 있는 장부 월과 다릅니다.\n\n현재 화면: ${monthLabel(curLedgerMonth)}\n거래일 기준: ${monthLabel(tradeMonth)}\n\n거래일은 참고용으로 저장되고, 금액 계산은 현재 등록 월 기준으로 반영됩니다.\n이대로 저장할까요?`);
+    if(!ok){
+      const input=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="date"]`);
+      if(input){input.focus();input.select();}
+      return false;
+    }
     ledgerMonthWarnedRows.add(key);
-    return true;
   }
-  row.date=row.createdAt;
-  const input=document.querySelector(`input[data-di="${di}"][data-ri="${ri}"][data-col="date"]`);
-  if(input)input.value=row.date;
-  return false;
+  return true;
 }
 function ledgerMonthKeys(di){
   const keys=new Set([currentMonthKey()]);
@@ -1047,7 +1088,7 @@ function carryoverBeforeMonth(di,key){
   mergeMonthsIntoRootRows(di);
   let total=openingBalanceForMonth(di,key);
   (dept.rows||[]).forEach(row=>{
-    const m=monthKeyFromLedgerDate(row.date);
+    const m=registeredMonthKey(row);
     if(m&&m<key)total+=pn(row.pay)-pn(row.order);
   });
   return total;
@@ -1451,7 +1492,8 @@ function saveDept(di,immediate){
   const delay=immediate?0:1500;
   deptSaveTimers[di]=setTimeout(()=>{
     const key=deptKey(di);
-    db.ref('jangbu/depts/'+deptKey(di)).set(cleanDeptForSave(depts[di]))
+    const ref=db.ref('jangbu/depts/'+key);
+    ref.transaction(current=>mergeServerAutoRowsForSave(depts[di],current))
       .then(()=>{
         dirtyDeptKeys.delete(key);
         setSyncStatus(dirtyDeptKeys.size>0?'dirty':'ok');
@@ -2631,6 +2673,15 @@ function applyMoveRows(){
 
 function stampDates(di,ri){
   const row=depts[di].rows[ri];const t=todayDisplay();
+  if(row&&(row.cancelRow||String(row.note||'').includes('주문취소'))){
+    if(!row.createdAt)row.createdAt=row.date||t;
+    if(!row.updatedAt)row.updatedAt=row.createdAt;
+    const ca=document.getElementById(`ca-${di}-${ri}`);
+    const ua=document.getElementById(`ua-${di}-${ri}`);
+    if(ca)ca.textContent=row.createdAt+(ledgerEventTime(row)?' '+ledgerEventTime(row):'');
+    if(ua)ua.textContent=row.updatedAt;
+    return;
+  }
   if(!row.createdAt){row.createdAt=t;const ca=document.getElementById(`ca-${di}-${ri}`);if(ca)ca.textContent=t;}
   ensureTransactionDate(di,ri);
   row.updatedAt=t;const ua=document.getElementById(`ua-${di}-${ri}`);if(ua)ua.textContent=t;
@@ -2942,7 +2993,6 @@ function dateInputToLedgerDate(value){
   const td=new Date();td.setHours(0,0,0,0);
   if(d>td)return {ok:false,message:'미래 날짜는 결제 거래일로 등록할 수 없습니다.'};
   const key=`${m[1]}-${m[2]}`;
-  if(key!==curSummaryMonth)return {ok:false,message:`현재 ${monthLabel(curSummaryMonth)} 화면입니다.\n결제 거래일도 같은 월 안에서 선택해주세요.`};
   return {ok:true,value:(+m[2])+'/'+(+m[3]),key};
 }
 function formatPayDates(dates){
@@ -3023,14 +3073,10 @@ function openPaymentModal(di,mode){
   const cancelWrap=document.getElementById('paymentCancelSelectWrap');
   const cancelSelect=document.getElementById('paymentCancelSelect');
   const cancelList=isCancel?paymentRowsForCancel(di,curSummaryMonth):[];
-  if(isCancel&&curSummaryMonth!==currentMonthKey()){
-    alert('결제 취소는 이번 달 결제건만 가능합니다.\n전월 결제건은 취소할 수 없습니다.');
-    return;
-  }
   if(isCancel&&cancelList.length===0){alert('이번 달에 취소할 결제 등록 내역이 없습니다.');return;}
   if(!isCancel&&curSummaryMonth!==currentMonthKey()){
-    const ok=confirm(`${monthLabel(curSummaryMonth)} 화면입니다.\n과거 월에 결제를 등록/취소할까요?`);
-    if(!ok)return;
+    alert(`결제 등록은 현재 월에서만 가능합니다.\n과거 월 거래일은 현재 월 결제 등록창에서 참고용 거래일로 입력해주세요.`);
+    return;
   }
   const s=summaryRowForDept(di,curSummaryMonth);
   paymentModalState={di,mode,source:cancelList[0]||null,cancelList};
@@ -3121,7 +3167,7 @@ function renderSummary(){
   let tCarry=0,tOrd=0,tPay=0,tBal=0;
   depts.forEach((d,i)=>{
     const s=summaryRowForDept(i,curSummaryMonth);
-    const latestPay=curSummaryMonth===currentMonthKey()?findLatestPaymentRow(i,curSummaryMonth):null;
+    const latestPay=findLatestPaymentRow(i,curSummaryMonth);
     tCarry+=s.carry;tOrd+=s.order;tPay+=s.pay;tBal+=s.bal;
     const tr=document.createElement('tr');
     tr.innerHTML=`<td class="nm">${esc(s.name)}</td>

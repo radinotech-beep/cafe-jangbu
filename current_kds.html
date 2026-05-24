@@ -335,6 +335,10 @@ function ledgerTimeFromTs(ts){
   const d=new Date(Number(ts)||Date.now());
   return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
 }
+function ledgerDateFromTs(ts){
+  const d=new Date(Number(ts)||Date.now());
+  return (d.getMonth()+1)+'/'+d.getDate();
+}
 function normalizeRowsForAppend(value){
   if(Array.isArray(value))return value;
   if(value&&typeof value==='object')return Object.keys(value).sort((a,b)=>parseInt(a,10)-parseInt(b,10)).map(k=>value[k]);
@@ -369,11 +373,22 @@ function makeCancelRows(order,dateStr){
   }
   return rows;
 }
+function isExistingCancelLedgerRow(row,orderId,sourceKey){
+  if(!row)return false;
+  const note=String(row.note||'');
+  const rowOrderId=String(row.orderId||'');
+  const rowSourceId=String(row.sourceOrderId||'');
+  const rowSourceKey=String(row.sourceOrderKey||'');
+  if(row.cancelRow&&(rowSourceKey===sourceKey||rowSourceId===orderId))return true;
+  if(note.includes('주문취소')&&(rowSourceKey===sourceKey||rowSourceId===orderId))return true;
+  if(note.includes('주문취소')&&(rowOrderId===orderId||rowOrderId.startsWith(orderId+'-cancel-')||rowOrderId===orderId+'-cancel-total'))return true;
+  return false;
+}
 function writeCancelRows(deptKey,order,dept){
   const orderId=String(order.id);
   const sourceKey=sourceOrderKey(order);
-  const dateStr=orderDateStr(order);
   const cancelEventTs=Number(order.cancelledAt)||Date.now();
+  const dateStr=ledgerDateFromTs(cancelEventTs);
   const cancelRows=makeCancelRows(order,dateStr);
   if(cancelRows.length===0)return Promise.resolve({ok:false,reason:'주문 금액이 0원으로 저장되어 있음'});
   const deptId=order.deptId||(dept&&dept.id)||deptKey;
@@ -390,7 +405,8 @@ function writeCancelRows(deptKey,order,dept){
     return db.ref('jangbu/depts/'+deptKey+'/rows').transaction(current=>{
       let rows=normalizeRowsForAppend(current);
       while(rows.length<80)rows.push(emptyRow());
-      rows=rows.filter(row=>!(row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr))));
+      const already=rows.some(row=>isExistingCancelLedgerRow(row,orderId,sourceKey));
+      if(already)return rows;
       cancelRows.forEach((row,idx)=>{
         const ledgerEventTs=cancelEventTs+idx;
         row.registeredAt=ledgerEventTs;
@@ -423,8 +439,7 @@ function restoreInLedger(order){
     let rows=dept.rows||[];
     if(!Array.isArray(rows))rows=Object.values(rows);
     const before=rows.length;
-    const dateStr=orderDateStr(order);
-    rows=rows.filter(row=>!(row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||(String(row.sourceOrderId||'')===orderId&&row.date===dateStr))));
+    rows=rows.filter(row=>!(row&&row.cancelRow&&(String(row.sourceOrderKey||'')===sourceKey||String(row.sourceOrderId||'')===orderId)));
     if(rows.length!==before)return db.ref('jangbu/depts/'+deptKey+'/rows').set(rows).then(()=>true);
     return false;
   }).catch(err=>console.error('장부 취소복구 반영 실패:',err));
@@ -490,9 +505,6 @@ function listenOrders(){
       }
     });
     if(hasNew)playAlert();
-    Object.values(newOrders).forEach(o=>{
-      if(o.status==='cancelled')markCancelledInLedger(o);
-    });
 
     orders=newOrders;
     renderOrders();
@@ -515,32 +527,36 @@ function completeOrder(id){
 function cancelOrder(id){
   if(!confirm('주문을 취소할까요? 장부 금액도 함께 복구됩니다.'))return;
   const order=Object.values(orders).find(o=>String(o.id)===String(id));
-  if(order)order.cancelledAt=Date.now();
-  const finish=()=>db.ref('orders/'+id+'/status').set('cancelled');
+  const cancelTs=Date.now();
+  if(order)order.cancelledAt=cancelTs;
+  const finish=done=>db.ref('orders/'+id).update({status:'cancelled',cancelledAt:cancelTs,ledgerCancelDone:!!done});
   if(order)markCancelledInLedger(order).then(result=>{
     if(!result||!result.ok)alert('장부 취소 반영 실패: '+(result&&result.reason?result.reason:'원인 확인 불가'));
-  }).finally(finish);
-  else finish();
+    return finish(result&&result.ok);
+  });
+  else finish(false);
 }
 function cancelCompletedOrder(id){
   if(!confirm('완료된 주문을 취소 처리할까요? 장부 금액도 함께 복구됩니다.'))return;
   const order=Object.values(orders).find(o=>String(o.id)===String(id));
-  if(order)order.cancelledAt=Date.now();
-  const finish=()=>{
+  const cancelTs=Date.now();
+  if(order)order.cancelledAt=cancelTs;
+  const finish=done=>{
     document.getElementById('detailOverlay').style.display='none';
-    return db.ref('orders/'+id+'/status').set('cancelled');
+    return db.ref('orders/'+id).update({status:'cancelled',cancelledAt:cancelTs,ledgerCancelDone:!!done});
   };
   if(order)markCancelledInLedger(order).then(result=>{
     if(!result||!result.ok)alert('장부 취소 반영 실패: '+(result&&result.reason?result.reason:'원인 확인 불가'));
-  }).finally(finish);
-  else finish();
+    return finish(result&&result.ok);
+  });
+  else finish(false);
 }
 function restoreOrder(id){
   if(!confirm('취소된 주문을 복구할까요? 장부 금액도 다시 차감됩니다.'))return;
   const order=Object.values(orders).find(o=>String(o.id)===String(id));
   const finish=()=>{
     document.getElementById('detailOverlay').style.display='none';
-    return db.ref('orders/'+id+'/status').set('pending');
+    return db.ref('orders/'+id).update({status:'pending',ledgerCancelDone:false,restoredAt:Date.now()});
   };
   if(order)restoreInLedger(order).then(ok=>{
     if(!ok)alert('삭제할 취소 줄을 찾지 못했습니다.');
