@@ -41,27 +41,32 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(226,75,74,0.3);}50%{box-shadow:0 0 0 6px rgba(226,75,74,0);}}
 .order-card.done{opacity:0.82;border-color:#ddd;}
 
-.card-head{background:#FFF9D6;padding:9px 10px;border-bottom:1.5px solid #E8D84A;display:flex;justify-content:space-between;align-items:flex-start;}
+.card-head{background:#FFF9D6;padding:7px 10px;border-bottom:1.5px solid #E8D84A;display:flex;justify-content:space-between;align-items:center;}
 .card-head.urgent{background:#FCEBEB;border-bottom-color:#E24B4A;}
 .card-head.done{background:#f5f5f5;border-bottom-color:#ddd;}
-.order-no{font-size:11px;color:#777;margin-bottom:3px;font-weight:800;}
-.order-dept{font-size:22px;font-weight:900;color:#111;line-height:1.15;max-width:190px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.head-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
+.head-left{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.order-top-row{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;}
+.order-no{font-size:12px;color:#2a7d2a;font-weight:800;white-space:nowrap;}
+.order-time-inline{font-size:12px;color:#111;font-weight:900;white-space:nowrap;}
+.order-dept{font-size:20px;font-weight:900;color:#111;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.head-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0;}
 .order-time{font-size:12px;color:#111;background:#fff;border:1px solid #E0B800;border-radius:999px;padding:3px 8px;font-weight:900;white-space:nowrap;}
-.urgent-badge{font-size:9px;background:#E24B4A;color:#fff;padding:2px 6px;border-radius:3px;font-weight:500;}
+.urgent-badge{font-size:9px;background:#E8A800;color:#fff;padding:2px 6px;border-radius:3px;font-weight:500;}
 
 .card-body{padding:8px 10px;flex:1;overflow:auto;}
 .menu-item{padding:5px 0;border-bottom:1px solid #FFF0CC;}
 .menu-item:last-child{border-bottom:none;}
 .menu-row{display:flex;justify-content:space-between;align-items:center;}
-.menu-name{font-size:12px;font-weight:500;color:#2C2C2A;flex:1;}
+.menu-name{font-size:15px;font-weight:700;color:#2C2C2A;flex:1;}
 .menu-name.mega-ricano{color:#B87900;font-weight:900;}
 .menu-name.matcha-parfait{color:#166534;font-weight:900;}
+.menu-name.temp-ice{color:#1060C0;font-weight:900;}
+.menu-name.temp-hot{color:#C03010;font-weight:900;}
 .menu-qty{font-size:13px;font-weight:500;color:#111;margin-left:6px;white-space:nowrap;}
 .opt-list{margin-top:3px;display:flex;flex-direction:column;gap:2px;}
 .opt-row{display:flex;align-items:flex-start;gap:3px;}
-.opt-arrow{color:#B8860B;font-size:10px;margin-top:1px;flex-shrink:0;}
-.opt-text{font-size:10px;color:#888;line-height:1.4;}
+.opt-arrow{color:#111;font-size:11px;margin-top:1px;flex-shrink:0;}
+.opt-text{font-size:13px;color:#111;line-height:1.4;}
 .opt-text.tumbler{display:inline-flex;align-items:center;width:max-content;background:#E6F1FB;color:#075985;border:1px solid #6BA7E8;border-radius:999px;padding:1px 7px;font-weight:900;}
 
 .card-foot{padding:7px 10px;border-top:1px solid #F0E87A;}
@@ -69,7 +74,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .done-btn:active{background:#E0B800;}
 .done-btn.completed{background:#eee;color:#aaa;cursor:default;}
 .elapsed{font-size:10px;color:#888;text-align:center;margin-bottom:4px;}
-.elapsed.warn{color:#E24B4A;font-weight:500;}
+.elapsed.warn{color:#B85C00;font-weight:500;}
 
 /* 빈 화면 */
 .empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#B8860B;gap:10px;}
@@ -88,9 +93,9 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .show-done-btn{margin-left:auto;font-size:11px;padding:4px 10px;background:none;border:1px solid #111;border-radius:10px;cursor:pointer;color:#111;font-family:inherit;}
 
 /* 매장/포장 배지 */
-.type-badge{font-size:13px;font-weight:900;padding:4px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:5px;margin-top:7px;}
-.type-eat{background:#FCE8E6;color:#A32D2D;border:2px solid #E24B4A;}
-.type-take{background:#E5F0FF;color:#064F9E;border:2px solid #6BA7E8;}
+.type-bar{width:100%;padding:5px 10px;font-size:14px;font-weight:900;letter-spacing:0.5px;text-align:center;}
+.type-bar.take{background:#1060C0;color:#fff;}
+.type-bar.eat{background:#C03010;color:#fff;}
 
 /* 취소 버튼 */
 .cancel-btn{width:100%;padding:6px;background:#fff;color:#E24B4A;border:1.5px solid #E24B4A;border-radius:6px;font-size:11px;font-weight:500;cursor:pointer;font-family:inherit;margin-top:5px;}
@@ -118,8 +123,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 /* 세부 음료 제조완료 터치 */
 .menu-item{padding:5px 0;border-bottom:1px solid #FFF0CC;cursor:pointer;border-radius:4px;transition:background 0.15s;}
 .menu-item:last-child{border-bottom:none;}
-.menu-item.made{background:#F0F0F0;}
-.menu-item.made .menu-name{text-decoration:line-through;color:#aaa;}
+.menu-item.made{background:#F0F0F0;opacity:0.55;}
+.menu-item.made .menu-name{color:#aaa;}
 .menu-item.made .menu-qty{color:#aaa;}
 .menu-item.made .opt-text{color:#ccc;}
 
@@ -138,6 +143,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .detail-item-name{font-size:16px;font-weight:900;color:#111;}
 .detail-item-name.mega-ricano{color:#B87900;}
 .detail-item-name.matcha-parfait{color:#166534;}
+.detail-item-name.temp-ice{color:#1060C0;}
+.detail-item-name.temp-hot{color:#C03010;}
 .detail-item-sub{margin-top:4px;font-size:13px;color:#666;}
 .detail-opt-list{margin-top:7px;display:flex;flex-direction:column;gap:4px;}
 .detail-opt{font-size:13px;color:#666;}
@@ -572,10 +579,18 @@ function toggleMade(orderId,itemIdx){
   renderOrders();
 }
 
-function menuNameClass(name){
+function menuNameClass(name, temp){
   const normalized=String(name||'').replace(/\s/g,'');
   if(normalized.includes('메가리카노'))return'mega-ricano';
-  if(normalized.includes('말차젤라또팥빙파르페'))return'matcha-parfait';
+  if(normalized.includes('말차젤라또')||normalized.includes('팥빙수파르페')||normalized.includes('팥빙파르페'))return'matcha-parfait';
+  const t=String(temp||'').toUpperCase();
+  if(t==='ICE')return'temp-ice';
+  if(t==='HOT')return'temp-hot';
+  // 이름 자체에 ICE/HOT 포함된 경우
+  if(/\bICE\b/.test(String(name||'').toUpperCase()))return'temp-ice';
+  if(/\bHOT\b/.test(String(name||'').toUpperCase()))return'temp-hot';
+  if(String(name||'').includes('(ICE)'))return'temp-ice';
+  if(String(name||'').includes('(HOT)'))return'temp-hot';
   return'';
 }
 function optionRowsHtml(parts){
@@ -680,10 +695,13 @@ function renderOrders(){
 
     const headDiv=document.createElement('div');
     headDiv.className=headCls;
-    if(showDone){
+    const typeIcon=isTake?'🛍 포장하기':'🍽 먹고가기';    if(showDone){
       headDiv.innerHTML=`
-        <div>
-          <div class="order-no">#${String(order.id).padStart(3,'0')}</div>
+        <div class="head-left">
+          <div class="order-top-row">
+            <span class="order-no">#${String(order.id).padStart(3,'0')}</span>
+            <span class="order-time-inline">${timeStr}</span>
+          </div>
           <div class="order-dept">${esc(order.deptName)}</div>
         </div>
         <div class="head-right">
@@ -691,18 +709,27 @@ function renderOrders(){
         </div>`;
     }else{
       headDiv.innerHTML=`
-        <div>
-          <div class="order-no">#${String(order.id).padStart(3,'0')}</div>
+        <div class="head-left">
+          <div class="order-top-row">
+            <span class="order-no">#${String(order.id).padStart(3,'0')}</span>
+            <span class="order-time-inline">${timeStr}</span>
+          </div>
           <div class="order-dept">${esc(order.deptName)}</div>
-          ${typeBadge}
         </div>
         <div class="head-right">
           ${urg?'<span class="urgent-badge">⚠ 5분초과</span>':''}
           ${isCancelled?'<span style="font-size:9px;background:#999;color:#fff;padding:2px 6px;border-radius:3px;font-weight:500;">취소됨</span>':''}
-          <span class="order-time">주문 ${timeStr}</span>
         </div>`;
     }
     card.appendChild(headDiv);
+
+    // ── 포장/먹고가기 띠 ──
+    if(!showDone&&!isCancelled){
+      const typeBar=document.createElement('div');
+      typeBar.className='type-bar '+(isTake?'take':'eat');
+      typeBar.textContent=isTake?'🛍️  포장하기':'🍽️  먹고가기';
+      card.appendChild(typeBar);
+    }
 
     // ── 바디 ──
     if(!showDone){
@@ -712,7 +739,7 @@ function renderOrders(){
         const optParts=(item.opts||[]).map(o=>o.name);
         if(item.tumbler)optParts.push('텀블러');
         const optHtml=optionRowsHtml(optParts);
-        const nameCls=menuNameClass(item.displayName||item.name);
+        const nameCls=menuNameClass(item.displayName||item.name, item.temp);
         const madeKey=order.id+'_'+idx;
         const isMade=!!madeItems[madeKey];
         const div=document.createElement('div');
@@ -906,7 +933,7 @@ function openDetail(order){
   (order.items||[]).forEach(item=>{
     const name=esc(item.displayName||item.name||'메뉴');
     const rawName=item.displayName||item.name||'메뉴';
-    const nameCls=menuNameClass(rawName);
+    const nameCls=menuNameClass(rawName, item.temp);
     const qty=pn(item.qty)||1;
     const optsArr=(item.opts||item.options||[]).map(o=>esc(typeof o==='string'?o:o.name)).filter(Boolean);
     if(item.tumbler)optsArr.push('텀블러');
