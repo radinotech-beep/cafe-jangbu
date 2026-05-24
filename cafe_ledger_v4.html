@@ -2673,13 +2673,11 @@ function applyMoveRows(){
 
 function stampDates(di,ri){
   const row=depts[di].rows[ri];const t=todayDisplay();
-  if(row&&(row.cancelRow||String(row.note||'').includes('주문취소'))){
-    if(!row.createdAt)row.createdAt=row.date||t;
-    if(!row.updatedAt)row.updatedAt=row.createdAt;
+  if(isAutoLedgerRow(row)){
     const ca=document.getElementById(`ca-${di}-${ri}`);
     const ua=document.getElementById(`ua-${di}-${ri}`);
-    if(ca)ca.textContent=row.createdAt+(ledgerEventTime(row)?' '+ledgerEventTime(row):'');
-    if(ua)ua.textContent=row.updatedAt;
+    if(ca)ca.textContent=(row.createdAt||'')+(ledgerEventTime(row)?' '+ledgerEventTime(row):'');
+    if(ua)ua.textContent=row.updatedAt||'';
     return;
   }
   if(!row.createdAt){row.createdAt=t;const ca=document.getElementById(`ca-${di}-${ri}`);if(ca)ca.textContent=t;}
