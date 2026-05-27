@@ -30,6 +30,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .top-right{display:flex;gap:8px;align-items:center;}
 .sync-dot{width:8px;height:8px;border-radius:50%;background:#3B6D11;}
 .sync-dot.err{background:#E24B4A;}
+.back-btn{background:#fff;color:#111;font-size:15px;font-weight:900;padding:10px 17px;border-radius:999px;border:2px solid #111;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.18);font-family:inherit;}
+.back-btn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.18);}
 .dept-btn{background:#111;color:#F5C800;font-size:16px;font-weight:900;padding:10px 22px;border-radius:999px;border:2px solid #111;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.18);}
 .dept-btn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.18);}
 
@@ -244,6 +246,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   .cart-head{padding:13px 14px;font-size:17px;}
   .total-price{font-size:23px;}
   .order-btn{padding:15px;font-size:19px;}
+  .back-btn,.dept-btn{font-size:14px;padding:8px 14px;}
   .popup{width:min(560px,calc(100vw - 24px));max-height:calc(100dvh - 14px);border-width:3px;border-radius:20px;}
   .popup-head{padding:10px 16px;border-bottom-width:3px;}
   .popup-title{font-size:21px;}
@@ -413,6 +416,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   <span class="top-logo">메가커피 인천역점</span>
   <div class="top-right">
     <span class="sync-dot" id="syncDot"></span>
+    <button class="back-btn" id="backBtn" onclick="goBackStep()">← 뒤로</button>
     <button class="dept-btn" id="deptBtn" onclick="openDeptModal()">부서 선택 ▾</button>
   </div>
 </div>
@@ -599,6 +603,9 @@ let popupItem=null,popupTemp=null,popupOpts=[],popupQty=1,popupTumbler=false;
 let pwdBuffer='';
 let backGuardReady=false;
 let suppressBackUntil=0;
+const IDLE_RESET_MS=90000;
+let idleResetTimer=null;
+let idleResetReady=false;
 
 function keepOrderAppOpen(){
   if(backGuardReady)return;
@@ -612,13 +619,77 @@ function keepOrderAppOpen(){
 function handleBackButton(){
   try{history.pushState({orderGuard:true},'',location.href);}catch(e){}
   if(Date.now()<suppressBackUntil)return;
+  goBackStep();
+}
+
+function isOpen(id){
+  const el=document.getElementById(id);
+  return !!(el&&el.classList.contains('open'));
+}
+
+function resetOrderStateToStart(){
   const popup=document.getElementById('popupBg');
   const pwd=document.getElementById('pwdModal');
   const complete=document.getElementById('completePopup');
-  if(popup&&popup.classList.contains('open')){closePopup();return;}
-  if(pwd&&pwd.classList.contains('open')){closePwdModal();return;}
-  if(complete&&complete.classList.contains('open')){closeCompletePopup();return;}
-  showToast('주문 화면에서는 뒤로가기를 사용할 수 없습니다');
+  if(popup)popup.classList.remove('open');
+  if(pwd)pwd.classList.remove('open');
+  if(complete)complete.classList.remove('open');
+  cart=[];
+  curDeptIdx=null;
+  popupItem=null;popupTemp=null;popupOpts=[];popupQty=1;popupTumbler=false;
+  pwdBuffer='';
+  const deptBtn=document.getElementById('deptBtn');
+  if(deptBtn)deptBtn.textContent='부서 선택 ▾';
+  document.getElementById('introScreen')?.classList.remove('active');
+  document.getElementById('waitScreen')?.classList.add('active');
+  renderCart();
+  if(curCat)renderMenuArea(curCat);
+}
+
+function goBackStep(){
+  if(isOpen('popupBg')){closePopup();return;}
+  if(isOpen('pwdModal')){closePwdModal();return;}
+  if(isOpen('completePopup')){closeCompletePopup();return;}
+
+  const intro=document.getElementById('introScreen');
+  const wait=document.getElementById('waitScreen');
+  if(intro&&intro.classList.contains('active')){
+    intro.classList.remove('active');
+    wait?.classList.add('active');
+    return;
+  }
+
+  if(curDeptIdx!==null){
+    cart=[];
+    curDeptIdx=null;
+    const deptBtn=document.getElementById('deptBtn');
+    if(deptBtn)deptBtn.textContent='부서 선택 ▾';
+    renderCart();
+    renderIntroScreen(true);
+    return;
+  }
+
+  wait?.classList.add('active');
+}
+
+function resetIdleTimer(){
+  if(!appStarted)return;
+  clearTimeout(idleResetTimer);
+  idleResetTimer=setTimeout(()=>{
+    const auth=document.getElementById('authScreen');
+    if(auth&&!auth.classList.contains('hidden'))return;
+    resetOrderStateToStart();
+    showToast('처음 화면으로 돌아왔습니다');
+  },IDLE_RESET_MS);
+}
+
+function initIdleReset(){
+  if(idleResetReady){resetIdleTimer();return;}
+  idleResetReady=true;
+  ['pointerdown','touchstart','keydown'].forEach(evt=>{
+    document.addEventListener(evt,resetIdleTimer,{passive:true});
+  });
+  resetIdleTimer();
 }
 
 function makeDeptId(){
@@ -819,6 +890,7 @@ function loadData(){
 // ── UI 초기화 ──
 function initUI(){
   keepOrderAppOpen();
+  initIdleReset();
   // menuDB 로드 후 카테고리바 렌더
   renderCatBar();
   renderTypeScreen();
