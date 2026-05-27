@@ -26,9 +26,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .auth-msg{min-height:18px;margin-top:10px;font-size:12px;color:#E24B4A;font-weight:800;}
 
 /* 탑바 */
-.purpose-banner{height:46px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#111;color:#F5C800;border-bottom:4px solid #E24B4A;font-size:24px;font-weight:950;letter-spacing:0;text-align:center;}
 .topbar{background:#F5C800;padding:0 14px;height:46px;display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #E0B800;flex-shrink:0;}
-.top-logo{font-size:14px;font-weight:500;color:#111;}
+.top-logo{display:flex;align-items:center;gap:12px;min-width:0;color:#111;}
+.top-brand{font-size:13px;font-weight:500;white-space:nowrap;}
+.top-purpose{font-size:24px;font-weight:950;white-space:nowrap;letter-spacing:0;}
 .top-right{display:flex;gap:10px;align-items:center;}
 .sync-dot{width:8px;height:8px;border-radius:50%;background:#3B6D11;}
 .sync-dot.err{background:#E24B4A;}
@@ -133,7 +134,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .history-status.done{background:#eaf4df;color:#2f6d13;}
 .history-status.cancelled{background:#f4e7e7;color:#a13030;}
 @media(max-width:900px){.order-grid.history-mode{grid-template-columns:repeat(3,minmax(100px,1fr));}}
-@media(max-height:720px){.purpose-banner{height:38px;font-size:21px;border-bottom-width:3px;}}
+@media(max-height:720px){.top-purpose{font-size:21px;}.top-brand{font-size:12px;}}
 
 /* 세부 음료 제조완료 터치 */
 .menu-item{padding:5px 0;border-bottom:1px solid #FFF0CC;cursor:pointer;border-radius:4px;transition:background 0.15s;}
@@ -194,10 +195,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
   </div>
 </div>
 
-<div class="purpose-banner">장부거래 전용 주문 태블릿</div>
-
 <div class="topbar">
-  <span class="top-logo">MEGA MGC COFFEE · KDS v-pn</span>
+  <span class="top-logo"><span class="top-brand">MEGA MGC COFFEE · KDS v-pn</span><span class="top-purpose">장부 결제 전용 태블릿</span></span>
   <div class="top-right">
     <span class="sync-dot" id="syncDot"></span>
     <span class="top-time" id="topTime"></span>
