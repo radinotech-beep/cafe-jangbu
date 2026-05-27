@@ -4,7 +4,7 @@
   "description": "메가커피 인천역점 KDS",
   "id": "./kds-app",
   "start_url": "./kds.html?app=kds",
-  "scope": "./",
+  "scope": "./kds.html",
   "display": "standalone",
   "background_color": "#FFFBE6",
   "theme_color": "#F5C800",
