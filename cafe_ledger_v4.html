@@ -2358,8 +2358,8 @@ function visibleLedgerRowIndexes(di){
       return ta===tb?a-b:ta-tb;
     });
   const orderedValues=visibleValues.map(ri=>ledgerEventTs(depts[di].rows[ri])?timedRows.shift():ri);
-  const blanks=idxs.filter(ri=>!rowHasValue(depts[di].rows[ri]));
   const minBlank=20;
+  const blanks=idxs.filter(ri=>!rowHasValue(depts[di].rows[ri])).slice(0,minBlank);
   while(blanks.length<minBlank){
     depts[di].rows.push(blankLedgerRow());
     blanks.push(depts[di].rows.length-1);
