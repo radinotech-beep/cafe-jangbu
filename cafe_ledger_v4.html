@@ -3406,7 +3406,7 @@ function toggleDeptBalanceVisible(i){
   if(!depts[i])return;
   depts[i].balanceVisible=!(depts[i].balanceVisible===true);
   saveDept(i,true);
-  renderSettingsTab();
+  renderDeptMgmt();
 }
 function toggleCatOpt(cat,optName){
   if(!catOptMap[cat])catOptMap[cat]=[];
