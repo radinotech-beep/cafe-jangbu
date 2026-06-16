@@ -1909,9 +1909,10 @@ function dropOnCat(cat,e){
 
 // ── 부서 관리 탭 ──
 function renderDeptMgmt(){
-  let h=`<table class="dbt"><thead><tr><th>부서명</th><th style="width:130px;">시작잔액</th><th style="width:120px;">기준일</th><th style="width:130px;">비밀번호 (숫자)</th><th style="width:56px;">잔액수정</th><th style="width:30px;"></th></tr></thead><tbody>`;
+  let h=`<table class="dbt"><thead><tr><th>부서명</th><th style="width:130px;">시작잔액</th><th style="width:120px;">기준일</th><th style="width:130px;">비밀번호 (숫자)</th><th style="width:82px;">잔액표시</th><th style="width:56px;">잔액수정</th><th style="width:30px;"></th></tr></thead><tbody>`;
   depts.forEach((d,i)=>{
     const unlocked=openingBalanceUnlocked.has(deptKey(i));
+    const balanceOn=d.balanceVisible===true;
     h+=`<tr>
       <td><input value="${esc(d.name)}" onchange="renameDept(${i},this)"></td>
       <td><input value="${esc((deptOpeningBalance(d)||0).toLocaleString())}" ${unlocked?'':'disabled'} 
@@ -1928,6 +1929,7 @@ function renderDeptMgmt(){
           style="letter-spacing:3px;text-align:center;flex:1;">
         <button onclick="togglePwdVis(${i})" style="background:none;border:none;cursor:pointer;font-size:14px;" title="숨기기/보이기">👁</button>
       </td>
+      <td style="text-align:center;"><button class="set-toggle${balanceOn?' on':''}" onclick="toggleDeptBalanceVisible(${i})">${balanceOn?'ON':'OFF'}</button></td>
       <td><button class="abtn" onclick="unlockOpeningBalance(${i})" style="padding:4px 8px;font-size:11px;">${unlocked?'열림':'수정'}</button></td>
       <td><button class="bdel" onclick="delDept(${i})">✕</button></td></tr>`;
   });
@@ -3383,19 +3385,7 @@ function renderSettingsTab(){
     </div>`;
   });
   h+=`</div>`;
-  // 2. 주문 완료 잔액 표시
-  h+=`<div class="set-section">
-    <div class="set-title">💳 주문 완료 시 잔액 표시</div>
-    <div class="set-help">ON인 부서만 주문 완료 화면에서 현재 장부 잔액을 보여줍니다. 기본값은 OFF입니다.</div>`;
-  depts.forEach((d,i)=>{
-    const on=d.balanceVisible===true;
-    h+=`<div class="set-row">
-      <label>${esc(d.name)}</label>
-      <button class="set-toggle${on?' on':''}" onclick="toggleDeptBalanceVisible(${i})">${on?'ON':'OFF'}</button>
-    </div>`;
-  });
-  h+=`</div>`;
-  // 3. 카테고리별 옵션
+  // 2. 카테고리별 옵션
   h+=`<div class="set-section">
     <div class="set-title">☕ 카테고리별 옵션 설정</div>`;
   CAT_KEYS.forEach(cat=>{
@@ -3455,7 +3445,7 @@ function addDept(){
     if(sameName){alert('이미 사용 중인 부서명입니다.');return null;}
     if(snaps[1].exists()){alert('삭제 이력이 있는 부서명은 다시 추가할 수 없습니다. 새 부서명을 사용해주세요.');return null;}
     const key=nextDeptKey(existing);
-    const dept={id:makeDeptId(),name:nm,rows:emptyRows,password:'',openingBalance:0,openingDate:''};
+    const dept={id:makeDeptId(),name:nm,rows:emptyRows,password:'',openingBalance:0,openingDate:'',balanceVisible:false};
     return db.ref('jangbu/depts/'+key).set(dept).then(()=>{
       const merged={...existing,[key]:dept};
       depts=normalizeDeptData(merged,false);
