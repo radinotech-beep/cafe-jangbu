@@ -328,6 +328,9 @@ tr.payment-cancel-ledger-row input{color:#A32D2D;font-weight:700;}
 .set-row label{width:110px;color:#888780;flex-shrink:0;}
 .set-row input{flex:1;padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:5px;font-size:12px;font-family:inherit;}
 .set-row input[type=password]{letter-spacing:2px;}
+.set-toggle{height:28px;border:0;border-radius:999px;padding:0 12px;font-size:12px;font-weight:900;font-family:inherit;cursor:pointer;background:#eee;color:#777;min-width:78px;}
+.set-toggle.on{background:#111;color:#F5C800;}
+.set-help{font-size:11px;color:#888;line-height:1.45;margin:-2px 0 8px 118px;}
 /* 품절 관리 */
 .soldout-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
 .so-item{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border:0.5px solid #e0dfd8;border-radius:5px;font-size:11px;cursor:pointer;background:#fff;}
@@ -874,6 +877,7 @@ function cleanDeptForSave(dept){
   copy.rows=normalizeLedgerRows(copy.rows||copy._legacyRows||[]);
   copy.openingBalance=normalizeOpeningBalance(copy.openingBalance);
   copy.openingDate=String(copy.openingDate||'').trim();
+  copy.balanceVisible=copy.balanceVisible===true;
   delete copy._key;
   delete copy._legacyRows;
   delete copy.months;
@@ -1227,6 +1231,7 @@ function normalizeDeptData(data,persistMissingIds){
     dept.rows=dept._legacyRows;
     dept.openingBalance=normalizeOpeningBalance(dept.openingBalance);
     dept.openingDate=String(dept.openingDate||'').trim();
+    dept.balanceVisible=dept.balanceVisible===true;
     if(!dept.id){
       dept.id=makeDeptId();
       if(persistMissingIds)db.ref('jangbu/depts/'+k+'/id').set(dept.id);
@@ -3378,7 +3383,19 @@ function renderSettingsTab(){
     </div>`;
   });
   h+=`</div>`;
-  // 2. 카테고리별 옵션
+  // 2. 주문 완료 잔액 표시
+  h+=`<div class="set-section">
+    <div class="set-title">💳 주문 완료 시 잔액 표시</div>
+    <div class="set-help">ON인 부서만 주문 완료 화면에서 현재 장부 잔액을 보여줍니다. 기본값은 OFF입니다.</div>`;
+  depts.forEach((d,i)=>{
+    const on=d.balanceVisible===true;
+    h+=`<div class="set-row">
+      <label>${esc(d.name)}</label>
+      <button class="set-toggle${on?' on':''}" onclick="toggleDeptBalanceVisible(${i})">${on?'ON':'OFF'}</button>
+    </div>`;
+  });
+  h+=`</div>`;
+  // 3. 카테고리별 옵션
   h+=`<div class="set-section">
     <div class="set-title">☕ 카테고리별 옵션 설정</div>`;
   CAT_KEYS.forEach(cat=>{
@@ -3394,6 +3411,12 @@ function renderSettingsTab(){
   });
   h+=`</div>`;
   document.getElementById('dbBody').innerHTML=h;
+}
+function toggleDeptBalanceVisible(i){
+  if(!depts[i])return;
+  depts[i].balanceVisible=!(depts[i].balanceVisible===true);
+  saveDept(i,true);
+  renderSettingsTab();
 }
 function toggleCatOpt(cat,optName){
   if(!catOptMap[cat])catOptMap[cat]=[];
