@@ -171,6 +171,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .complete-balance-note{font-size:11px;color:#8a7a38;line-height:1.45;margin-top:6px;}
 .complete-btn{width:100%;padding:14px;background:#F5C800;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;color:#111;}
 .complete-btn:active{background:#E0B800;}
+.idle-popup-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.62);z-index:900;align-items:center;justify-content:center;padding:22px;}
+.idle-popup-bg.open{display:flex;}
+.idle-popup{width:min(380px,92vw);background:#fff;border:4px solid #111;border-radius:22px;padding:28px 24px;text-align:center;box-shadow:0 18px 45px rgba(0,0,0,.32);}
+.idle-title{font-size:24px;font-weight:950;color:#111;margin-bottom:10px;word-break:keep-all;}
+.idle-sub{font-size:15px;line-height:1.45;color:#555;font-weight:750;margin-bottom:22px;word-break:keep-all;}
+.idle-actions{display:grid;grid-template-columns:1fr;gap:10px;}
+.idle-keep,.idle-reset{width:100%;min-height:54px;border-radius:14px;font-size:18px;font-weight:950;font-family:inherit;cursor:pointer;}
+.idle-keep{border:3px solid #111;background:#F5C800;color:#111;}
+.idle-reset{border:2px solid #CFCFCF;background:#fff;color:#555;}
 
 /* 주문 시작 화면 */
 .intro-screen,.wait-screen{display:none;position:fixed;inset:0;background:#F6CB00;z-index:100;align-items:center;justify-content:center;padding:18px;}
@@ -374,6 +383,17 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   </div>
 </div>
 
+<div class="idle-popup-bg" id="idlePopup">
+  <div class="idle-popup">
+    <div class="idle-title">주문을 계속하시겠습니까?</div>
+    <div class="idle-sub">응답이 없으면 10초 후 처음 화면으로 돌아갑니다.</div>
+    <div class="idle-actions">
+      <button class="idle-keep" onclick="continueIdleOrder()">계속 주문</button>
+      <button class="idle-reset" onclick="resetIdleOrder()">새 주문 시작</button>
+    </div>
+  </div>
+</div>
+
 <div class="topbar">
   <span class="top-logo">메가커피 인천역점</span>
   <div class="top-right">
@@ -564,6 +584,64 @@ let popupItem=null,popupTemp=null,popupOpts=[],popupQty=1,popupTumbler=false;
 let pwdBuffer='';
 let backGuardReady=false;
 let suppressBackUntil=0;
+const IDLE_WARNING_MS=30000;
+const IDLE_RESET_MS=10000;
+let idleWarnTimer=null,idleResetTimer=null,idleWarningOpen=false;
+
+function isModalOpen(id){
+  const el=document.getElementById(id);
+  return !!(el&&el.classList.contains('open'));
+}
+function hasOrderProgress(){
+  return curDeptIdx!==null||cart.length>0||isModalOpen('popupBg')||isModalOpen('pwdModal')||isModalOpen('completePopup');
+}
+function clearIdleTimers(){
+  if(idleWarnTimer){clearTimeout(idleWarnTimer);idleWarnTimer=null;}
+  if(idleResetTimer){clearTimeout(idleResetTimer);idleResetTimer=null;}
+}
+function closeIdleWarning(){
+  idleWarningOpen=false;
+  const popup=document.getElementById('idlePopup');
+  if(popup)popup.classList.remove('open');
+}
+function scheduleIdleWatch(){
+  clearIdleTimers();
+  if(!hasOrderProgress())return;
+  idleWarnTimer=setTimeout(showIdleWarning,IDLE_WARNING_MS);
+}
+function noteOrderActivity(){
+  if(idleWarningOpen)return;
+  scheduleIdleWatch();
+}
+function showIdleWarning(){
+  if(!hasOrderProgress()){clearIdleTimers();return;}
+  idleWarningOpen=true;
+  const popup=document.getElementById('idlePopup');
+  if(popup)popup.classList.add('open');
+  idleResetTimer=setTimeout(resetIdleOrder,IDLE_RESET_MS);
+}
+function continueIdleOrder(){
+  closeIdleWarning();
+  scheduleIdleWatch();
+}
+function resetIdleOrder(){
+  clearIdleTimers();
+  closeIdleWarning();
+  const popup=document.getElementById('popupBg');
+  const pwd=document.getElementById('pwdModal');
+  const complete=document.getElementById('completePopup');
+  if(popup)popup.classList.remove('open');
+  if(pwd)pwd.classList.remove('open');
+  if(complete)complete.classList.remove('open');
+  pwdBuffer='';
+  cart=[];
+  curDeptIdx=null;
+  popupItem=null;
+  document.getElementById('deptBtn').textContent='부서 선택 ▾';
+  renderCart();
+  if(curCat)renderMenuArea(curCat);
+  goIntro();
+}
 
 function keepOrderAppOpen(){
   if(backGuardReady)return;
@@ -823,6 +901,7 @@ function selectDeptIntro(i){
   renderCatBar();
   const firstCat=visibleCats().find(cat=>menuDB.some(m=>m.cat===cat&&!isHiddenMenu(m)));
   if(firstCat)selectCat(firstCat);
+  scheduleIdleWatch();
 }
 function goIntro(){
   document.getElementById('introScreen').classList.remove('active');
@@ -1337,6 +1416,7 @@ function selectDept(i){
   document.getElementById('orderBtn').disabled=cart.length===0;
   closeDeptModal();
   renderCart();
+  scheduleIdleWatch();
 }
 
 function pn(s){const n=parseInt(String(s||'').replace(/,/g,'').replace(/[^0-9\-]/g,''));return isNaN(n)?0:n;}
@@ -1345,7 +1425,9 @@ document.getElementById('popupBg').addEventListener('click',e=>{if(e.target===do
 document.getElementById('deptModal').addEventListener('click',e=>{if(e.target===document.getElementById('deptModal'))closeDeptModal();});
 document.addEventListener('pointerdown',e=>{
   if(e.target.closest('button,.menu-card,.cat-btn,.intro-dept-btn,.hotspot'))playTapSound('tap');
+  noteOrderActivity();
 });
+document.addEventListener('keydown',noteOrderActivity);
 
 initAuthGate(loadData);
 
@@ -1447,6 +1529,6 @@ function showCompletePopup(orderNo,deptName,info){
   document.getElementById('completePopup').classList.add('open');
   playComplete();
 }
-function closeCompletePopup(){document.getElementById('completePopup').classList.remove('open');curDeptIdx=null;document.getElementById('deptBtn').textContent='부서 선택 ▾';goIntro();}
+function closeCompletePopup(){document.getElementById('completePopup').classList.remove('open');curDeptIdx=null;document.getElementById('deptBtn').textContent='부서 선택 ▾';clearIdleTimers();closeIdleWarning();goIntro();}
 </script>
 
