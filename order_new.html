@@ -150,6 +150,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .popup-cancel{flex:1;padding:18px;background:#fff;color:#777;border:3px solid #CFCFCF;border-radius:18px;font-size:19px;cursor:pointer;font-family:inherit;font-weight:950;}
 .popup-add{flex:2;padding:18px;background:#F5C800;color:#111;border:3px solid #111;border-radius:18px;font-size:21px;font-weight:950;cursor:pointer;font-family:inherit;box-shadow:0 6px 0 #111;}
 .popup-add:disabled{background:#E8D84A;color:#999;cursor:not-allowed;}
+.popup{max-height:calc(100dvh - 18px);display:flex;flex-direction:column;overflow:hidden;}
+.popup-body,.popup-options,.popup-content{min-height:0;overflow-y:auto;}
+.popup-actions{flex-shrink:0;background:#fff;position:sticky;bottom:0;z-index:2;padding-bottom:max(0px,env(safe-area-inset-bottom));}
+.popup-add{min-height:58px;flex-shrink:0;}
 
 /* 주문완료 토스트 */
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2C2C2A;color:#F5C800;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:500;z-index:999;display:none;}
