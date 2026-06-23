@@ -592,8 +592,12 @@ function isModalOpen(id){
   const el=document.getElementById(id);
   return !!(el&&el.classList.contains('open'));
 }
+function isDeptSelectActive(){
+  const el=document.getElementById('introScreen');
+  return !!(el&&el.classList.contains('active'));
+}
 function hasOrderProgress(){
-  return curDeptIdx!==null||cart.length>0||isModalOpen('popupBg')||isModalOpen('pwdModal')||isModalOpen('completePopup');
+  return isDeptSelectActive()||curDeptIdx!==null||cart.length>0||isModalOpen('popupBg')||isModalOpen('pwdModal')||isModalOpen('completePopup');
 }
 function clearIdleTimers(){
   if(idleWarnTimer){clearTimeout(idleWarnTimer);idleWarnTimer=null;}
@@ -904,6 +908,8 @@ function selectDeptIntro(i){
   scheduleIdleWatch();
 }
 function goIntro(){
+  clearIdleTimers();
+  closeIdleWarning();
   document.getElementById('introScreen').classList.remove('active');
   document.getElementById('waitScreen').classList.add('active');
 }
@@ -915,6 +921,7 @@ function selectType(type){
   setTimeout(()=>{
     document.getElementById('introScreen').classList.add('active');
     document.getElementById('waitScreen').classList.remove('active');
+    scheduleIdleWatch();
   },0);
 }
 
