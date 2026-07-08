@@ -1846,8 +1846,9 @@ function renderMenuDb(){
   cats.forEach(cat=>{
     const items=arr.map((it,i)=>({it,i})).filter(({it})=>(it.cat||guessCat(it.name))===cat);
     if(items.length===0)return;
-    h+=`<div class="db-cat-header" ondragover="event.preventDefault()" ondrop="dropOnCat('${esc(cat)}',event)">
-      📂 ${cat} <span style="font-size:11px;color:#aaa;">(${items.length}개)</span>
+    h+=`<div class="db-cat-header" ondragover="event.preventDefault()" ondrop="dropOnCat('${esc(cat)}',event)" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>📂 ${cat} <span style="font-size:11px;color:#aaa;">(${items.length}개)</span></span>
+      <button onclick="dbaInCat('${esc(cat)}')" style="font-size:11px;padding:2px 8px;background:#F5C800;border:none;border-radius:4px;cursor:pointer;color:#2C2C2A;font-weight:500;">+ 추가</button>
     </div>`;
     h+=`<table class="dbt" style="margin-bottom:0;"><thead><tr>
       <th style="width:20px;"></th><th>메뉴명</th><th>별칭</th>
@@ -3420,10 +3421,19 @@ function dbc(i,col,val){const dbArr=getDB();dbArr[i][col]=col==='price'?(parseIn
 function dbd(i){getDB().splice(i,1);renderDBTab();}
 function dba(){
   const cat=curMenuSub==='dessert'?'디저트':'커피';
-  (curMenuSub==='dessert'?dessertDB:menuDB).push({name:'',alias:'',price:0,cat:cat});
+  dbaInCat(cat);
+}
+function dbaInCat(cat){
+  const arr=curMenuSub==='dessert'?dessertDB:menuDB;
+  arr.push({name:'',alias:'',price:0,cat:cat});
   renderMenuDb();
+  // 해당 카테고리 마지막 행으로 스크롤
   const body=document.getElementById('menuDbBody');
-  if(body)setTimeout(()=>body.scrollTop=body.scrollHeight,50);
+  if(body)setTimeout(()=>{
+    const headers=[...body.querySelectorAll('.db-cat-header')];
+    const target=headers.find(h=>h.textContent.includes(cat));
+    if(target)target.scrollIntoView({behavior:'smooth',block:'center'});
+  },50);
 }
 function saveDB(){sv();saveSoldout();}
 
