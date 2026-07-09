@@ -56,6 +56,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .menu-card.in-cart{border-color:#111;background:#FFF7B6;box-shadow:0 7px 0 #111,0 12px 22px rgba(0,0,0,.10);}
 .menu-card.soldout{opacity:0.4;cursor:not-allowed;pointer-events:none;}
 .sold-tag{position:absolute;top:9px;right:9px;background:#E24B4A;color:#fff;font-size:13px;padding:5px 9px;border-radius:999px;font-weight:900;}
+.new-badge{position:absolute;top:8px;right:8px;background:#E24B4A;color:#fff;font-size:11px;font-weight:900;padding:3px 8px;border-radius:999px;letter-spacing:0.5px;line-height:1;z-index:1;}
 .menu-img-wrap{width:88px;height:70px;background:transparent;border-radius:0;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:34px;border:0;box-shadow:none;gap:2px;overflow:hidden;}
 .menu-img-wrap img{width:100%;height:100%;object-fit:contain;display:block;mix-blend-mode:multiply;}
 .menu-img-wrap.dual img{width:58%;height:100%;margin:0 -7px;}
@@ -773,11 +774,11 @@ function convertMenuDB(raw,des){
         // 가격 같음 → 통합 카드 (ICE 처리 시 생성)
         if(!processed.has(key+'_merged')){
           processed.add(key+'_merged');
-          result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:true,tempFixed:null,hotPrice:m.price,icePrice:iceEntry.price,orderIndex:Math.min(sourceIndex,iceEntry.sourceIndex)});
+          result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',badge:m.badge||iceEntry.m.badge||'',needTemp:true,tempFixed:null,hotPrice:m.price,icePrice:iceEntry.price,orderIndex:Math.min(sourceIndex,iceEntry.sourceIndex)});
         }
       } else {
         // 가격 다르거나 ICE 없음 → HOT 별도 카드
-        result.push({name:cleanName+' HOT',originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:'HOT',hotPrice:m.price,icePrice:null,orderIndex:sourceIndex});
+        result.push({name:cleanName+' HOT',originalName:name,cat,price:m.price,alias:m.alias||'',badge:m.badge||'',needTemp:false,tempFixed:'HOT',hotPrice:m.price,icePrice:null,orderIndex:sourceIndex});
       }
     } else if(isICE){
       if(processed.has(key+'_ICE'))return;
@@ -787,15 +788,15 @@ function convertMenuDB(raw,des){
         // 가격 같음 → HOT/ICE 통합 카드. ICE가 먼저 나와도 반드시 생성한다.
         if(!processed.has(key+'_merged')){
           processed.add(key+'_merged');
-          result.push({name:cleanName,originalName:hotEntry.m.name,cat,price:hotEntry.price,alias:hotEntry.m.alias||m.alias||'',needTemp:true,tempFixed:null,hotPrice:hotEntry.price,icePrice:m.price,orderIndex:Math.min(sourceIndex,hotEntry.sourceIndex)});
+          result.push({name:cleanName,originalName:hotEntry.m.name,cat,price:hotEntry.price,alias:hotEntry.m.alias||m.alias||'',badge:hotEntry.m.badge||m.badge||'',needTemp:true,tempFixed:null,hotPrice:hotEntry.price,icePrice:m.price,orderIndex:Math.min(sourceIndex,hotEntry.sourceIndex)});
         }
       } else {
         // 가격 다르거나 HOT 없음 → ICE 별도 카드
-        result.push({name:cleanName+' ICE',originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:'ICE',hotPrice:null,icePrice:m.price,orderIndex:sourceIndex});
+        result.push({name:cleanName+' ICE',originalName:name,cat,price:m.price,alias:m.alias||'',badge:m.badge||'',needTemp:false,tempFixed:'ICE',hotPrice:null,icePrice:m.price,orderIndex:sourceIndex});
       }
     } else {
       const defaultTemp=/유자생강차/.test(cleanName)?'HOT':'ICE';
-      result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',needTemp:false,tempFixed:cat==='디저트'?null:defaultTemp,hotPrice:defaultTemp==='HOT'?m.price:null,icePrice:defaultTemp==='ICE'?m.price:null,orderIndex:sourceIndex});
+      result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',badge:m.badge||'',needTemp:false,tempFixed:cat==='디저트'?null:defaultTemp,hotPrice:defaultTemp==='HOT'?m.price:null,icePrice:defaultTemp==='ICE'?m.price:null,orderIndex:sourceIndex});
     }
   });
   return result.sort((a,b)=>(a.orderIndex??0)-(b.orderIndex??0));
@@ -1039,6 +1040,12 @@ function makeMenuCard(item){
 
   if(isSold){
     const st=document.createElement('div');st.className='sold-tag';st.textContent='품절';div.appendChild(st);
+  }
+  if(item.badge==='NEW'){
+    const nb=document.createElement('div');
+    nb.className='new-badge';
+    nb.textContent='NEW';
+    div.appendChild(nb);
   }
   if(cartQty>0){
     const qb=document.createElement('div');qb.className='menu-cart-qty';qb.textContent=cartQty;div.appendChild(qb);
