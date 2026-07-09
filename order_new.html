@@ -185,15 +185,15 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .intro-screen,.wait-screen{display:none;position:fixed;inset:0;background:#F6CB00;z-index:100;align-items:center;justify-content:center;padding:18px;}
 .intro-screen.active,.wait-screen.active{display:flex;}
 .start-panel{width:min(900px,calc(100vw - 36px));min-height:620px;background:radial-gradient(circle at 12% 12%,rgba(255,255,255,.95) 0 2px,transparent 3px) 0 0/18px 18px,linear-gradient(180deg,#FFF9E8 0%,#FFF4D4 100%);border-radius:26px;box-shadow:0 22px 55px rgba(0,0,0,.20);padding:18px 32px 30px;display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:12px;overflow:hidden;}
-.image-stage{position:relative;width:min(760px,calc(100vw - 36px));aspect-ratio:1086/1025;border-radius:26px;overflow:hidden;box-shadow:0 22px 55px rgba(0,0,0,.20);background:#FFF7DF;}
+.image-stage{position:relative;width:min(560px,calc(100vw - 36px),calc((100dvh - 36px) * 896 / 1195));aspect-ratio:896/1195;border-radius:24px;overflow:hidden;box-shadow:0 22px 55px rgba(0,0,0,.20);background:#111;}
 .image-stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;}
-.wait-overlay{position:absolute;bottom:0;left:0;right:0;padding:24px 24px 32px;background:linear-gradient(to top,rgba(0,0,0,0.65) 0%,transparent 100%);}
-.wait-btn-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:700px;margin:0 auto;}
-.wait-type-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.92);border:3px solid #111;border-radius:20px;padding:20px 12px;cursor:pointer;font-family:inherit;transition:transform 0.08s,box-shadow 0.08s;box-shadow:0 6px 0 #111;}
+.wait-overlay{position:absolute;bottom:0;left:0;right:0;padding:58px 18px 18px;background:linear-gradient(to top,rgba(0,0,0,0.72) 0%,rgba(0,0,0,0.42) 48%,transparent 100%);}
+.wait-btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;max-width:500px;margin:0 auto;}
+.wait-type-btn{min-height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:rgba(255,255,255,0.94);border:3px solid #111;border-radius:16px;padding:12px 8px 14px;cursor:pointer;font-family:inherit;transition:transform 0.08s,box-shadow 0.08s;box-shadow:0 5px 0 #111;}
 .wait-type-btn:active{transform:translateY(4px);box-shadow:0 2px 0 #111;}
-.wait-btn-icon{font-size:36px;line-height:1;}
-.wait-btn-title{font-size:22px;font-weight:900;color:#111;}
-.wait-btn-sub{font-size:13px;color:#666;font-weight:700;}
+.wait-btn-icon{font-size:28px;line-height:1;}
+.wait-btn-title{font-size:20px;font-weight:900;color:#111;line-height:1;}
+.wait-btn-sub{font-size:12px;color:#666;font-weight:700;line-height:1.25;word-break:keep-all;}
 .start-head{text-align:center;}
 .brand-head-img{width:min(720px,100%);height:auto;display:block;margin:0 auto;}
 .start-main{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;padding:0;min-height:0;overflow:hidden;}
@@ -224,7 +224,13 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .ledger-alert-btn:active{transform:translateY(4px);box-shadow:0 3px 0 #111;}
 @media(max-width:760px){
   .intro-screen,.wait-screen{padding:12px;}
-  .image-stage{width:calc(100vw - 24px);}
+  .image-stage{width:min(calc(100vw - 24px),calc((100dvh - 24px) * 896 / 1195));}
+  .wait-overlay{padding:48px 12px 14px;}
+  .wait-btn-row{gap:8px;}
+  .wait-type-btn{min-height:78px;padding:10px 6px 12px;border-radius:14px;}
+  .wait-btn-icon{font-size:24px;}
+  .wait-btn-title{font-size:18px;}
+  .wait-btn-sub{font-size:11px;}
   .start-panel{width:calc(100vw - 24px);min-height:calc(100dvh - 24px);border-radius:22px;padding:22px 16px;}
   .start-title{font-size:30px;}
   .intro-dept-grid{grid-template-columns:1fr;}
@@ -236,6 +242,11 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 @media(orientation:landscape) and (max-height:720px){
   .intro-screen,.wait-screen{padding:8px;align-items:flex-start;}
   .image-stage{height:calc(100dvh - 16px);width:auto;max-width:calc(100vw - 16px);border-radius:20px;box-shadow:0 12px 30px rgba(0,0,0,.18);}
+  .wait-overlay{padding:42px 12px 12px;}
+  .wait-type-btn{min-height:68px;padding:8px 6px 10px;border-radius:13px;box-shadow:0 4px 0 #111;}
+  .wait-btn-icon{font-size:21px;}
+  .wait-btn-title{font-size:16px;}
+  .wait-btn-sub{font-size:10px;}
   .start-panel{width:min(1040px,calc(100vw - 16px));height:calc(100dvh - 16px);min-height:0;border-radius:20px;padding:6px 28px 8px;gap:4px;grid-template-rows:auto minmax(0,1fr) auto;}
   .brand-head-img{max-height:86px;width:auto;max-width:560px;}
   .start-status-row{gap:8px;margin-bottom:5px;}
@@ -303,7 +314,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 <!-- 1단계: 주문 방식 선택 -->
 <div class="wait-screen active" id="waitScreen">
   <section class="image-stage" aria-label="주문 방식 선택">
-    <img src="order-start-bg.png" alt="오싹오싹 엠지씨네 여름밤">
+    <img src="order-start-bg.png?v=summer-night-20260709" alt="오싹오싹 엠지씨네 여름밤">
 
     <!-- 하단 오버레이 및 버튼 -->
     <div class="wait-overlay">
