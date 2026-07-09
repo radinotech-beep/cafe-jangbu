@@ -30,6 +30,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .top-right{display:flex;gap:8px;align-items:center;}
 .sync-dot{width:8px;height:8px;border-radius:50%;background:#3B6D11;}
 .sync-dot.err{background:#E24B4A;}
+.back-btn{background:none;border:2px solid #111;color:#111;font-size:13px;font-weight:700;padding:6px 14px;border-radius:20px;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.back-btn:active{background:rgba(0,0,0,0.08);}
 .dept-btn{background:#111;color:#F5C800;font-size:16px;font-weight:900;padding:10px 22px;border-radius:999px;border:2px solid #111;cursor:pointer;box-shadow:0 4px 0 rgba(0,0,0,.18);}
 .dept-btn:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,.18);}
 
@@ -424,6 +426,7 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 </div>
 
 <div class="topbar">
+  <button class="back-btn" onclick="goIntro()" aria-label="처음으로">← 처음으로</button>
   <span class="top-logo">메가커피 인천역점</span>
   <div class="top-right">
     <span class="sync-dot" id="syncDot"></span>
@@ -901,6 +904,9 @@ function initUI(){
 function renderTypeScreen(){
   document.getElementById('waitScreen').classList.add('active');
   document.getElementById('introScreen').classList.remove('active');
+  // 장부거래 전용 팝업 다시 표시
+  const alert=document.getElementById('ledgerAlert');
+  if(alert)alert.classList.remove('hidden');
 }
 function closeLedgerAlert(){
   const alert=document.getElementById('ledgerAlert');
@@ -941,6 +947,8 @@ function goIntro(){
   closeIdleWarning();
   document.getElementById('introScreen').classList.remove('active');
   document.getElementById('waitScreen').classList.add('active');
+  const alert=document.getElementById('ledgerAlert');
+  if(alert)alert.classList.remove('hidden');
 }
 function selectType(type){
   suppressBackUntil=Date.now()+900;
