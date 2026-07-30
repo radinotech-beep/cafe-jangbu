@@ -298,7 +298,7 @@ tr.payment-cancel-ledger-row input{color:#A32D2D;font-weight:700;}
 .pay-cancel{border:1.5px solid #d8d1bd;background:#fff;color:#5F5E5A;}
 .pay-save{border:0;background:#111;color:#F5C800;}
 
-/* 결제 현황 탭 */
+/* 주문 현황 탭 */
 .stats-topbar{padding:10px 14px;background:#fff;border-bottom:1px solid #e0dfd8;display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
 
 .stats-body{padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;}
@@ -485,7 +485,7 @@ tr.payment-cancel-ledger-row input{color:#A32D2D;font-weight:700;}
       <div class="side-section" data-label="LEDGER">장부 관리</div>
       <button class="side-btn active" id="side-ledger" onclick="goLedgerMain()"><span class="side-num">1</span>장부 상세 내역</button>
       <button class="side-btn" id="side-summary" onclick="goSummary()"><span class="side-num">2</span>사용 현황 요약</button>
-      <button class="side-btn" id="side-stats" onclick="goStats()"><span class="side-num">3</span>결제 현황</button>
+      <button class="side-btn" id="side-stats" onclick="goStats()"><span class="side-num">3</span>주문 현황</button>
       <button class="side-btn" id="side-dept" onclick="goDeptMgmt()"><span class="side-num">4</span>부서 등록/수정</button>
     </section>
     <div class="side-divider">관리 영역 구분</div>
@@ -516,7 +516,7 @@ tr.payment-cancel-ledger-row input{color:#A32D2D;font-weight:700;}
   <button class="snav-item active" id="snav-home" onclick="goHome()">장부 상세 내역(부서별)</button>
   <button class="mobile-dept-btn" id="mobileDeptBtn" onclick="openMobileDeptSheet()"><span class="mobile-dept-name">부서 선택</span><span>⌄</span></button>
   <button class="snav-item summary-btn" id="snav-summary" onclick="goSummary()">사용 현황 요약</button>
-  <button class="snav-item stats-btn" id="snav-stats" onclick="goStats()">📊 결제 현황</button>
+  <button class="snav-item stats-btn" id="snav-stats" onclick="goStats()">📊 주문 현황</button>
   <div class="snav-sep"></div>
   <button class="snav-item" id="snav-mgmt" onclick="goDeptMgmt()" style="color:#3B6D11;">부서 등록/수정</button>
 </div>
@@ -1881,105 +1881,94 @@ function renderStats(){
   const statsPn=v=>parseInt(String(v||'').replace(/[^0-9\-]/g,''))||0;
   const moneyShort=v=>v>0?(v>=1000000?(v/1000000).toFixed(1)+'M':(v/1000).toFixed(0)+'K'):'0';
 
-  let todayOrderAmt=0,todayPayAmt=0,todayCount=0;
-  let monthOrderAmt=0,monthPayAmt=0,monthCount=0;
+  let todayOrderAmt=0,todayCount=0;
+  let monthOrderAmt=0,monthCount=0;
   const daily={};
   const deptTotals=[];
 
   targetDepts.forEach(d=>{
-    let deptOrderAmt=0,deptPayAmt=0,deptCount=0;
+    let deptAmt=0,deptCount=0;
     (d.rows||[]).forEach(r=>{
       if(!r||!r.date)return;
       const dt=statsParseLedgerDate(r.date);
       if(!dt)return;
       const orderAmt=statsPn(r.order);
-      const payAmt=statsPn(r.pay);
-      const isCancelled=r.note==='주문취소';
+      if(orderAmt<=0||r.note==='주문취소')return;
       if(dt.dayKey===todayKey){
-        if(!isCancelled&&orderAmt>0){todayOrderAmt+=orderAmt;todayCount++;}
-        if(payAmt>0)todayPayAmt+=payAmt;
+        todayOrderAmt+=orderAmt;
+        todayCount++;
       }
       if(dt.year===selYear&&dt.month===selMonth){
+        monthOrderAmt+=orderAmt;
+        monthCount++;
+        deptAmt+=orderAmt;
+        deptCount++;
         const day=dt.day;
-        if(!daily[day])daily[day]={orderAmt:0,payAmt:0,count:0};
-        if(!isCancelled&&orderAmt>0){
-          monthOrderAmt+=orderAmt;monthCount++;deptOrderAmt+=orderAmt;deptCount++;
-          daily[day].orderAmt+=orderAmt;
-          daily[day].count++;
-        }
-        if(payAmt>0){
-          monthPayAmt+=payAmt;deptPayAmt+=payAmt;
-          daily[day].payAmt+=payAmt;
-        }
+        if(!daily[day])daily[day]={orderAmt:0,count:0};
+        daily[day].orderAmt+=orderAmt;
+        daily[day].count++;
       }
     });
-    deptTotals.push({name:d.name,orderAmt:deptOrderAmt,payAmt:deptPayAmt,count:deptCount});
+    if(deptAmt>0)deptTotals.push({name:d.name,amt:deptAmt,count:deptCount});
   });
 
-  const unpaid=monthOrderAmt-monthPayAmt;
   const summaryCards=[
     ['오늘 주문금액',todayOrderAmt.toLocaleString()+'원'],
-    ['오늘 결제금액',todayPayAmt.toLocaleString()+'원'],
+    ['오늘 주문건수',todayCount+'건'],
     ['선택 월 주문금액',monthOrderAmt.toLocaleString()+'원'],
-    ['선택 월 결제금액',monthPayAmt.toLocaleString()+'원'],
-    ['선택 월 주문건수',monthCount+'건'],
-    ['선택 월 미결제',unpaid.toLocaleString()+'원',unpaid>0?'warn':'']
-  ].map(([label,val,type])=>`<div class="stats-summary-card"><p class="stats-summary-label">${label}</p><p class="stats-summary-val" style="color:${type==='warn'?'#A32D2D':'#2C2C2A'}">${val}</p></div>`).join('');
+    ['선택 월 주문건수',monthCount+'건']
+  ].map(([label,val])=>`<div class="stats-summary-card"><p class="stats-summary-label">${label}</p><p class="stats-summary-val">${val}</p></div>`).join('');
 
   const daysInMonth=new Date(selYear,selMonth,0).getDate();
   const dailyKeys=Array.from({length:daysInMonth},(_,i)=>i+1).filter(day=>daily[day]);
-  const maxDaily=Math.max(1,...dailyKeys.map(day=>Math.max(daily[day].orderAmt,daily[day].payAmt)));
+  const maxDaily=Math.max(1,...dailyKeys.map(day=>daily[day].orderAmt));
   const dailyHtml=dailyKeys.map(day=>{
-    const {orderAmt,payAmt,count}=daily[day];
-    const orderPct=Math.round(orderAmt/maxDaily*100);
-    const payPct=Math.round(payAmt/maxDaily*100);
-    return `<div class="stats-bar-row" style="flex-direction:column;align-items:flex-start;gap:3px;"><div style="display:flex;align-items:center;gap:8px;width:100%;"><span class="stats-bar-label">${day}일</span><div style="flex:1;display:flex;flex-direction:column;gap:3px;"><div class="stats-bar-track"><div class="stats-bar-fill-blue" style="width:${orderPct}%"></div></div><div class="stats-bar-track"><div style="height:100%;background:#3B6D11;border-radius:2px;width:${payPct}%"></div></div></div><div style="min-width:90px;text-align:right;"><div style="font-size:11px;color:#185FA5;">${orderAmt.toLocaleString()}원</div><div style="font-size:11px;color:#3B6D11;">${payAmt.toLocaleString()}원 (${count}건)</div></div></div></div>`;
-  }).join('')||'<div style="font-size:12px;color:#aaa;">데이터가 없습니다</div>';
+    const {orderAmt,count}=daily[day];
+    const pct=Math.round(orderAmt/maxDaily*100);
+    return `<div class="stats-bar-row"><span class="stats-bar-label">${day}일</span><div class="stats-bar-track"><div class="stats-bar-fill-blue" style="width:${pct}%"></div></div><span class="stats-bar-val">${orderAmt.toLocaleString()}원 (${count}건)</span></div>`;
+  }).join('')||'<div style="font-size:12px;color:#aaa;text-align:center;padding:12px 0;">데이터가 없습니다</div>';
 
-  const maxDept=Math.max(1,...deptTotals.map(d=>Math.max(d.orderAmt,d.payAmt)));
-  const deptHtml=deptTotals.sort((a,b)=>(b.orderAmt+b.payAmt)-(a.orderAmt+a.payAmt)).slice(0,10)
+  const maxDept=Math.max(1,...deptTotals.map(d=>d.amt));
+  const deptHtml=deptTotals.sort((a,b)=>b.amt-a.amt)
     .map(d=>{
-      const orderPct=Math.round(d.orderAmt/maxDept*100);
-      const payPct=Math.round(d.payAmt/maxDept*100);
-      return `<div class="stats-bar-row" style="flex-direction:column;align-items:flex-start;gap:3px;"><div style="display:flex;align-items:center;gap:8px;width:100%;"><div class="stats-bar-dept-label" title="${esc(d.name)}">${esc(d.name)}</div><div style="flex:1;display:flex;flex-direction:column;gap:3px;"><div class="stats-bar-track"><div class="stats-bar-fill-blue" style="width:${orderPct}%"></div></div><div class="stats-bar-track"><div style="height:100%;background:#3B6D11;border-radius:2px;width:${payPct}%"></div></div></div><div style="min-width:90px;text-align:right;"><div style="font-size:11px;color:#185FA5;">${d.orderAmt.toLocaleString()}원</div><div style="font-size:11px;color:#3B6D11;">${d.payAmt.toLocaleString()}원 (${d.count}건)</div></div></div></div>`;
-    }).join('')||'<div style="font-size:12px;color:#aaa;">데이터가 없습니다</div>';
+      const pct=Math.round(d.amt/maxDept*100);
+      return `<div class="stats-bar-row"><span class="stats-bar-dept-label" title="${esc(d.name)}">${esc(d.name)}</span><div class="stats-bar-track"><div class="stats-bar-fill-red" style="width:${pct}%"></div></div><span class="stats-bar-val-red">${d.amt.toLocaleString()}원 (${d.count}건)</span></div>`;
+    }).join('')||'<div style="font-size:12px;color:#aaa;text-align:center;padding:12px 0;">데이터가 없습니다</div>';
 
   const monthKeys=[];
   for(let i=5;i>=0;i--){
     const d=new Date(selYear,selMonth-1-i,1);
     monthKeys.push(`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`);
   }
-  const monthAgg=monthKeys.map(k=>({key:k,orderAmt:0,payAmt:0,count:0}));
+  const monthAgg=monthKeys.map(k=>({key:k,amt:0,count:0}));
   targetDepts.forEach(d=>(d.rows||[]).forEach(r=>{
     const dt=r&&r.date?statsParseLedgerDate(r.date):null;
     if(!dt)return;
     const found=monthAgg.find(m=>m.key===dt.monthKey);
-    if(found){
-      const orderAmt=statsPn(r.order);
-      const payAmt=statsPn(r.pay);
-      if(orderAmt>0&&r.note!=='주문취소'){found.orderAmt+=orderAmt;found.count++;}
-      if(payAmt>0)found.payAmt+=payAmt;
-    }
+    if(!found)return;
+    const orderAmt=statsPn(r.order);
+    if(orderAmt<=0||r.note==='주문취소')return;
+    found.amt+=orderAmt;
+    found.count++;
   }));
-  const maxMonthAmt=Math.max(1,...monthAgg.map(m=>Math.max(m.orderAmt,m.payAmt)));
+  const maxMonthAmt=Math.max(1,...monthAgg.map(m=>m.amt));
   const maxMonthCount=Math.max(1,...monthAgg.map(m=>m.count));
   const BAR_H=64;
   const monthlyHtml=monthAgg.map(m=>{
     const isCurrent=m.key===selected;
     const mm=parseInt(m.key.split('-')[1],10);
-    const orderH=Math.max(2,Math.round(m.orderAmt/maxMonthAmt*BAR_H));
-    const payH=Math.max(2,Math.round(m.payAmt/maxMonthAmt*BAR_H));
+    const amtH=Math.max(2,Math.round(m.amt/maxMonthAmt*BAR_H));
     const countH=Math.max(2,Math.round(m.count/maxMonthCount*BAR_H));
-    return `<div class="stats-monthly-col"><div class="stats-monthly-bars"><div class="stats-monthly-bar" style="height:${orderH}px;background:#185FA5;opacity:${isCurrent?1:0.45};"></div><div class="stats-monthly-bar" style="height:${payH}px;background:#3B6D11;opacity:${isCurrent?1:0.45};"></div><div class="stats-monthly-bar" style="height:${countH}px;background:#E8D84A;border:1px solid #B8A800;opacity:${isCurrent?1:0.45};"></div></div><span class="stats-monthly-val${isCurrent?' current':''}">${moneyShort(m.orderAmt)}</span><span class="stats-monthly-val${isCurrent?' current':''}" style="color:#3B6D11;">${moneyShort(m.payAmt)}</span><span class="stats-monthly-val${isCurrent?' current':''}">${m.count}건</span><span class="stats-monthly-month${isCurrent?' current':''}">${mm}월</span></div>`;
+    return `<div class="stats-monthly-col"><div class="stats-monthly-bars"><div class="stats-monthly-bar" style="height:${amtH}px;background:#185FA5;opacity:${isCurrent?1:0.45};"></div><div class="stats-monthly-bar" style="height:${countH}px;background:#E8D84A;border:1px solid #B8A800;opacity:${isCurrent?1:0.45};"></div></div><span class="stats-monthly-val${isCurrent?' current':''}">${moneyShort(m.amt)}</span><span class="stats-monthly-val${isCurrent?' current':''}">${m.count}건</span><span class="stats-monthly-month${isCurrent?' current':''}">${mm}월</span></div>`;
   }).join('');
 
   body.innerHTML=`
     <div class="stats-summary-grid">${summaryCards}</div>
-    <div class="stats-section"><h3 class="stats-section-title">일별 현황 (${selMonth}월)</h3><div class="stats-monthly-legend" style="margin-bottom:10px;"><span class="stats-monthly-legend-item"><span class="stats-monthly-legend-dot" style="background:#185FA5;"></span>주문금액</span><span class="stats-monthly-legend-item"><span class="stats-monthly-legend-dot" style="background:#3B6D11;"></span>결제금액</span></div>${dailyHtml}</div>
-    <div class="stats-section"><h3 class="stats-section-title">부서별 현황 (${selMonth}월)</h3><div class="stats-monthly-legend" style="margin-bottom:10px;"><span class="stats-monthly-legend-item"><span class="stats-monthly-legend-dot" style="background:#185FA5;"></span>주문금액</span><span class="stats-monthly-legend-item"><span class="stats-monthly-legend-dot" style="background:#3B6D11;"></span>결제금액</span></div>${deptHtml}</div>
+    <div class="stats-section"><h3 class="stats-section-title">일별 주문 현황 (${selMonth}월)</h3>${dailyHtml}</div>
+    <div class="stats-section"><h3 class="stats-section-title">부서별 주문 현황 (${selMonth}월)</h3>${deptHtml}</div>
     <div class="stats-section">
-      <h3 class="stats-section-title">월별 추이 (최근 6개월)</h3>
-      <div class="stats-monthly-legend"><span class="stats-monthly-legend-item"><span class="stats-monthly-legend-dot" style="background:#185FA5;"></span>주문금액</span><span class="stats-monthly-legend-item"><span class="stats-monthly-legend-dot" style="background:#3B6D11;"></span>결제금액</span><span class="stats-monthly-legend-item"><span class="stats-monthly-legend-dot" style="background:#E8D84A;border:1px solid #B8A800;"></span>건수</span></div>
+      <h3 class="stats-section-title">월별 주문 추이 (최근 6개월)</h3>
+      <div class="stats-monthly-legend"><span class="stats-monthly-legend-item"><span class="stats-monthly-legend-dot" style="background:#185FA5;"></span>주문금액</span><span class="stats-monthly-legend-item"><span class="stats-monthly-legend-dot" style="background:#E8D84A;border:1px solid #B8A800;"></span>건수</span></div>
       <div class="stats-monthly-cols">${monthlyHtml}</div>
     </div>`;
 }
