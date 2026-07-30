@@ -1838,14 +1838,30 @@ function goStats(){
 
 let statsDeptFilter = null;
 
+function statsParseLedgerDate(dateStr){
+  const s=String(dateStr||'').replace(/\s/g,'');
+  if(!s)return null;
+  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m){
+    const year=+m[1],month=+m[2],day=+m[3];
+    return {year,month,day,monthKey:`${year}-${String(month).padStart(2,'0')}`,dayKey:`${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`};
+  }
+  m=s.match(/^(\d{1,2})[\/-](\d{1,2})$/);
+  if(m){
+    const year=new Date().getFullYear(),month=+m[1],day=+m[2];
+    return {year,month,day,monthKey:`${year}-${String(month).padStart(2,'0')}`,dayKey:`${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`};
+  }
+  return null;
+}
+
 function initStats(){
   const sel=document.getElementById('statsMonthSel');
   if(!sel)return;
   const months=new Set();
   depts.forEach(d=>(d.rows||[]).forEach(r=>{
     if(r&&r.date){
-      const dt=parseDate(r.date);
-      if(dt)months.add(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`);
+      const dt=statsParseLedgerDate(r.date);
+      if(dt)months.add(dt.monthKey);
     }
   }));
   const now=new Date();
@@ -1881,15 +1897,15 @@ function renderStats(){
     let deptPay=0;
     (d.rows||[]).forEach(r=>{
       if(!r||!r.date)return;
-      const dt=parseDate(r.date);
+      const dt=statsParseLedgerDate(r.date);
       if(!dt)return;
-      const key=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+      const key=dt.dayKey;
       const pay=statsPn(r.pay);
       const order=statsPn(r.order);
       if(key===todayKey){todayPay+=pay;todayOrder+=order;}
-      if(dt.getFullYear()===selYear&&dt.getMonth()+1===selMonth){
+      if(dt.year===selYear&&dt.month===selMonth){
         monthPay+=pay;monthOrder+=order;deptPay+=pay;
-        const day=dt.getDate();
+        const day=dt.day;
         daily[day]=(daily[day]||0)+pay;
       }
     });
@@ -1913,9 +1929,9 @@ function renderStats(){
   }
   const monthAgg=monthKeys.map(k=>({key:k,pay:0,count:0}));
   targetDepts.forEach(d=>(d.rows||[]).forEach(r=>{
-    const dt=r&&r.date?parseDate(r.date):null;
+    const dt=r&&r.date?statsParseLedgerDate(r.date):null;
     if(!dt)return;
-    const k=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;
+    const k=dt.monthKey;
     const found=monthAgg.find(m=>m.key===k);
     if(found){
       const pay=statsPn(r.pay);
