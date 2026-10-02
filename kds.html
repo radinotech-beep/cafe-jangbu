@@ -123,13 +123,16 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .history-btn.cancel{background:#E24B4A;color:#fff;}
 .history-btn.restore{background:#3B6D11;color:#fff;}
 .order-grid.history-mode{grid-template-columns:repeat(6,minmax(120px,1fr));grid-template-rows:auto;gap:8px;padding:12px;align-content:start;overflow-y:auto;}
-.history-card{height:74px;background:#fff;border:1px solid #dedbd0;border-radius:8px;padding:9px 10px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+.history-card{height:92px;background:#fff;border:1px solid #dedbd0;border-radius:8px;padding:9px 10px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 1px 2px rgba(0,0,0,.04);}
 .history-card:hover{border-color:#111;}
 .history-card.cancelled{background:#fffafa;border-color:#ead0d0;}
 .history-main{min-width:0;}
 .history-no{font-size:11px;color:#999;margin-bottom:3px;}
 .history-dept{font-size:14px;font-weight:800;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .history-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:#777;}
+.history-summary{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:11px;color:#555;font-weight:800;margin-top:5px;}
+.history-summary span{white-space:nowrap;}
+.history-total{color:#111;}
 .history-status{border-radius:999px;padding:2px 7px;font-size:10px;font-weight:800;white-space:nowrap;}
 .history-status.done{background:#eaf4df;color:#2f6d13;}
 .history-status.cancelled{background:#f4e7e7;color:#a13030;}
@@ -253,7 +256,7 @@ let deptDirectory={};
 function cleanOldOrders(){
   const todayStart=new Date();
   todayStart.setHours(0,0,0,0);
-  const cutoff=todayStart.getTime()-24*60*60*1000; // 어제 0시 이전 삭제
+  const cutoff=todayStart.getTime()-48*60*60*1000; // 그제 0시 이전 삭제
   db.ref('orders').once('value').then(snap=>{
     const all=snap.val()||{};
     Object.entries(all).forEach(([key,order])=>{
@@ -845,6 +848,8 @@ function renderHistoryCard(grid,order){
   const isCancelled=order.status==='cancelled';
   const time=new Date(order.createdAt||Date.now());
   const timeStr=String(time.getHours()).padStart(2,'0')+':'+String(time.getMinutes()).padStart(2,'0');
+  const cupCount=orderItems(order).reduce((sum,item)=>sum+(pn(item&&item.qty)||1),0);
+  const total=pn(order.totalPrice||order.total||0);
   const card=document.createElement('div');
   card.className='history-card'+(isCancelled?' cancelled':' done');
   card.onclick=()=>openDetail(order);
@@ -852,6 +857,10 @@ function renderHistoryCard(grid,order){
     <div class="history-main">
       <div class="history-no">#${String(order.id).padStart(3,'0')}</div>
       <div class="history-dept">${esc(displayDeptName(order))}</div>
+      <div class="history-summary">
+        <span>잔수 ${cupCount}잔</span>
+        <span class="history-total">${fmt(total)}</span>
+      </div>
     </div>
     <div class="history-meta">
       <span class="history-status ${isCancelled?'cancelled':'done'}">${isCancelled?'취소됨':'완료됨'}</span>
