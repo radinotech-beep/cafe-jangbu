@@ -247,6 +247,7 @@ let kdsPageLocked=false;
 let audioCtx=null;
 let knownOrderIds=new Set();
 let madeItems={}; // {orderId_itemIdx: true} 제조완료 로컬 상태
+let deptDirectory={};
 
 // ── 오늘+어제 주문만 보관 ──
 function cleanOldOrders(){
@@ -353,6 +354,11 @@ function findDeptKey(deptsData,order){
   });
   if(byOrderRow!==undefined)return byOrderRow;
   return deptsData[idxKey]?idxKey:null;
+}
+function displayDeptName(order){
+  const deptKey=findDeptKey(deptDirectory,order);
+  if(deptKey!==null&&deptDirectory[deptKey]&&deptDirectory[deptKey].name)return deptDirectory[deptKey].name;
+  return order.deptName||'부서명 없음';
 }
 function emptyRow(){
   return {date:'',content:'',opts:[],qty:'',order:'',pay:'',note:'',createdAt:'',updatedAt:''};
@@ -549,6 +555,12 @@ function listenOrders(){
     document.getElementById('syncDot').className='sync-dot err';
   });
 }
+function listenDeptDirectory(){
+  db.ref('jangbu/depts').on('value',snap=>{
+    deptDirectory=snap.val()||{};
+    renderOrders();
+  });
+}
 
 // 첫 클릭 시 AudioContext 활성화
 document.addEventListener('click',()=>{
@@ -732,7 +744,7 @@ function renderOrders(){
             <span class="order-no">#${String(order.id).padStart(3,'0')}</span>
             <span class="order-time-inline">${timeStr}</span>
           </div>
-          <div class="order-dept">${esc(order.deptName)}</div>
+          <div class="order-dept">${esc(displayDeptName(order))}</div>
         </div>
         <div class="head-right">
           ${isCancelled?'<span style="font-size:9px;background:#999;color:#fff;padding:2px 6px;border-radius:3px;font-weight:500;">취소됨</span>':''}
@@ -744,7 +756,7 @@ function renderOrders(){
             <span class="order-no">#${String(order.id).padStart(3,'0')}</span>
             <span class="order-time-inline">${timeStr}</span>
           </div>
-          <div class="order-dept">${esc(order.deptName)}</div>
+          <div class="order-dept">${esc(displayDeptName(order))}</div>
         </div>
         <div class="head-right">
           ${urg?'<span class="urgent-badge">⚠ 5분초과</span>':''}
@@ -839,7 +851,7 @@ function renderHistoryCard(grid,order){
   card.innerHTML=`
     <div class="history-main">
       <div class="history-no">#${String(order.id).padStart(3,'0')}</div>
-      <div class="history-dept">${esc(order.deptName||'')}</div>
+      <div class="history-dept">${esc(displayDeptName(order))}</div>
     </div>
     <div class="history-meta">
       <span class="history-status ${isCancelled?'cancelled':'done'}">${isCancelled?'취소됨':'완료됨'}</span>
@@ -948,7 +960,7 @@ function openDetail(order){
   const isCancelled=order.status==='cancelled';
   const d=new Date(order.createdAt||Date.now());
   const timeStr=(d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
-  const title='#'+String(order.id).padStart(3,'0')+' '+esc(order.deptName||'');
+  const title='#'+String(order.id).padStart(3,'0')+' '+esc(displayDeptName(order));
   document.getElementById('detailTitle').textContent=title;
   document.getElementById('detailHead').style.background=isCancelled?'#FCE8E8':'#E8F5E8';
 
@@ -1004,6 +1016,7 @@ initAuthGate(startKds);
 function startKds(){
   cleanOldOrders();
   if(!cleanTimer)cleanTimer=setInterval(cleanOldOrders,60*60*1000);
+  listenDeptDirectory();
   listenOrders();
 }
 
