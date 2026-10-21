@@ -171,6 +171,42 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
 .detail-action{width:100%;height:48px;border:none;border-radius:12px;color:#fff;font-size:16px;font-weight:900;cursor:pointer;margin-top:12px;}
 .detail-action.cancel{background:#e74c3c;}
 .detail-action.restore{background:#2e7d32;}
+.fs-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1.5px solid #e0dfd8;
+  border-radius: 8px;
+  background: #fff;
+  color: #2C2C2A;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+.fs-btn:hover { background: #FFFBE6; }
+.fs-btn.active {
+  border-color: #F5C800;
+  background: #FFFBE6;
+  font-weight: 700;
+}
+
+/* 글씨 크기 단계별 CSS 변수 */
+body.fs-small  { --kds-font-scale: 0.85; }
+body.fs-medium { --kds-font-scale: 1.0; }
+body.fs-large  { --kds-font-scale: 1.2; }
+body.fs-xlarge { --kds-font-scale: 1.4; }
+
+/* 카드 내용에 scale 적용 */
+.menu-name    { font-size: calc(13px * var(--kds-font-scale, 1.0)); }
+.menu-qty     { font-size: calc(13px * var(--kds-font-scale, 1.0)); }
+.opt-text     { font-size: calc(11px * var(--kds-font-scale, 1.0)); }
+.order-no     { font-size: calc(13px * var(--kds-font-scale, 1.0)); }
+.order-dept   { font-size: calc(11px * var(--kds-font-scale, 1.0)); }
+.order-time   { font-size: calc(11px * var(--kds-font-scale, 1.0)); }
+.elapsed      { font-size: calc(11px * var(--kds-font-scale, 1.0)); }
+.done-btn     { font-size: calc(12px * var(--kds-font-scale, 1.0)); }
+.cancel-btn   { font-size: calc(12px * var(--kds-font-scale, 1.0)); }
 </style>
 </head>
 <body>
@@ -224,6 +260,19 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
   <div class="stat"><span class="stat-label">완료</span><span class="stat-val green" id="statDone">0건</span></div>
   <div class="stat"><span class="stat-label">5분초과</span><span class="stat-val red" id="statUrgent">0건</span></div>
   <button class="show-done-btn" onclick="toggleDone()" id="showDoneBtn">완료/취소 내역 보기</button>
+  <button class="show-done-btn" onclick="toggleFontSettings()" id="fontSettingBtn" style="margin-left:8px;">⚙️ 글씨 크기</button>
+</div>
+
+<!-- 글씨 크기 설정 패널 -->
+<div id="fontSettingPanel" style="display:none;position:fixed;bottom:60px;right:16px;background:#fff;border:2px solid #2C2C2A;border-radius:12px;padding:16px 20px;z-index:500;box-shadow:0 4px 20px rgba(0,0,0,0.2);min-width:200px;">
+  <div style="font-size:13px;font-weight:700;color:#2C2C2A;margin-bottom:12px;">글씨 크기 설정</div>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <button onclick="setFontSize('small')" id="fs-small" class="fs-btn">🔡 작게</button>
+    <button onclick="setFontSize('medium')" id="fs-medium" class="fs-btn">🔤 보통 (기본)</button>
+    <button onclick="setFontSize('large')" id="fs-large" class="fs-btn">🔠 크게</button>
+    <button onclick="setFontSize('xlarge')" id="fs-xlarge" class="fs-btn">🅰️ 매우 크게</button>
+  </div>
+  <button onclick="closeFontSettings()" style="margin-top:12px;width:100%;padding:6px;border:1px solid #ccc;border-radius:6px;background:#f5f5f5;cursor:pointer;font-size:12px;">닫기</button>
 </div>
 
 <script>
@@ -1060,6 +1109,39 @@ function signInApp(){
     console.warn('Firebase login failed:',e);
   });
 }
+
+// ── 글씨 크기 설정 ──
+const FONT_SIZES = ['small', 'medium', 'large', 'xlarge'];
+
+function applyFontSize(size) {
+  FONT_SIZES.forEach(s => document.body.classList.remove('fs-' + s));
+  document.body.classList.add('fs-' + size);
+  document.querySelectorAll('.fs-btn').forEach(b => b.classList.remove('active'));
+  const activeBtn = document.getElementById('fs-' + size);
+  if (activeBtn) activeBtn.classList.add('active');
+}
+
+function setFontSize(size) {
+  applyFontSize(size);
+  localStorage.setItem('kds-font-size', size);
+}
+
+function toggleFontSettings() {
+  const panel = document.getElementById('fontSettingPanel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function closeFontSettings() {
+  const panel = document.getElementById('fontSettingPanel');
+  if (panel) panel.style.display = 'none';
+}
+
+// 저장된 글씨 크기 적용 (페이지 로드 시)
+(function() {
+  const saved = localStorage.getItem('kds-font-size') || 'medium';
+  applyFontSize(saved);
+})();
 </script>
 </body>
 </html>
