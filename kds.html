@@ -206,6 +206,7 @@ body.fs-qty-xlarge { --kds-qty-font-scale: 1.4; }
 /* 주문상품명과 수량에 각각 scale 적용 */
 .menu-name { font-size: calc(15px * var(--kds-menu-font-scale, 1.0)); }
 .menu-qty  { font-size: calc(13px * var(--kds-qty-font-scale, 1.0)); }
+.menu-item .menu-qty.multi-qty { color: #C62828; font-weight: 800; }
 </style>
 </head>
 <body>
@@ -852,7 +853,7 @@ function renderOrders(){
         div.innerHTML=`
           <div class="menu-row">
             <span class="menu-name ${nameCls}">${esc(item.displayName||item.name)}</span>
-            <span class="menu-qty">${isMade?'✓':''}x${item.qty}</span>
+            <span class="menu-qty${Number(item.qty) >= 2 ? ' multi-qty' : ''}">${isMade?'✓':''}${item.qty}</span>
           </div>
           ${optHtml}`;
         body.appendChild(div);
