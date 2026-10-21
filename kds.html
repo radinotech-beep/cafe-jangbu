@@ -191,22 +191,21 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;heig
   font-weight: 700;
 }
 
-/* 글씨 크기 단계별 CSS 변수 */
-body.fs-small  { --kds-font-scale: 0.85; }
-body.fs-medium { --kds-font-scale: 1.0; }
-body.fs-large  { --kds-font-scale: 1.2; }
-body.fs-xlarge { --kds-font-scale: 1.4; }
+/* 주문상품명 글씨 크기 단계 */
+body.fs-menu-small  { --kds-menu-font-scale: 0.85; }
+body.fs-menu-medium { --kds-menu-font-scale: 1.0; }
+body.fs-menu-large  { --kds-menu-font-scale: 1.2; }
+body.fs-menu-xlarge { --kds-menu-font-scale: 1.4; }
 
-/* 카드 내용에 scale 적용 */
-.menu-name    { font-size: calc(13px * var(--kds-font-scale, 1.0)); }
-.menu-qty     { font-size: calc(13px * var(--kds-font-scale, 1.0)); }
-.opt-text     { font-size: calc(11px * var(--kds-font-scale, 1.0)); }
-.order-no     { font-size: calc(13px * var(--kds-font-scale, 1.0)); }
-.order-dept   { font-size: calc(11px * var(--kds-font-scale, 1.0)); }
-.order-time   { font-size: calc(11px * var(--kds-font-scale, 1.0)); }
-.elapsed      { font-size: calc(11px * var(--kds-font-scale, 1.0)); }
-.done-btn     { font-size: calc(12px * var(--kds-font-scale, 1.0)); }
-.cancel-btn   { font-size: calc(12px * var(--kds-font-scale, 1.0)); }
+/* 수량 글씨 크기 단계 */
+body.fs-qty-small  { --kds-qty-font-scale: 0.85; }
+body.fs-qty-medium { --kds-qty-font-scale: 1.0; }
+body.fs-qty-large  { --kds-qty-font-scale: 1.2; }
+body.fs-qty-xlarge { --kds-qty-font-scale: 1.4; }
+
+/* 주문상품명과 수량에 각각 scale 적용 */
+.menu-name { font-size: calc(15px * var(--kds-menu-font-scale, 1.0)); }
+.menu-qty  { font-size: calc(13px * var(--kds-qty-font-scale, 1.0)); }
 </style>
 </head>
 <body>
@@ -266,11 +265,19 @@ body.fs-xlarge { --kds-font-scale: 1.4; }
 <!-- 글씨 크기 설정 패널 -->
 <div id="fontSettingPanel" style="display:none;position:fixed;bottom:60px;right:16px;background:#fff;border:2px solid #2C2C2A;border-radius:12px;padding:16px 20px;z-index:500;box-shadow:0 4px 20px rgba(0,0,0,0.2);min-width:200px;">
   <div style="font-size:13px;font-weight:700;color:#2C2C2A;margin-bottom:12px;">글씨 크기 설정</div>
+  <div style="font-size:12px;font-weight:700;color:#555;margin-bottom:6px;">주문상품명 크기</div>
   <div style="display:flex;flex-direction:column;gap:8px;">
-    <button onclick="setFontSize('small')" id="fs-small" class="fs-btn">🔡 작게</button>
-    <button onclick="setFontSize('medium')" id="fs-medium" class="fs-btn">🔤 보통 (기본)</button>
-    <button onclick="setFontSize('large')" id="fs-large" class="fs-btn">🔠 크게</button>
-    <button onclick="setFontSize('xlarge')" id="fs-xlarge" class="fs-btn">🅰️ 매우 크게</button>
+    <button onclick="setFontSize('menu', 'small')" id="fs-menu-small" class="fs-btn" data-font-target="menu">🔡 작게</button>
+    <button onclick="setFontSize('menu', 'medium')" id="fs-menu-medium" class="fs-btn" data-font-target="menu">🔤 보통 (기본)</button>
+    <button onclick="setFontSize('menu', 'large')" id="fs-menu-large" class="fs-btn" data-font-target="menu">🔠 크게</button>
+    <button onclick="setFontSize('menu', 'xlarge')" id="fs-menu-xlarge" class="fs-btn" data-font-target="menu">🅰️ 매우 크게</button>
+  </div>
+  <div style="font-size:12px;font-weight:700;color:#555;margin:14px 0 6px;">수량 크기</div>
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    <button onclick="setFontSize('qty', 'small')" id="fs-qty-small" class="fs-btn" data-font-target="qty">🔡 작게</button>
+    <button onclick="setFontSize('qty', 'medium')" id="fs-qty-medium" class="fs-btn" data-font-target="qty">🔤 보통 (기본)</button>
+    <button onclick="setFontSize('qty', 'large')" id="fs-qty-large" class="fs-btn" data-font-target="qty">🔠 크게</button>
+    <button onclick="setFontSize('qty', 'xlarge')" id="fs-qty-xlarge" class="fs-btn" data-font-target="qty">🅰️ 매우 크게</button>
   </div>
   <button onclick="closeFontSettings()" style="margin-top:12px;width:100%;padding:6px;border:1px solid #ccc;border-radius:6px;background:#f5f5f5;cursor:pointer;font-size:12px;">닫기</button>
 </div>
@@ -1112,18 +1119,26 @@ function signInApp(){
 
 // ── 글씨 크기 설정 ──
 const FONT_SIZES = ['small', 'medium', 'large', 'xlarge'];
+const FONT_TARGETS = {
+  menu: { classPrefix: 'fs-menu-', storageKey: 'kds-menu-font-size' },
+  qty: { classPrefix: 'fs-qty-', storageKey: 'kds-qty-font-size' }
+};
 
-function applyFontSize(size) {
-  FONT_SIZES.forEach(s => document.body.classList.remove('fs-' + s));
-  document.body.classList.add('fs-' + size);
-  document.querySelectorAll('.fs-btn').forEach(b => b.classList.remove('active'));
-  const activeBtn = document.getElementById('fs-' + size);
+function applyFontSize(target, size) {
+  const config = FONT_TARGETS[target];
+  if (!config || !FONT_SIZES.includes(size)) return;
+  FONT_SIZES.forEach(s => document.body.classList.remove(config.classPrefix + s));
+  document.body.classList.add(config.classPrefix + size);
+  document.querySelectorAll('.fs-btn[data-font-target="' + target + '"]').forEach(b => b.classList.remove('active'));
+  const activeBtn = document.getElementById('fs-' + target + '-' + size);
   if (activeBtn) activeBtn.classList.add('active');
 }
 
-function setFontSize(size) {
-  applyFontSize(size);
-  localStorage.setItem('kds-font-size', size);
+function setFontSize(target, size) {
+  const config = FONT_TARGETS[target];
+  if (!config || !FONT_SIZES.includes(size)) return;
+  applyFontSize(target, size);
+  localStorage.setItem(config.storageKey, size);
 }
 
 function toggleFontSettings() {
@@ -1139,8 +1154,11 @@ function closeFontSettings() {
 
 // 저장된 글씨 크기 적용 (페이지 로드 시)
 (function() {
-  const saved = localStorage.getItem('kds-font-size') || 'medium';
-  applyFontSize(saved);
+  const legacySize = localStorage.getItem('kds-font-size') || 'medium';
+  const savedMenuSize = localStorage.getItem(FONT_TARGETS.menu.storageKey) || legacySize;
+  const savedQtySize = localStorage.getItem(FONT_TARGETS.qty.storageKey) || legacySize;
+  applyFontSize('menu', savedMenuSize);
+  applyFontSize('qty', savedQtySize);
 })();
 </script>
 </body>
