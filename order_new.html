@@ -921,6 +921,7 @@ function renderIntroScreen(showScreen=false){
     grid.innerHTML='<div style="text-align:center;color:#888;font-size:13px;grid-column:1/-1;padding:20px;">장부 앱에서 부서를 먼저 추가해주세요</div>';
   } else {
     depts.forEach((d,i)=>{
+      if(d.hidden===true)return;
       const btn=document.createElement('button');
       btn.className='intro-dept-btn'+(curDeptIdx===i?' selected':'');
       btn.textContent=d.name;
@@ -1299,6 +1300,10 @@ function submitOrder(){
 function doSubmitOrder(){
   if(cart.length===0||curDeptIdx===null)return;
   const dept=depts[curDeptIdx];
+  if(dept.balanceBlock===true&&completeBalanceFromRows(dept,dept.rows)<=0){
+    alert('잔액이 부족하여 결제가 불가합니다. 직원에게 문의해 주세요.');
+    return;
+  }
   const deptKey=deptKeyFromSelection();
   orderCount++;
   const order={

@@ -2114,7 +2114,7 @@ function dropOnCat(cat,e){
 
 // ── 부서 관리 탭 ──
 function renderDeptMgmt(){
-  let h=`<table class="dbt"><thead><tr><th>부서명</th><th style="width:130px;">시작잔액</th><th style="width:120px;">기준일</th><th style="width:130px;">비밀번호 (숫자)</th><th style="width:82px;">잔액표시</th><th style="width:56px;">잔액수정</th><th style="width:30px;"></th></tr></thead><tbody>`;
+  let h=`<table class="dbt"><thead><tr><th>부서명</th><th style="width:130px;">시작잔액</th><th style="width:120px;">기준일</th><th style="width:130px;">비밀번호 (숫자)</th><th style="width:82px;">잔액표시</th><th style="width:56px;">잔액수정</th><th style="width:210px;">주문 설정 / 삭제</th></tr></thead><tbody>`;
   depts.forEach((d,i)=>{
     const unlocked=openingBalanceUnlocked.has(deptKey(i));
     const balanceOn=d.balanceVisible===true;
@@ -2136,10 +2136,22 @@ function renderDeptMgmt(){
       </td>
       <td style="text-align:center;"><button class="set-toggle${balanceOn?' on':''}" onclick="toggleDeptBalanceVisible(${i})">${balanceOn?'ON':'OFF'}</button></td>
       <td><button class="abtn" onclick="unlockOpeningBalance(${i})" style="padding:4px 8px;font-size:11px;">${unlocked?'열림':'수정'}</button></td>
-      <td><button class="bdel" onclick="delDept(${i})">✕</button></td></tr>`;
+      <td><button class="dept-toggle-btn" onclick="toggleDeptHidden(${i})" title="주문화면 숨김" aria-pressed="${d.hidden===true}" style="padding:3px 8px;border-radius:20px;border:1.5px solid #ccc;font-size:11px;cursor:pointer;background:${d.hidden===true?'#555':'#f5f5f5'};color:${d.hidden===true?'#fff':'#888'};margin-right:4px;">👻 ${d.hidden===true?'숨김ON':'숨김OFF'}</button><button class="dept-toggle-btn" onclick="toggleDeptBalanceBlock(${i})" title="잔액 소진 시 결제 차단" aria-pressed="${d.balanceBlock===true}" style="padding:3px 8px;border-radius:20px;border:1.5px solid #ccc;font-size:11px;cursor:pointer;background:${d.balanceBlock===true?'#c0392b':'#f5f5f5'};color:${d.balanceBlock===true?'#fff':'#888'};margin-right:4px;">🔒 ${d.balanceBlock===true?'차단ON':'차단OFF'}</button><button class="bdel" onclick="delDept(${i})">✕</button></td></tr>`;
   });
   h+=`</tbody></table>`;
   document.getElementById('deptMgmtBody').innerHTML=h;
+}
+function toggleDeptHidden(i){
+  if(!depts[i])return;
+  return db.ref('jangbu/depts/'+deptKey(i)+'/hidden').transaction(value=>value!==true)
+    .then(result=>{if(result.committed){depts[i].hidden=result.snapshot.val();renderDeptMgmt();}})
+    .catch(err=>{console.error('부서 숨김 변경 실패:',err);alert('설정을 저장하지 못했습니다. 다시 시도해주세요.');});
+}
+function toggleDeptBalanceBlock(i){
+  if(!depts[i])return;
+  return db.ref('jangbu/depts/'+deptKey(i)+'/balanceBlock').transaction(value=>value!==true)
+    .then(result=>{if(result.committed){depts[i].balanceBlock=result.snapshot.val();renderDeptMgmt();}})
+    .catch(err=>{console.error('잔액차단 변경 실패:',err);alert('설정을 저장하지 못했습니다. 다시 시도해주세요.');});
 }
 function unlockOpeningBalance(i){
   if(!depts[i])return;
