@@ -300,6 +300,23 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .image-stage.season-stage{display:grid;grid-template-rows:minmax(0,1fr) auto;width:min(1200px,calc(100vw - 24px));height:calc(100vh - 24px);height:calc(100dvh - 24px);max-height:900px;max-width:calc(100vw - 24px);aspect-ratio:auto;background:#fff;}
 .season-stage img{position:static;width:100%;height:100%;min-height:0;object-fit:contain;}
 .season-stage .wait-overlay{position:static;padding:12px 16px 16px;background:#fff;}
+#introScreen{padding:12px;}
+#introScreen .start-panel{width:min(1200px,calc(100vw - 24px));height:calc(100vh - 24px);height:calc(100dvh - 24px);max-height:calc(100dvh - 24px);padding:12px 20px;gap:8px;}
+#introScreen .start-head{font-size:17px;font-weight:900;line-height:24px;}
+#introScreen .start-status-row{width:100%;gap:10px;margin-bottom:8px;flex-wrap:wrap;}
+#introScreen .step-pill{display:none;}
+#introScreen .type-pill{min-height:32px;padding:0 14px;font-size:14px;}
+#introScreen .start-title{font-size:22px;line-height:1.25;letter-spacing:0;}
+#introScreen .intro-dept-grid{grid-template-columns:repeat(5,minmax(0,1fr));grid-auto-rows:minmax(56px,max-content);align-content:start;gap:9px;margin-top:0;}
+#introScreen .intro-dept-btn{min-height:56px;padding:8px;font-size:16px;overflow-wrap:anywhere;box-shadow:none;}
+#introScreen .start-foot{min-height:28px;}
+#introScreen .wait-back{padding:5px 13px;font-size:12px;}
+@media(max-width:700px){
+  #introScreen .start-panel{padding:10px 12px;}
+  #introScreen .intro-dept-grid{grid-template-columns:repeat(3,minmax(0,1fr));}
+  #introScreen .intro-dept-btn{font-size:14px;}
+  #introScreen .start-title{font-size:18px;}
+}
 </style>
 </head>
 <body>
@@ -361,14 +378,14 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 <div class="intro-screen" id="introScreen">
   <section class="start-panel">
     <header class="start-head">
-      <img class="brand-head-img" src="order-brand-head.png" alt="MEGA MGC COFFEE 인천역점">
+      MEGA MGC COFFEE · 인천역점
     </header>
     <div class="start-main">
       <div class="start-status-row">
         <div class="step-pill">2단계 · 부서 선택</div>
         <div class="type-pill" id="waitDeptName">🍽️ 매장 주문</div>
+        <h1 class="start-title">부서를 선택해 주세요</h1>
       </div>
-      <h1 class="start-title">부서를 선택해 주세요</h1>
       <div class="intro-dept-grid" id="introDeptGrid"></div>
     </div>
     <footer class="start-foot">
