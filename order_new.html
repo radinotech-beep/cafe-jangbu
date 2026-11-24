@@ -819,6 +819,15 @@ function convertMenuDB(raw,des){
       result.push({name:cleanName,originalName:name,cat,price:m.price,alias:m.alias||'',badge:m.badge||'',needTemp:false,tempFixed:cat==='디저트'?null:defaultTemp,hotPrice:defaultTemp==='HOT'?m.price:null,icePrice:defaultTemp==='ICE'?m.price:null,orderIndex:sourceIndex});
     }
   });
+  result.forEach(item=>{
+    const cleanName=item.originalName.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
+    item.stockCheck=allRaw.some(m=>{
+      if(!m||m.stockCheck!==true)return false;
+      const sourceName=m.name.replace(/^[(]HOT[)]|[(]ICE[)]/,'').trim();
+      return normalizeMenuCat(m.cat||guessOrderCat(sourceName))===item.cat&&
+        (item.needTemp?sourceName===cleanName:m.name===item.originalName);
+    });
+  });
   return result.sort((a,b)=>(a.orderIndex??0)-(b.orderIndex??0));
 }
 
@@ -1116,7 +1125,50 @@ function makeMenuCard(item){
 }
 
 // ── 팝업 ──
-function openPopup(item){
+let stockCheckPending=false;
+function showStockCheckPopup(menuName){
+  return new Promise(resolve=>{
+    const overlay=document.createElement('div');
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    const box=document.createElement('div');
+    box.setAttribute('role','dialog');
+    box.setAttribute('aria-modal','true');
+    box.setAttribute('aria-labelledby','stockCheckMessage');
+    box.style.cssText='background:#fff;border-radius:8px;padding:28px 24px;max-width:360px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.2);';
+    const message=document.createElement('div');
+    message.id='stockCheckMessage';
+    message.style.cssText='font-size:18px;font-weight:700;color:#2C2C2A;line-height:1.6;overflow-wrap:anywhere;';
+    message.textContent=menuName+'은(는) 직원에게 재고 여부를 꼭 확인 후 주문해 주세요.';
+    const actions=document.createElement('div');
+    actions.style.cssText='display:flex;gap:10px;margin-top:20px;';
+    const previousFocus=document.activeElement;
+    const finish=value=>{overlay.remove();document.removeEventListener('keydown',onKey);if(previousFocus&&previousFocus.isConnected)previousFocus.focus();resolve(value);};
+    const buttons=[];
+    [false,true].forEach(value=>{
+      const button=document.createElement('button');
+      button.type='button';
+      button.textContent=value?'확인':'취소';
+      button.style.cssText='flex:1;min-height:48px;padding:12px;border:1.5px solid #ccc;border-radius:8px;font:inherit;font-size:16px;font-weight:700;cursor:pointer;background:'+(value?'#F5C800':'#f5f5f5')+';color:#2C2C2A;';
+      button.onclick=()=>finish(value);
+      buttons.push(button);actions.appendChild(button);
+    });
+    const onKey=e=>{
+      if(e.key==='Escape'){e.preventDefault();finish(false);}
+      if(e.key==='Tab'){e.preventDefault();buttons[document.activeElement===buttons[0]?1:0].focus();}
+    };
+    box.append(message,actions);overlay.appendChild(box);document.body.appendChild(overlay);
+    document.addEventListener('keydown',onKey);buttons[0].focus();
+  });
+}
+async function openPopup(item){
+  if(stockCheckPending)return;
+  if(item.stockCheck===true){
+    stockCheckPending=true;
+    let proceed;
+    try{proceed=await showStockCheckPopup(item.name||'해당 메뉴');}
+    finally{stockCheckPending=false;}
+    if(!proceed)return;
+  }
   popupItem=item;popupTemp=null;popupOpts=[];popupQty=1;popupTumbler=false;
 
   document.getElementById('popupTitle').textContent=item.name;

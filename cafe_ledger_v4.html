@@ -2049,7 +2049,7 @@ function renderMenuDb(){
     h+=`<table class="dbt" style="margin-bottom:0;"><thead><tr>
       <th style="width:20px;"></th><th>메뉴명</th><th>별칭</th>
       <th style="width:65px;">금액</th><th style="width:60px;">카테고리</th>
-      <th style="width:40px;text-align:center;">NEW</th><th style="width:24px;"></th>
+      <th style="width:40px;text-align:center;">NEW</th><th style="width:100px;">재고확인</th><th style="width:24px;"></th>
     </tr></thead><tbody>`;
     items.forEach(({it,i})=>{
       h+=`<tr draggable="true"
@@ -2072,6 +2072,7 @@ function renderMenuDb(){
             title="NEW 뱃지 표시"
             style="width:16px;height:16px;cursor:pointer;accent-color:#E24B4A;">
         </td>
+        <td><label style="display:inline-flex;align-items:center;gap:3px;font-size:11px;color:#e67e22;cursor:pointer;" title="재고확인 팝업"><input type="checkbox" onchange="toggleMenuStockCheck(${i},this.checked)" ${it.stockCheck===true?'checked':''} style="width:13px;height:13px;cursor:pointer;">⚠️재고확인</label></td>
         <td><button class="bdel" onclick="dbdM(${i})">✕</button></td>
       </tr>`;
     });
@@ -2079,6 +2080,16 @@ function renderMenuDb(){
   });
   h+=`<div style="height:12px;"></div>`;
   document.getElementById('menuDbBody').innerHTML=h;
+}
+function toggleMenuStockCheck(i,value){
+  const arr=curMenuSub==='dessert'?dessertDB:menuDB;
+  if(!arr[i])return;
+  arr[i].stockCheck=value===true;
+  // Persist the list to preserve indexes after local additions and reordering.
+  setSyncStatus('ing');
+  return db.ref('jangbu/'+(curMenuSub==='dessert'?'dessertDB':'menuDB')).set(arr)
+    .then(()=>setSyncStatus('ok'))
+    .catch(err=>{setSyncStatus('err');console.error('재고확인 저장 실패:',err);alert('재고확인 설정을 저장하지 못했습니다. 다시 시도해주세요.');});
 }
 function dbcM(i,col,val){
   const arr=curMenuSub==='dessert'?dessertDB:menuDB;
