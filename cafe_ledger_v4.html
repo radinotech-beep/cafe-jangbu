@@ -1814,7 +1814,7 @@ function goLedgerMain(){
 function goMenuMain(){
   if(!confirmPendingLedgerSave())return;
   showScreen('mgmt');
-  switchMgmtTab(curMgmtTab==='dept'?'menu':curMgmtTab);
+  switchMgmtTab('menu');
 }
 function goHome(){
   if(!confirmPendingLedgerSave())return;
