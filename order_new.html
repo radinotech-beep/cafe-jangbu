@@ -317,6 +317,8 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
   #introScreen .intro-dept-btn{font-size:14px;}
   #introScreen .start-title{font-size:18px;}
 }
+body{padding-bottom:18px;}
+.app-version{position:fixed;bottom:0;left:0;right:0;height:18px;display:flex;align-items:center;justify-content:flex-end;padding:0 8px;background:#fff;color:#666;border-top:1px solid #eee;font-size:10px;line-height:1;letter-spacing:0;pointer-events:none;z-index:10000;}
 </style>
 </head>
 <body>
@@ -1591,6 +1593,7 @@ function signInApp(){
   });
 }
 </script>
+<div class="app-version" aria-label="주문 프로그램 버전">주문 v2026.11.24.1</div>
 </body>
 </html>
 <script>
