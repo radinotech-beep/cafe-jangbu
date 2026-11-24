@@ -1589,11 +1589,29 @@ function sv(){
       .catch(()=>setSyncStatus('err'));
   },1500);
 }
+function stockStorageKey(name){
+  const text=String(name);
+  return /[.#$\[\]\/\u0000-\u001f\u007f]/.test(text)||text.startsWith('~stock~')?'~stock~'+encodeURIComponent(text).replace(/\./g,'%2E'):text;
+}
+function decodeStockMap(data){
+  const result={};
+  Object.keys(data||{}).forEach(key=>{result[key.startsWith('~stock~')?decodeURIComponent(key.slice(7)):key]=data[key];});
+  return result;
+}
+function saveStockMap(path,data){
+  const payload={};
+  Object.keys(data).forEach(key=>{payload[stockStorageKey(key)]=data[key];});
+  setSyncStatus('ing');
+  return Promise.resolve().then(()=>db.ref(path).set(payload)).then(()=>setSyncStatus('ok')).catch(err=>{
+    setSyncStatus('err');console.error('품절/숨김 저장 실패:',err);
+    alert('품절/숨김 설정 저장에 실패했습니다. 주문 화면에 반영되지 않았으니 다시 시도해주세요.');
+  });
+}
 function saveSoldout(){
-  db.ref('soldout').set(soldout).then(()=>setSyncStatus('ok')).catch(()=>setSyncStatus('err'));
+  return saveStockMap('soldout',soldout);
 }
 function saveHidden(){
-  db.ref('hiddenMenus').set(hiddenMenus).then(()=>setSyncStatus('ok')).catch(()=>setSyncStatus('err'));
+  return saveStockMap('hiddenMenus',hiddenMenus);
 }
 function saveDeptSettings(){
   // 각 부서의 비밀번호를 해당 부서 경로에 저장
@@ -1757,11 +1775,11 @@ function listenRealtime(){
   db.ref('jangbu/catOptMap').on('value',snap=>{if(snap.val())catOptMap=snap.val();});
   db.ref('jangbu/catSubMap').on('value',snap=>{catSubMap=snap.val()||JSON.parse(JSON.stringify(defaultCatSubs));});
   db.ref('soldout').on('value',snap=>{
-    soldout=snap.val()||{};
+    soldout=decodeStockMap(snap.val()||{});
     refreshSoldoutViews();
   });
   db.ref('hiddenMenus').on('value',snap=>{
-    hiddenMenus=snap.val()||{};
+    hiddenMenus=decodeStockMap(snap.val()||{});
     refreshSoldoutViews();
   });
 }
@@ -3797,7 +3815,7 @@ function lockLedgerApp(){
   setTimeout(function(){if(input)input.focus();},50);
 }
 </script>
-<div class="app-version" aria-label="장부 프로그램 버전">장부 v2026.11.24.2</div>
+<div class="app-version" aria-label="장부 프로그램 버전">장부 v2026.11.24.3</div>
 </body>
 </html>
 

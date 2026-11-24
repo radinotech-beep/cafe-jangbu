@@ -629,8 +629,12 @@ function stockKeys(item){
   const orig=stockName(original);
   return [display,original,base,orig,'(HOT)'+base,'(ICE)'+base,'(HOT)'+orig,'(ICE)'+orig,base+' HOT',base+' ICE',orig+' HOT',orig+' ICE'].filter(Boolean);
 }
-function isStockedOut(item){return stockKeys(item).some(k=>soldout[k]);}
-function isHiddenMenu(item){return stockKeys(item).some(k=>hiddenMenus[k]);}
+function stockStorageKey(name){
+  const text=String(name);
+  return /[.#$\[\]\/\u0000-\u001f\u007f]/.test(text)||text.startsWith('~stock~')?'~stock~'+encodeURIComponent(text).replace(/\./g,'%2E'):text;
+}
+function isStockedOut(item){return stockKeys(item).some(k=>soldout[k]||soldout[stockStorageKey(k)]);}
+function isHiddenMenu(item){return stockKeys(item).some(k=>hiddenMenus[k]||hiddenMenus[stockStorageKey(k)]);}
 let rawMenuDB=[],rawDessertDB=[]; // Firebase 원본
 let menuDB=[]; // 주문용 변환된 메뉴 (needTemp/tempFixed 포함)
 let curDeptIdx=null,curCat=null,cart=[],orderCount=0;
@@ -1163,6 +1167,7 @@ function showStockCheckPopup(menuName){
   });
 }
 async function openPopup(item){
+  if(isStockedOut(item)||isHiddenMenu(item)){showToast('현재 품절 또는 판매 중지된 메뉴입니다.');return;}
   if(stockCheckPending)return;
   if(item.stockCheck===true){
     stockCheckPending=true;
@@ -1300,6 +1305,7 @@ function playTapSound(kind='tap'){
 
 function addToCart(){
   if(!popupItem)return;
+  if(isStockedOut(popupItem)||isHiddenMenu(popupItem)){showToast('현재 품절 또는 판매 중지된 메뉴입니다.');closePopup();return;}
   playTapSound('confirm');
   const optTotal=popupOpts.reduce((s,i)=>s+optionDB[i].price,0);
   const unitPrice=popupItem.price+optTotal;
@@ -1373,6 +1379,8 @@ function submitOrder(){
 }
 function doSubmitOrder(){
   if(cart.length===0||curDeptIdx===null)return;
+  const unavailable=cart.find(item=>isStockedOut(item)||isHiddenMenu(item));
+  if(unavailable){alert(unavailable.name+'은(는) 현재 품절 또는 판매 중지되었습니다. 장바구니에서 삭제 후 주문해주세요.');return;}
   const dept=depts[curDeptIdx];
   if(dept.balanceBlock===true&&completeBalanceFromRows(dept,dept.rows)<=0){
     alert('잔액이 부족하여 결제가 불가합니다. 직원에게 문의해 주세요.');
@@ -1593,7 +1601,7 @@ function signInApp(){
   });
 }
 </script>
-<div class="app-version" aria-label="주문 프로그램 버전">주문 v2026.11.24.1</div>
+<div class="app-version" aria-label="주문 프로그램 버전">주문 v2026.11.24.2</div>
 </body>
 </html>
 <script>
