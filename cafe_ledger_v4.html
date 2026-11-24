@@ -1758,11 +1758,11 @@ function listenRealtime(){
   db.ref('jangbu/catSubMap').on('value',snap=>{catSubMap=snap.val()||JSON.parse(JSON.stringify(defaultCatSubs));});
   db.ref('soldout').on('value',snap=>{
     soldout=snap.val()||{};
-    if(curScreen==='mgmt'&&curMgmtTab==='soldout')renderSoldoutMgmt();
+    refreshSoldoutViews();
   });
   db.ref('hiddenMenus').on('value',snap=>{
     hiddenMenus=snap.val()||{};
-    if(curScreen==='mgmt'&&curMgmtTab==='soldout')renderSoldoutMgmt();
+    refreshSoldoutViews();
   });
 }
 
@@ -2475,8 +2475,8 @@ function toggleHidden(name){
   const keys=[name,base,'(HOT)'+base,'(ICE)'+base,base+' HOT',base+' ICE'].filter(Boolean);
   const next=!keys.some(k=>hiddenMenus[k]);
   keys.forEach(k=>{if(next)hiddenMenus[k]=true;else delete hiddenMenus[k];});
+  refreshSoldoutViews();
   saveHidden();
-  renderSoldoutMgmt();
 }
 function openDept(i){
   if(curDeptIdx!==null&&curDeptIdx!==i&&!confirmPendingLedgerSave())return;
@@ -3588,13 +3588,17 @@ function renderSoldoutTab(){
   });
   document.getElementById('dbBody').innerHTML=h;
 }
+function refreshSoldoutViews(){
+  if(curScreen==='mgmt'&&curMgmtTab==='soldout')renderSoldoutMgmt();
+  if(curDBTab==='soldout'&&document.getElementById('dbBody'))renderSoldoutTab();
+}
 function toggleSoldout(name){
   const base=String(name||'').replace(/^\\((HOT|ICE)\\)/,'').replace(/\\s+(HOT|ICE)$/,'').trim();
   const keys=[name,base,'(HOT)'+base,'(ICE)'+base,base+' HOT',base+' ICE'].filter(Boolean);
   const next=!keys.some(k=>soldout[k]);
   keys.forEach(k=>{if(next)soldout[k]=true;else delete soldout[k];});
+  refreshSoldoutViews();
   saveSoldout();
-  renderSoldoutMgmt();
 }
 
 
@@ -3793,7 +3797,7 @@ function lockLedgerApp(){
   setTimeout(function(){if(input)input.focus();},50);
 }
 </script>
-<div class="app-version" aria-label="장부 프로그램 버전">장부 v2026.11.24.1</div>
+<div class="app-version" aria-label="장부 프로그램 버전">장부 v2026.11.24.2</div>
 </body>
 </html>
 
