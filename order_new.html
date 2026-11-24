@@ -54,9 +54,10 @@ body{font-family:'Noto Sans KR',sans-serif;background:#FFFBE6;color:#2C2C2A;over
 .menu-card{min-height:178px;background:#fff;border:3px solid #E2C300;border-radius:22px;padding:18px 12px;cursor:pointer;text-align:center;position:relative;transition:transform .08s,box-shadow .08s,border-color .08s;box-shadow:0 7px 0 #E9D25B,0 12px 22px rgba(0,0,0,.08);display:flex;flex-direction:column;align-items:center;justify-content:center;}
 .menu-card:active{transform:translateY(4px) scale(0.99);box-shadow:0 3px 0 #E9D25B,0 8px 14px rgba(0,0,0,.10);}
 .menu-card.in-cart{border-color:#111;background:#FFF7B6;box-shadow:0 7px 0 #111,0 12px 22px rgba(0,0,0,.10);}
-.menu-card.soldout{opacity:0.4;cursor:not-allowed;pointer-events:none;}
-.sold-tag{position:absolute;top:9px;right:9px;background:#E24B4A;color:#fff;font-size:13px;padding:5px 9px;border-radius:999px;font-weight:900;}
-.new-badge{position:absolute;top:8px;right:8px;background:#E24B4A;color:#fff;font-size:11px;font-weight:900;padding:3px 8px;border-radius:999px;letter-spacing:0.5px;line-height:1;z-index:1;}
+.menu-card.soldout{cursor:not-allowed;pointer-events:none;}
+.menu-card.soldout>:not(.sold-tag):not(.new-badge){opacity:0.4;}
+.sold-tag{position:absolute;top:9px;right:9px;background:#343434;color:#fff;font-size:13px;padding:5px 9px;border-radius:999px;font-weight:900;z-index:1;}
+.new-badge{position:absolute;top:8px;left:8px;background:#E24B4A;color:#fff;font-size:16.5px;font-weight:900;padding:4.5px 12px;border-radius:999px;letter-spacing:0;line-height:1;z-index:1;}
 .menu-img-wrap{width:88px;height:70px;background:transparent;border-radius:0;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:34px;border:0;box-shadow:none;gap:2px;overflow:hidden;}
 .menu-img-wrap img{width:100%;height:100%;object-fit:contain;display:block;mix-blend-mode:multiply;}
 .menu-img-wrap.dual img{width:58%;height:100%;margin:0 -7px;}
@@ -1601,7 +1602,7 @@ function signInApp(){
   });
 }
 </script>
-<div class="app-version" aria-label="주문 프로그램 버전">주문 v2026.11.24.2</div>
+<div class="app-version" aria-label="주문 프로그램 버전">주문 v2026.11.24.3</div>
 </body>
 </html>
 <script>
